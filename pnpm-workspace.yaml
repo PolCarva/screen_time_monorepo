@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+supportedArchitectures:
+  os: [current]
+  cpu: [arm64, x64]
+
+onlyBuiltDependencies:
+  - '@sentry/cli'
+  - esbuild
+
+patchedDependencies:
+  expo-modules-jsi@57.0.5: patches/expo-modules-jsi@57.0.5.patch

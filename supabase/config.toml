@@ -1,0 +1,27 @@
+project_id = "screen-time-impact"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["screentimeimpact://auth/callback"]
+enable_signup = true
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+
+[storage]
+enabled = true
+file_size_limit = "25MiB"

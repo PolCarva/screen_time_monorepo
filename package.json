@@ -1,0 +1,28 @@
+{
+  "name": "screen-time-impact",
+  "private": true,
+  "packageManager": "pnpm@10.8.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "lint": "pnpm -r --if-present lint",
+    "format": "prettier --write .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.10.11",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-darwin-arm64": "1.2.5",
+    "@turbo/darwin-arm64": "2.10.11"
+  }
+}

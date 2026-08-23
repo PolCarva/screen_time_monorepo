@@ -1,0 +1,5 @@
+<resources>
+  <string name="app_name">Still</string>
+  <string name="expo_runtime_version">0.1.0</string>
+  <string name="accessibility_service_description">Pauses only the apps you select. Still does not inspect screen content, type, or collect app usage history.</string>
+</resources>
