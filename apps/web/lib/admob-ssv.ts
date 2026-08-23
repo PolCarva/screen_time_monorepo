@@ -32,7 +32,10 @@ export type VerifiedSsv = {
 };
 
 export async function verifyAdMobSsv(url: string): Promise<VerifiedSsv> {
-  const query = new URL(url).search.slice(1);
+  // AdMob signs the decoded URI query (equivalent to Java URI#getQuery), while
+  // Request.url preserves percent escapes such as the space in "Unlock Token".
+  // Decode once before slicing the signed bytes and keep the original ordering.
+  const query = decodeURIComponent(new URL(url).search.slice(1));
   const signatureMarker = "&signature=";
   const signatureIndex = query.indexOf(signatureMarker);
   if (signatureIndex < 0) throw new Error("SSV signature is missing");
