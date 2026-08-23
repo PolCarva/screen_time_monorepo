@@ -43,6 +43,14 @@ export default function OnboardingScreen() {
       if (selection.count > 0) await restrictionEngine.applyRestrictions(selection);
       await setOnboarded(true);
       router.replace("/(tabs)/(today)");
+    } catch {
+      Alert.alert(
+        localize("Setup paused", "Configuración pausada"),
+        localize(
+          "Authorization was cancelled. You can try again whenever you are ready.",
+          "La autorización fue cancelada. Puedes intentarlo de nuevo cuando quieras.",
+        ),
+      );
     } finally { setBusy(false); }
   }
 
