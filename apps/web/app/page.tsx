@@ -58,7 +58,7 @@ export default async function HomePage() {
       <footer className="footer shell">
         <div className="brand"><span className="brand-mark">⌁</span><span>still</span></div>
         <p>Unlock your time. Make an impact.</p>
-        <div><Link href="/impact">Impacto</Link><Link href="/admin">Administración</Link></div>
+        <div><Link href="/impact">Impacto</Link><Link href="/privacy">Privacidad</Link><Link href="/admin">Administración</Link></div>
       </footer>
     </main>
   );
