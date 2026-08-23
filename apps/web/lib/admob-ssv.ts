@@ -31,32 +31,43 @@ export type VerifiedSsv = {
   timestampMs: number;
 };
 
+function transportCandidates(content: string): string[] {
+  const values = new Set<string>([content]);
+  const decodedPlus = content.replace(/\+/g, " ");
+  values.add(decodedPlus);
+
+  for (const value of [content, decodedPlus]) {
+    try {
+      values.add(decodeURIComponent(value));
+    } catch {
+      // A malformed transport encoding cannot become a valid signed candidate.
+    }
+  }
+  return [...values];
+}
+
 export async function verifyAdMobSsv(url: string): Promise<VerifiedSsv> {
-  // AdMob signs the decoded URI query (equivalent to Java URI#getQuery), while
-  // Request.url preserves percent escapes such as the space in "Unlock Token".
-  // Decode once before slicing the signed bytes and keep the original ordering.
-  const query = decodeURIComponent(new URL(url).search.slice(1));
+  const query = new URL(url).search.slice(1);
   const signatureMarker = "&signature=";
   const signatureIndex = query.indexOf(signatureMarker);
   if (signatureIndex < 0) throw new Error("SSV signature is missing");
-  const content = query.slice(0, signatureIndex);
+  const transportedContent = query.slice(0, signatureIndex);
   const tail = query.slice(signatureIndex + 1);
   const keyMarker = "&key_id=";
   const keyIndex = tail.indexOf(keyMarker);
   if (keyIndex < 0) throw new Error("SSV key_id is missing");
-  const encodedSignature = tail.slice("signature=".length, keyIndex);
-  const keyId = Number(tail.slice(keyIndex + keyMarker.length));
+  const encodedSignature = decodeURIComponent(tail.slice("signature=".length, keyIndex));
+  const keyId = Number(decodeURIComponent(tail.slice(keyIndex + keyMarker.length)));
 
   const keys = await getKeys();
   const key = keys.get(keyId);
   if (!key) throw new Error(`Unknown AdMob verifier key: ${keyId}`);
-  const valid = verify(
-    "sha256",
-    Buffer.from(content, "utf8"),
-    createPublicKey(key.pem),
-    decodeBase64Url(encodedSignature),
+  const publicKey = createPublicKey(key.pem);
+  const signature = decodeBase64Url(encodedSignature);
+  const content = transportCandidates(transportedContent).find((candidate) =>
+    verify("sha256", Buffer.from(candidate, "utf8"), publicKey, signature),
   );
-  if (!valid) throw new Error("Invalid AdMob SSV signature");
+  if (content === undefined) throw new Error("Invalid AdMob SSV signature");
 
   const params = new URLSearchParams(content);
   const customData = params.get("custom_data");
