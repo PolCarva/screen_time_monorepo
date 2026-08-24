@@ -61,7 +61,15 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    let provider = RCTBundleURLProvider.sharedSettings()
+#if targetEnvironment(simulator)
+    // A Shield can launch Still without going through Expo's launcher UI.
+    // Keep that path attached to the dedicated Metro instance used by Still.
+    if provider.jsLocation == nil {
+      provider.jsLocation = "localhost:8082"
+    }
+#endif
+    return provider.jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif

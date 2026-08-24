@@ -149,7 +149,8 @@ final class StillRestrictionEngine: RCTEventEmitter {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    resolve(SharedRestrictionState.hasPendingTarget)
+    let rechargeRequested = SharedRestrictionState.takePendingRechargeRequest()
+    resolve(SharedRestrictionState.hasPendingTarget || rechargeRequested)
   }
 
   @objc func getLocalWellbeing(

@@ -10,6 +10,7 @@ enum SharedRestrictionState {
   private static let selectionKey = "familyActivitySelection"
   private static let sessionsKey = "unlockSessions"
   private static let pendingTargetKey = "pendingApplicationToken"
+  private static let pendingRechargeKey = "pendingRechargeRequest"
   private static let walletKey = "localWallet"
   private static let unlockOutboxKey = "nativeUnlockOutbox"
 
@@ -123,6 +124,16 @@ enum SharedRestrictionState {
   }
 
   static var hasPendingTarget: Bool { defaults.data(forKey: pendingTargetKey) != nil }
+
+  static func markRechargeRequested() {
+    defaults.set(true, forKey: pendingRechargeKey)
+  }
+
+  static func takePendingRechargeRequest() -> Bool {
+    let requested = defaults.bool(forKey: pendingRechargeKey)
+    defaults.removeObject(forKey: pendingRechargeKey)
+    return requested
+  }
 
   static func syncWallet(rewarded: Int, emergency: Int, resetAt: Date) {
     let wallet = LocalWallet(rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)

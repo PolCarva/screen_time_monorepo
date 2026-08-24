@@ -21,7 +21,7 @@ import {
   restrictionEngine,
   restrictionEvents,
 } from "@/native/restriction-engine";
-import { AppStateProvider } from "@/state/app-state";
+import { AppStateProvider, useAppState } from "@/state/app-state";
 import { RewardAdProvider } from "@/state/reward-ad-state";
 
 void SplashScreen.preventAutoHideAsync();
@@ -29,16 +29,25 @@ initializeObservability();
 
 function Navigation() {
   const router = useRouter();
+  const { wallet, walletHydrated } = useAppState();
   useEffect(() => {
+    if (!walletHydrated) return;
+    const openPendingDestination = () => {
+      if (wallet.rewardedBalance <= 0 && wallet.emergencyRemaining <= 0) {
+        router.replace("/(tabs)/(tokens)" as never);
+      } else {
+        router.push("/intervention" as never);
+      }
+    };
     const subscription = restrictionEvents?.addListener(
       "onInterventionRequested",
-      () => router.push("/intervention" as never),
+      openPendingDestination,
     );
     void restrictionEngine.hasPendingIntervention().then((pending) => {
-      if (pending) router.push("/intervention" as never);
+      if (pending) openPendingDestination();
     });
     return () => subscription?.remove();
-  }, [router]);
+  }, [router, wallet.emergencyRemaining, wallet.rewardedBalance, walletHydrated]);
   return (
     <Stack
       screenOptions={{

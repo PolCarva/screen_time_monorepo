@@ -23,7 +23,7 @@ import {
 
 type LocalStats = { screenTimeMinutes: number; openAttempts: number; avoidedOpens: number; unlocks: number; weeklyScreenTimeMinutes: number[] };
 type AppStateValue = {
-  ready: boolean; onboarded: boolean; deviceId: string | null; setOnboarded(value: boolean): Promise<void>;
+  ready: boolean; walletHydrated: boolean; onboarded: boolean; deviceId: string | null; setOnboarded(value: boolean): Promise<void>;
   config: RemoteConfig; wallet: Wallet; stats: LocalStats; refresh(): Promise<void>;
   spendEmergency(): Promise<boolean>; addProvisionalToken(): Promise<void>;
   unlockCurrent(): Promise<UnlockSession>;
@@ -204,7 +204,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       config.unlockDurationSeconds,
     );
   }, [config.unlockDurationSeconds, deviceId, wallet]);
-  const value = useMemo(() => ({ ready, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent }), [ready, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent]);
+  const value = useMemo(() => ({ ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent }), [ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent]);
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 
