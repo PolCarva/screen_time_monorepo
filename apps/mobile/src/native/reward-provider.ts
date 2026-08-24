@@ -84,10 +84,17 @@ export const admobRewardProvider: RewardProvider = {
     if (!configuredAdUnit && !__DEV__) return "unavailable";
     initialization ??= (async () => {
       try {
-        const consent = await AdsConsent.gatherConsent({
-          tagForUnderAgeOfConsent: false,
-        });
-        if (!consent.canRequestAds) return "unavailable";
+        if (!__DEV__) {
+          const consent = await AdsConsent.gatherConsent({
+            tagForUnderAgeOfConsent: false,
+          });
+          if (!consent.canRequestAds) return "unavailable";
+        }
+        if (__DEV__) {
+          await mobileAds().setRequestConfiguration({
+            testDeviceIdentifiers: ["EMULATOR"],
+          });
+        }
         await mobileAds().initialize();
         return "ready";
       } catch {

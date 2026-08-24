@@ -61,10 +61,25 @@ export default function TokensScreen() {
       retry();
     }
   }
-  const capped =
-    wallet.rewardedBalance >= config.maxRewardTokenBalance ||
-    wallet.unresolvedRewardClaims >= 3;
+  const balanceCapped =
+    wallet.rewardedBalance >= config.maxRewardTokenBalance;
+  const verificationBlocked = wallet.unresolvedRewardClaims >= 3;
+  const capped = balanceCapped || verificationBlocked;
   const adReady = adStatus === "ready";
+  const buttonLabel = busy
+    ? localize("Opening…", "Abriendo…")
+    : balanceCapped
+      ? localize("Token limit reached", "Límite de tokens alcanzado")
+      : verificationBlocked
+        ? localize("Verification pending", "Verificación pendiente")
+        : adReady
+          ? t("getToken")
+          : adStatus === "unavailable"
+            ? localize("Retrying ad…", "Reintentando anuncio…")
+            : localize(
+                "Preparing in background…",
+                "Preparando en segundo plano…",
+              );
   return (
     <Screen>
       <View>
@@ -83,14 +98,7 @@ export default function TokensScreen() {
         onPress={earn}
         disabled={capped || busy || !deviceId || !adReady}
       >
-        {busy
-          ? localize("Opening…", "Abriendo…")
-          : adReady
-            ? t("getToken")
-            : localize(
-                "Preparing in background…",
-                "Preparando en segundo plano…",
-              )}
+        {buttonLabel}
       </PrimaryButton>
       {capped && (
         <Body style={styles.note}>

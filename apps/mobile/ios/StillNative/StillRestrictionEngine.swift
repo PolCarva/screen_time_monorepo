@@ -72,6 +72,7 @@ final class StillRestrictionEngine: RCTEventEmitter {
     }
     do {
       let (id, end) = try SharedRestrictionState.beginUnlock(application: token, durationSeconds: durationSeconds.intValue)
+      SharedRestrictionState.applyShields()
       resolve(["id": id, "endsAt": ISO8601DateFormatter().string(from: end)])
     } catch {
       reject("unlock_schedule_failed", error.localizedDescription, error)

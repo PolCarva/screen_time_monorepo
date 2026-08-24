@@ -28,3 +28,18 @@ export function mergePendingUnlockEvents(
       events.findIndex((candidate) => candidate.clientSessionId === event.clientSessionId) === index,
   );
 }
+
+export function projectPendingUnlocks(
+  serverWallet: Wallet,
+  events: PendingUnlockEvent[],
+): Wallet {
+  return events.reduce((wallet, event) => {
+    try {
+      return spendLocalWallet(wallet, event.source);
+    } catch {
+      // The server is authoritative when another client already spent the
+      // balance. Never let a local projection create a negative balance.
+      return wallet;
+    }
+  }, serverWallet);
+}

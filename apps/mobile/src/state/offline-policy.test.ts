@@ -1,7 +1,12 @@
 import type { Wallet } from "@screen-time/contracts";
 import { describe, expect, it } from "vitest";
 
-import { addProvisionalReward, mergePendingUnlockEvents, spendLocalWallet } from "./offline-policy";
+import {
+  addProvisionalReward,
+  mergePendingUnlockEvents,
+  projectPendingUnlocks,
+  spendLocalWallet,
+} from "./offline-policy";
 
 const wallet: Wallet = {
   rewardedBalance: 2,
@@ -38,5 +43,18 @@ describe("offline wallet policy", () => {
       startedAt: "2026-08-23T12:00:00.000Z",
     };
     expect(mergePendingUnlockEvents([event], [event])).toEqual([event]);
+  });
+
+  it("projects unreported native spends over a fresh server wallet", () => {
+    expect(
+      projectPendingUnlocks(wallet, [
+        {
+          clientSessionId: "event-1",
+          source: "rewarded",
+          durationSeconds: 600,
+          startedAt: "2026-08-23T12:00:00.000Z",
+        },
+      ]),
+    ).toMatchObject({ rewardedBalance: 1, emergencyRemaining: 3 });
   });
 });

@@ -15,6 +15,7 @@ enum SharedRestrictionState {
 
   struct UnlockRecord: Codable {
     let tokenKey: String
+    let targetKind: String?
     let deadlineUptime: TimeInterval
     let bootEpoch: TimeInterval
   }
@@ -53,31 +54,48 @@ enum SharedRestrictionState {
 
   static func applyShields() {
     pruneExpiredSessions()
-    let active = Set(loadSessions().values.map(\.tokenKey))
+    let sessions = loadSessions().values
+    let activeApplications = Set(sessions.filter { $0.targetKind == nil || $0.targetKind == "application" }.map(\.tokenKey))
+    let activeCategories = Set(sessions.filter { $0.targetKind == "category" }.map(\.tokenKey))
+    let activeWebDomains = Set(sessions.filter { $0.targetKind == "webDomain" }.map(\.tokenKey))
     let chosen = selection
-    store.shield.applications = Set(chosen.applicationTokens.filter { !active.contains(tokenKey($0)) })
-    store.shield.applicationCategories = chosen.categoryTokens.isEmpty ? nil : .specific(chosen.categoryTokens)
-    store.shield.webDomains = chosen.webDomainTokens.isEmpty ? nil : chosen.webDomainTokens
+    store.shield.applications = Set(chosen.applicationTokens.filter { !activeApplications.contains(tokenKey($0)) })
+    let shieldedCategories = Set(chosen.categoryTokens.filter { !activeCategories.contains(tokenKey($0)) })
+    store.shield.applicationCategories = shieldedCategories.isEmpty ? nil : .specific(shieldedCategories)
+    store.shield.webDomains = Set(chosen.webDomainTokens.filter { !activeWebDomains.contains(tokenKey($0)) })
   }
 
-  static func beginUnlock(application token: ApplicationToken, durationSeconds: Int) throws -> (String, Date) {
+  static func beginUnlock(application token: ApplicationToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
+    try beginUnlock(targetKind: "application", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  }
+
+  static func beginUnlock(category token: ActivityCategoryToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
+    try beginUnlock(targetKind: "category", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  }
+
+  static func beginUnlock(webDomain token: WebDomainToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
+    try beginUnlock(targetKind: "webDomain", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  }
+
+  private static func beginUnlock(targetKind: String, tokenKey: String, durationSeconds: Int, scheduleMonitoring: Bool) throws -> (String, Date) {
     let duration = max(60, min(durationSeconds, 3_600))
     let id = UUID().uuidString
     let deadline = ProcessInfo.processInfo.systemUptime + TimeInterval(duration)
     var sessions = loadSessions()
-    sessions[id] = UnlockRecord(tokenKey: tokenKey(token), deadlineUptime: deadline, bootEpoch: bootEpoch())
+    sessions[id] = UnlockRecord(tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
     saveSessions(sessions)
-    applyShields()
 
     let now = Date()
     let end = now.addingTimeInterval(TimeInterval(duration))
-    let calendar = Calendar.current
-    let schedule = DeviceActivitySchedule(
-      intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
-      intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: end),
-      repeats: false
-    )
-    try DeviceActivityCenter().startMonitoring(.init("still.unlock.\(id)"), during: schedule)
+    if scheduleMonitoring {
+      let calendar = Calendar.current
+      let schedule = DeviceActivitySchedule(
+        intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
+        intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: end),
+        repeats: false
+      )
+      try DeviceActivityCenter().startMonitoring(.init("still.unlock.\(id)"), during: schedule)
+    }
     return (id, end)
   }
 
@@ -165,6 +183,23 @@ enum SharedRestrictionState {
     defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
   }
 
+  static func rollbackUnlockedIntervention() {
+    let key = "productMetrics:\(utcDay())"
+    guard let data = defaults.data(forKey: key),
+          var metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+    else { return }
+    metrics.openAttempts = max(0, metrics.openAttempts - 1)
+    metrics.unlocks = max(0, metrics.unlocks - 1)
+    defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
+  }
+
+  // Shield actions run in a short-lived extension process. Flush App Group
+  // writes before returning the action response so the main app cannot restore
+  // a stale wallet before it sees the native outbox event.
+  static func flush() {
+    defaults.synchronize()
+  }
+
   static func productMetrics() -> DailyProductMetrics {
     let key = "productMetrics:\(utcDay())"
     guard let data = defaults.data(forKey: key),
@@ -207,7 +242,7 @@ enum SharedRestrictionState {
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter.string(from: Date())
   }
-  private static func tokenKey(_ token: ApplicationToken) -> String {
+  private static func tokenKey<T: Encodable>(_ token: T) -> String {
     ((try? JSONEncoder().encode(token)) ?? Data()).base64EncodedString()
   }
 }
