@@ -60,7 +60,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
       SharedRestrictionState.markRechargeRequested()
       onUnavailable()
       SharedRestrictionState.flush()
-      completionHandler(.defer)
+      openStillForRecharge()
+      completionHandler(.close)
       return
     }
 
@@ -91,5 +92,10 @@ final class ShieldActionExtension: ShieldActionDelegate {
       SharedRestrictionState.flush()
       completionHandler(.defer)
     }
+  }
+
+  private func openStillForRecharge() {
+    guard let url = URL(string: "still://recharge") else { return }
+    NSExtensionContext().open(url, completionHandler: nil)
   }
 }
