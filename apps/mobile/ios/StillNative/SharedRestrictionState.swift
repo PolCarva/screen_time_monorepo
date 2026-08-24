@@ -140,18 +140,12 @@ enum SharedRestrictionState {
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
   }
 
-  static func consumeUnlock() -> String? {
+  static func consumeRewardedUnlock() -> String? {
     var wallet = loadWallet()
-    if wallet.resetAt <= Date() {
-      wallet.emergency = 3
-      wallet.resetAt = Calendar(identifier: .gregorian).date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(86_400)
-    }
-    let source: String
-    if wallet.rewarded > 0 { wallet.rewarded -= 1; source = "rewarded" }
-    else if wallet.emergency > 0 { wallet.emergency -= 1; source = "emergency" }
-    else { return nil }
+    guard wallet.rewarded > 0 else { return nil }
+    wallet.rewarded -= 1
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
-    return source
+    return "rewarded"
   }
 
   static func refundUnlock(_ source: String) {

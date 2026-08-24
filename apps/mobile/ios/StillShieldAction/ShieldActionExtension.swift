@@ -55,12 +55,12 @@ final class ShieldActionExtension: ShieldActionDelegate {
       return
     }
 
-    guard let source = SharedRestrictionState.consumeUnlock() else {
+    guard let source = SharedRestrictionState.consumeRewardedUnlock() else {
       SharedRestrictionState.recordIntervention(avoided: false, unlocked: false)
       SharedRestrictionState.markRechargeRequested()
       onUnavailable()
       SharedRestrictionState.flush()
-      completionHandler(.close)
+      completionHandler(.defer)
       return
     }
 

@@ -23,10 +23,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       let data = defaults.data(forKey: walletKey),
       let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
     else {
-      return true
+      return false
     }
-    if wallet.resetAt <= Date() { return true }
-    return wallet.rewarded > 0 || wallet.emergency > 0
+    return wallet.rewarded > 0
   }
 
   override func configuration(shielding application: Application) -> ShieldConfiguration {

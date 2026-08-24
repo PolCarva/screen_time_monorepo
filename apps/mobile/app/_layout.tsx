@@ -33,7 +33,7 @@ function Navigation() {
   useEffect(() => {
     if (!walletHydrated) return;
     const openPendingDestination = () => {
-      if (wallet.rewardedBalance <= 0 && wallet.emergencyRemaining <= 0) {
+      if (wallet.rewardedBalance <= 0) {
         router.replace("/(tabs)/(tokens)" as never);
       } else {
         router.push("/intervention" as never);
