@@ -1,5 +1,6 @@
 import Foundation
 import ManagedSettings
+import UserNotifications
 
 final class ShieldActionExtension: ShieldActionDelegate {
   private var shouldScheduleMonitoring: Bool {
@@ -61,6 +62,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
       onUnavailable()
       SharedRestrictionState.flush()
       openStillForRecharge()
+      scheduleRechargeNotification()
       completionHandler(.close)
       return
     }
@@ -97,5 +99,22 @@ final class ShieldActionExtension: ShieldActionDelegate {
   private func openStillForRecharge() {
     guard let url = URL(string: "still://recharge") else { return }
     NSExtensionContext().open(url, completionHandler: nil)
+  }
+
+  private func scheduleRechargeNotification() {
+    let content = UNMutableNotificationContent()
+    let spanish = Locale.preferredLanguages.first?.hasPrefix("es") == true
+    content.title = spanish ? "Still está listo para recargar" : "Still is ready to recharge"
+    content.body = spanish
+      ? "Abre Still para ver un anuncio y conseguir otro Unlock Token."
+      : "Open Still to watch an ad and earn another Unlock Token."
+    content.sound = .default
+    content.userInfo = ["route": "tokens"]
+    let request = UNNotificationRequest(
+      identifier: "still.recharge",
+      content: content,
+      trigger: nil
+    )
+    UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
   }
 }
