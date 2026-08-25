@@ -6,6 +6,14 @@ import UIKit
 
 @objc(StillRestrictionEngine)
 final class StillRestrictionEngine: RCTEventEmitter {
+  private var shouldScheduleMonitoring: Bool {
+    #if targetEnvironment(simulator)
+      false
+    #else
+      true
+    #endif
+  }
+
   override static func requiresMainQueueSetup() -> Bool { true }
   override func supportedEvents() -> [String]! { ["onInterventionRequested"] }
 
@@ -66,7 +74,7 @@ final class StillRestrictionEngine: RCTEventEmitter {
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    guard let target = SharedRestrictionState.takePendingTarget() else {
+    guard let target = SharedRestrictionState.pendingTarget() else {
       reject("missing_target", "No shielded application is waiting", nil)
       return
     }
@@ -74,13 +82,27 @@ final class StillRestrictionEngine: RCTEventEmitter {
       let result: (String, Date)
       switch target {
       case .application(let token):
-        result = try SharedRestrictionState.beginUnlock(application: token, durationSeconds: durationSeconds.intValue)
+        result = try SharedRestrictionState.beginUnlock(
+          application: token,
+          durationSeconds: durationSeconds.intValue,
+          scheduleMonitoring: shouldScheduleMonitoring
+        )
       case .category(let token):
-        result = try SharedRestrictionState.beginUnlock(category: token, durationSeconds: durationSeconds.intValue)
+        result = try SharedRestrictionState.beginUnlock(
+          category: token,
+          durationSeconds: durationSeconds.intValue,
+          scheduleMonitoring: shouldScheduleMonitoring
+        )
       case .webDomain(let token):
-        result = try SharedRestrictionState.beginUnlock(webDomain: token, durationSeconds: durationSeconds.intValue)
+        result = try SharedRestrictionState.beginUnlock(
+          webDomain: token,
+          durationSeconds: durationSeconds.intValue,
+          scheduleMonitoring: shouldScheduleMonitoring
+        )
       }
       SharedRestrictionState.applyShields()
+      SharedRestrictionState.clearPendingTarget()
+      SharedRestrictionState.flush()
       resolve(["id": result.0, "endsAt": ISO8601DateFormatter().string(from: result.1)])
     } catch {
       reject("unlock_schedule_failed", error.localizedDescription, error)

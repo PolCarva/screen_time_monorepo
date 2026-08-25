@@ -1,10 +1,13 @@
-appId: com.apple.news
+appId: com.apple.mobilecal
 ---
 - assertVisible: "No Unlock Tokens left"
-- tapOn: "Close and recharge in Still"
 - tapOn:
-    text: "Still is ready to recharge"
-    optional: true
+    text: "Close and recharge in Still"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible: "Still is ready to recharge"
+    timeout: 10000
+- tapOn: "Still is ready to recharge"
 - extendedWaitUntil:
     visible: "Test mode"
     timeout: 30000
@@ -12,5 +15,9 @@ appId: com.apple.news
     visible: "Reward granted"
     timeout: 30000
 - tapOn:
-    point: "94%,10%"
-- waitForAnimationToEnd
+    point: "378,86"
+- extendedWaitUntil:
+    visible: "Your app is unlocked"
+    timeout: 30000
+- assertVisible: "UNLOCK ACTIVE"
+- takeScreenshot: still-auto-unlock-ready

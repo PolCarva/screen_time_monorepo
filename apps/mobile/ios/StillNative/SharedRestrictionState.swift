@@ -89,10 +89,6 @@ enum SharedRestrictionState {
     let duration = max(60, min(durationSeconds, 3_600))
     let id = UUID().uuidString
     let deadline = ProcessInfo.processInfo.systemUptime + TimeInterval(duration)
-    var sessions = loadSessions()
-    sessions[id] = UnlockRecord(tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
-    saveSessions(sessions)
-
     let now = Date()
     let end = now.addingTimeInterval(TimeInterval(duration))
     if scheduleMonitoring {
@@ -104,6 +100,12 @@ enum SharedRestrictionState {
       )
       try DeviceActivityCenter().startMonitoring(.init("still.unlock.\(id)"), during: schedule)
     }
+
+    // Persist only after DeviceActivity accepts the schedule. Otherwise a
+    // failed start would leave a phantom session that suppresses the Shield.
+    var sessions = loadSessions()
+    sessions[id] = UnlockRecord(tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
+    saveSessions(sessions)
     return (id, end)
   }
 
@@ -137,12 +139,7 @@ enum SharedRestrictionState {
     defaults.set(kind, forKey: pendingTargetKindKey)
   }
 
-  static func takePendingTarget() -> PendingTarget? {
-    defer {
-      defaults.removeObject(forKey: pendingTargetKey)
-      defaults.removeObject(forKey: pendingTargetKindKey)
-      defaults.removeObject(forKey: pendingRechargeKey)
-    }
+  static func pendingTarget() -> PendingTarget? {
     guard let data = defaults.data(forKey: pendingTargetKey) else { return nil }
     switch defaults.string(forKey: pendingTargetKindKey) ?? "application" {
     case "category":
@@ -152,6 +149,12 @@ enum SharedRestrictionState {
     default:
       return try? .application(JSONDecoder().decode(ApplicationToken.self, from: data))
     }
+  }
+
+  static func clearPendingTarget() {
+    defaults.removeObject(forKey: pendingTargetKey)
+    defaults.removeObject(forKey: pendingTargetKindKey)
+    defaults.removeObject(forKey: pendingRechargeKey)
   }
 
   static var hasPendingTarget: Bool { defaults.data(forKey: pendingTargetKey) != nil }

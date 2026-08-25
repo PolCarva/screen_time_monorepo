@@ -1,4 +1,4 @@
-appId: com.apple.news
+appId: com.apple.mobilecal
 ---
 - launchApp
 - assertNotVisible: "No Unlock Tokens left"

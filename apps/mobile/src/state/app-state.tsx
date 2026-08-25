@@ -194,11 +194,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       startedAt: new Date().toISOString(),
     };
 
+    // Start the native unlock first. If Screen Time cannot create the session,
+    // the reward must remain untouched so the user can retry safely.
+    const nativeSession = await restrictionEngine.startUnlock(
+      { opaqueId: "current", platform: Platform.OS === "ios" ? "ios" : "android" },
+      config.unlockDurationSeconds,
+    );
+
     if (source === "rewarded") {
-      await reportUnlock(event, deviceId!);
       const next = spendLocalWallet(wallet, "rewarded");
       setWallet(next);
       await setJson("wallet", next);
+      try {
+        await reportUnlock(event, deviceId!);
+      } catch {
+        const pending = await getJson<PendingUnlockEvent[]>("pendingUnlockReports", []);
+        await setJson("pendingUnlockReports", mergePendingUnlockEvents(pending, [event]));
+      }
     } else {
       const next = spendLocalWallet(wallet, "emergency");
       setWallet(next);
@@ -216,10 +228,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
     }
 
-    return restrictionEngine.startUnlock(
-      { opaqueId: "current", platform: Platform.OS === "ios" ? "ios" : "android" },
-      config.unlockDurationSeconds,
-    );
+    return nativeSession;
   }, [config.unlockDurationSeconds, deviceId, wallet]);
   const value = useMemo(() => ({ ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent }), [ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent]);
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
