@@ -1,0 +1,9 @@
+appId: com.still.screentime
+---
+- launchApp
+- tapOn:
+    text: "Back to Still"
+    optional: true
+- tapOn: "Tokens, tab, 2 of 4"
+- assertVisible: "0"
+- takeScreenshot: still-zero-after-auto-unlock

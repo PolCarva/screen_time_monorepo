@@ -30,6 +30,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
   ) {
     handle(action: action, beginUnlock: {
       try SharedRestrictionState.beginUnlock(category: category, durationSeconds: 600, scheduleMonitoring: shouldScheduleMonitoring)
+    }, onUnavailable: {
+      SharedRestrictionState.savePendingTarget(category)
     }, completionHandler: completionHandler)
   }
 
@@ -40,6 +42,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
   ) {
     handle(action: action, beginUnlock: {
       try SharedRestrictionState.beginUnlock(webDomain: webDomain, durationSeconds: 600, scheduleMonitoring: shouldScheduleMonitoring)
+    }, onUnavailable: {
+      SharedRestrictionState.savePendingTarget(webDomain)
     }, completionHandler: completionHandler)
   }
 
@@ -58,12 +62,10 @@ final class ShieldActionExtension: ShieldActionDelegate {
 
     guard let source = SharedRestrictionState.consumeRewardedUnlock() else {
       SharedRestrictionState.recordIntervention(avoided: false, unlocked: false)
-      SharedRestrictionState.markRechargeRequested()
+      let requestId = SharedRestrictionState.markRechargeRequested()
       onUnavailable()
       SharedRestrictionState.flush()
-      openStillForRecharge()
-      scheduleRechargeNotification()
-      completionHandler(.close)
+      finishRechargeRequest(requestId: requestId, completionHandler)
       return
     }
 
@@ -96,20 +98,37 @@ final class ShieldActionExtension: ShieldActionDelegate {
     }
   }
 
-  private func openStillForRecharge() {
-    guard let url = URL(string: "still://recharge") else { return }
-    NSExtensionContext().open(url, completionHandler: nil)
+  private func finishRechargeRequest(
+    requestId: String,
+    _ completionHandler: @escaping (ShieldActionResponse) -> Void
+  ) {
+    #if compiler(>=6.3)
+      if #available(iOS 26.5, *) {
+        completionHandler(.openParentalControlsApp)
+        return
+      }
+    #endif
+
+    scheduleRechargeNotification(requestId: requestId)
+    completionHandler(.close)
   }
 
-  private func scheduleRechargeNotification() {
+  private func scheduleRechargeNotification(requestId: String) {
     let content = UNMutableNotificationContent()
     let spanish = Locale.preferredLanguages.first?.hasPrefix("es") == true
-    content.title = spanish ? "Still está listo para recargar" : "Still is ready to recharge"
+    content.title = spanish
+      ? "Still está listo para recargar"
+      : "Still is ready to recharge"
     content.body = spanish
-      ? "Abre Still para ver un anuncio y conseguir otro Unlock Token."
-      : "Open Still to watch an ad and earn another Unlock Token."
+      ? "Mirá un anuncio y Still desbloqueará la app que querías abrir."
+      : "Watch an ad and Still will unlock the app you were trying to open."
     content.sound = .default
-    content.userInfo = ["route": "tokens"]
+    content.userInfo = [
+      "route": "tokens",
+      "autoUnlock": true,
+      "requestId": requestId,
+    ]
+
     let request = UNNotificationRequest(
       identifier: "still.recharge",
       content: content,

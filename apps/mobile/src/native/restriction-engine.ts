@@ -30,7 +30,7 @@ export interface RestrictionEngine {
   syncWallet(rewarded: number, emergency: number, resetAt: string): Promise<void>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
-  hasPendingIntervention(): Promise<boolean>;
+  hasPendingIntervention(): Promise<string | null>;
   getLocalWellbeing(): Promise<LocalWellbeingStats>;
 }
 
@@ -48,7 +48,7 @@ const unavailable: RestrictionEngine = {
   syncWallet: async () => undefined,
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
-  hasPendingIntervention: async () => false,
+  hasPendingIntervention: async () => null,
   getLocalWellbeing: async () => ({ controlledScreenTimeSeconds: 0, openAttempts: 0, avoidedOpens: 0, unlocks: 0, weeklyScreenTimeSeconds: [] }),
 };
 

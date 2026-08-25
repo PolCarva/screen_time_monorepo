@@ -1,0 +1,11 @@
+appId: com.apple.news
+---
+- assertVisible: "No Unlock Tokens left"
+- tapOn: "Close and recharge in Still"
+- tapOn:
+    text: "Still is ready to recharge"
+    optional: true
+- extendedWaitUntil:
+    visible: "Test mode"
+    timeout: 30000
+- takeScreenshot: still-recharge-ad

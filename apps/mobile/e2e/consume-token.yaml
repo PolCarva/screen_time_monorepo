@@ -1,0 +1,6 @@
+appId: com.apple.mobilecal
+---
+- tapOn: "Use 1 Unlock Token"
+- extendedWaitUntil:
+    notVisible: "Use 1 Unlock Token"
+    timeout: 10000

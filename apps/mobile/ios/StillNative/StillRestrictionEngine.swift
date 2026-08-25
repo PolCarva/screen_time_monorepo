@@ -66,14 +66,22 @@ final class StillRestrictionEngine: RCTEventEmitter {
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    guard let token = SharedRestrictionState.takePendingTarget() else {
+    guard let target = SharedRestrictionState.takePendingTarget() else {
       reject("missing_target", "No shielded application is waiting", nil)
       return
     }
     do {
-      let (id, end) = try SharedRestrictionState.beginUnlock(application: token, durationSeconds: durationSeconds.intValue)
+      let result: (String, Date)
+      switch target {
+      case .application(let token):
+        result = try SharedRestrictionState.beginUnlock(application: token, durationSeconds: durationSeconds.intValue)
+      case .category(let token):
+        result = try SharedRestrictionState.beginUnlock(category: token, durationSeconds: durationSeconds.intValue)
+      case .webDomain(let token):
+        result = try SharedRestrictionState.beginUnlock(webDomain: token, durationSeconds: durationSeconds.intValue)
+      }
       SharedRestrictionState.applyShields()
-      resolve(["id": id, "endsAt": ISO8601DateFormatter().string(from: end)])
+      resolve(["id": result.0, "endsAt": ISO8601DateFormatter().string(from: result.1)])
     } catch {
       reject("unlock_schedule_failed", error.localizedDescription, error)
     }
@@ -149,8 +157,13 @@ final class StillRestrictionEngine: RCTEventEmitter {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    let rechargeRequested = SharedRestrictionState.takePendingRechargeRequest()
-    resolve(SharedRestrictionState.hasPendingTarget || rechargeRequested)
+    if let requestId = SharedRestrictionState.pendingRechargeRequestId() {
+      resolve(requestId)
+    } else if SharedRestrictionState.hasPendingTarget {
+      resolve("pending-target")
+    } else {
+      resolve(nil)
+    }
   }
 
   @objc func getLocalWellbeing(

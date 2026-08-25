@@ -10,6 +10,7 @@ enum SharedRestrictionState {
   private static let selectionKey = "familyActivitySelection"
   private static let sessionsKey = "unlockSessions"
   private static let pendingTargetKey = "pendingApplicationToken"
+  private static let pendingTargetKindKey = "pendingRestrictionTargetKind"
   private static let pendingRechargeKey = "pendingRechargeRequest"
   private static let walletKey = "localWallet"
   private static let unlockOutboxKey = "nativeUnlockOutbox"
@@ -38,6 +39,12 @@ enum SharedRestrictionState {
     var openAttempts = 0
     var avoidedOpens = 0
     var unlocks = 0
+  }
+
+  enum PendingTarget {
+    case application(ApplicationToken)
+    case category(ActivityCategoryToken)
+    case webDomain(WebDomainToken)
   }
 
   static var selection: FamilyActivitySelection {
@@ -114,25 +121,57 @@ enum SharedRestrictionState {
   }
 
   static func savePendingTarget(_ token: ApplicationToken) {
-    defaults.set(try? JSONEncoder().encode(token), forKey: pendingTargetKey)
+    savePendingTarget(token, kind: "application")
   }
 
-  static func takePendingTarget() -> ApplicationToken? {
-    defer { defaults.removeObject(forKey: pendingTargetKey) }
+  static func savePendingTarget(_ token: ActivityCategoryToken) {
+    savePendingTarget(token, kind: "category")
+  }
+
+  static func savePendingTarget(_ token: WebDomainToken) {
+    savePendingTarget(token, kind: "webDomain")
+  }
+
+  private static func savePendingTarget<T: Encodable>(_ token: T, kind: String) {
+    defaults.set(try? JSONEncoder().encode(token), forKey: pendingTargetKey)
+    defaults.set(kind, forKey: pendingTargetKindKey)
+  }
+
+  static func takePendingTarget() -> PendingTarget? {
+    defer {
+      defaults.removeObject(forKey: pendingTargetKey)
+      defaults.removeObject(forKey: pendingTargetKindKey)
+      defaults.removeObject(forKey: pendingRechargeKey)
+    }
     guard let data = defaults.data(forKey: pendingTargetKey) else { return nil }
-    return try? JSONDecoder().decode(ApplicationToken.self, from: data)
+    switch defaults.string(forKey: pendingTargetKindKey) ?? "application" {
+    case "category":
+      return try? .category(JSONDecoder().decode(ActivityCategoryToken.self, from: data))
+    case "webDomain":
+      return try? .webDomain(JSONDecoder().decode(WebDomainToken.self, from: data))
+    default:
+      return try? .application(JSONDecoder().decode(ApplicationToken.self, from: data))
+    }
   }
 
   static var hasPendingTarget: Bool { defaults.data(forKey: pendingTargetKey) != nil }
 
-  static func markRechargeRequested() {
-    defaults.set(true, forKey: pendingRechargeKey)
+  @discardableResult
+  static func markRechargeRequested() -> String {
+    let requestId = UUID().uuidString
+    defaults.set(requestId, forKey: pendingRechargeKey)
+    return requestId
   }
 
-  static func takePendingRechargeRequest() -> Bool {
-    let requested = defaults.bool(forKey: pendingRechargeKey)
-    defaults.removeObject(forKey: pendingRechargeKey)
-    return requested
+  static func pendingRechargeRequestId() -> String? {
+    if let requestId = defaults.string(forKey: pendingRechargeKey) {
+      return requestId
+    }
+    // Migrate recharge requests written by older builds as a Boolean.
+    guard defaults.bool(forKey: pendingRechargeKey) else { return nil }
+    let requestId = UUID().uuidString
+    defaults.set(requestId, forKey: pendingRechargeKey)
+    return requestId
   }
 
   static func syncWallet(rewarded: Int, emergency: Int, resetAt: Date) {

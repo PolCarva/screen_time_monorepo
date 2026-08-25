@@ -85,7 +85,8 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
           prepared.current = null;
           setRetryKey((value) => value + 1);
         }, refreshIn);
-      } catch {
+      } catch (error) {
+        if (__DEV__) console.warn("Reward preparation failed", error);
         if (generation.current === currentGeneration) {
           setStatus("unavailable");
           refreshTimer = setTimeout(

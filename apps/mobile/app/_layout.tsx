@@ -11,9 +11,11 @@ import {
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
+import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
+import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { initializeObservability } from "@/lib/analytics";
@@ -27,27 +29,89 @@ import { RewardAdProvider } from "@/state/reward-ad-state";
 void SplashScreen.preventAutoHideAsync();
 initializeObservability();
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 function Navigation() {
   const router = useRouter();
-  const { wallet, walletHydrated } = useAppState();
+  const { onboarded, walletHydrated } = useAppState();
+  const lastRechargeNavigation = useRef(0);
+
+  useEffect(() => {
+    if (!onboarded || Platform.OS === "web") return;
+    void (async () => {
+      const current = await Notifications.getPermissionsAsync();
+      if (current.status === "undetermined") {
+        await Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowSound: true },
+        });
+      }
+    })();
+  }, [onboarded]);
+
   useEffect(() => {
     if (!walletHydrated) return;
-    const openPendingDestination = () => {
-      if (wallet.rewardedBalance <= 0) {
+    const openRecharge = (source: string, requestId: string) => {
+      const now = Date.now();
+      if (now - lastRechargeNavigation.current < 3_000) return;
+      lastRechargeNavigation.current = now;
+      router.replace({
+        pathname: "/(tabs)/(tokens)",
+        params: {
+          recharge: requestId,
+          rechargeSource: source,
+          autoUnlock: "1",
+        },
+      } as never);
+    };
+    const checkPendingRecharge = async (
+      source = "shield",
+      openTokensWhenStale = false,
+    ) => {
+      const pending = await restrictionEngine
+        .hasPendingIntervention()
+        .catch(() => null);
+      if (pending) {
+        openRecharge(source, pending);
+      } else if (openTokensWhenStale) {
         router.replace("/(tabs)/(tokens)" as never);
-      } else {
-        router.push("/intervention" as never);
       }
     };
     const subscription = restrictionEvents?.addListener(
       "onInterventionRequested",
-      openPendingDestination,
+      () => void checkPendingRecharge("native-event"),
     );
-    void restrictionEngine.hasPendingIntervention().then((pending) => {
-      if (pending) openPendingDestination();
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void checkPendingRecharge("foreground");
     });
-    return () => subscription?.remove();
-  }, [router, wallet.emergencyRemaining, wallet.rewardedBalance, walletHydrated]);
+    const notificationSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        if (response.notification.request.content.data?.route !== "tokens") {
+          return;
+        }
+        void checkPendingRecharge("notification", true);
+      });
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response?.notification.request.content.data?.route !== "tokens") {
+        return;
+      }
+      void Notifications.clearLastNotificationResponseAsync();
+      void checkPendingRecharge("cold-notification", true);
+    });
+    void checkPendingRecharge();
+    return () => {
+      subscription?.remove();
+      appStateSubscription.remove();
+      notificationSubscription.remove();
+    };
+  }, [router, walletHydrated]);
+
   return (
     <Stack
       screenOptions={{
@@ -58,6 +122,7 @@ function Navigation() {
       <Stack.Screen name="index" />
       <Stack.Screen name="(onboarding)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="unlock-ready" />
       <Stack.Screen
         name="intervention"
         options={{ presentation: "fullScreenModal", gestureEnabled: false }}

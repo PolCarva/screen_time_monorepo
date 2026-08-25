@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
@@ -18,12 +19,27 @@ const claimSchema = z.object({
   status: z.enum(["provisional", "verified"]),
 });
 export default function TokensScreen() {
-  const { wallet, config, deviceId, addProvisionalToken, refresh } =
-    useAppState();
+  const { recharge, autoUnlock } = useLocalSearchParams<{
+    recharge?: string;
+    autoUnlock?: string;
+  }>();
+  const {
+    wallet,
+    config,
+    deviceId,
+    addProvisionalToken,
+    refresh,
+    unlockCurrent,
+  } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   const [busy, setBusy] = useState(false);
-  async function earn() {
-    if (!deviceId || busy) return;
+  const [earnedForRecharge, setEarnedForRecharge] = useState<string | null>(
+    null,
+  );
+  const handledRecharge = useRef<string | null>(null);
+  const autoUnlockInFlight = useRef(false);
+  const earn = useCallback(async (rechargeRequest?: string) => {
+    if (!deviceId || busy) return false;
     setBusy(true);
     capture("reward_intent_started", {
       platform: process.env.EXPO_OS ?? "unknown",
@@ -32,7 +48,7 @@ export default function TokensScreen() {
       const prepared = await showPrepared();
       if (!prepared) throw new Error("unavailable");
       const { intent, result } = prepared;
-      if (result.status !== "earned") return;
+      if (result.status !== "earned") return false;
       await addProvisionalToken();
       await apiFetch(
         `/api/v1/rewards/intents/${intent.id}/claim`,
@@ -48,6 +64,8 @@ export default function TokensScreen() {
       );
       capture("reward_earned", { provisional: true });
       await refresh();
+      if (rechargeRequest) setEarnedForRecharge(rechargeRequest);
+      return true;
     } catch {
       Alert.alert(
         localize("Reward unavailable", "Recompensa no disponible"),
@@ -56,16 +74,73 @@ export default function TokensScreen() {
           "Siempre puedes usar un desbloqueo de emergencia.",
         ),
       );
+      return false;
     } finally {
       setBusy(false);
       retry();
     }
-  }
+  }, [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared]);
   const balanceCapped =
     wallet.rewardedBalance >= config.maxRewardTokenBalance;
   const verificationBlocked = wallet.unresolvedRewardClaims >= 3;
   const capped = balanceCapped || verificationBlocked;
   const adReady = adStatus === "ready";
+  useEffect(() => {
+    if (
+      !recharge ||
+      !adReady ||
+      busy ||
+      capped ||
+      handledRecharge.current === recharge
+    ) {
+      return;
+    }
+    handledRecharge.current = recharge;
+    void earn(autoUnlock === "1" ? recharge : undefined).then((earned) => {
+      if (!earned) handledRecharge.current = null;
+    });
+  }, [adReady, autoUnlock, busy, capped, earn, recharge]);
+  useEffect(() => {
+    if (
+      autoUnlock !== "1" ||
+      !recharge ||
+      earnedForRecharge !== recharge ||
+      wallet.rewardedBalance <= 0 ||
+      busy ||
+      autoUnlockInFlight.current
+    ) {
+      return;
+    }
+
+    autoUnlockInFlight.current = true;
+    setBusy(true);
+    void unlockCurrent()
+      .then((session) => {
+        capture("unlock_started", { source: "rewarded", resumedIntent: true });
+        router.replace({
+          pathname: "/unlock-ready",
+          params: { endsAt: session.endsAt },
+        });
+      })
+      .catch(() => {
+        autoUnlockInFlight.current = false;
+        Alert.alert(
+          localize("Could not unlock", "No se pudo desbloquear"),
+          localize(
+            "Your token is still available. Return to the restricted app and try again.",
+            "Tu token sigue disponible. Volvé a la app restringida e intentá nuevamente.",
+          ),
+        );
+      })
+      .finally(() => setBusy(false));
+  }, [
+    autoUnlock,
+    busy,
+    earnedForRecharge,
+    recharge,
+    unlockCurrent,
+    wallet.rewardedBalance,
+  ]);
   const buttonLabel = busy
     ? localize("Opening…", "Abriendo…")
     : balanceCapped
@@ -95,7 +170,7 @@ export default function TokensScreen() {
         </View>
       </View>
       <PrimaryButton
-        onPress={earn}
+        onPress={() => void earn()}
         disabled={capped || busy || !deviceId || !adReady}
       >
         {buttonLabel}

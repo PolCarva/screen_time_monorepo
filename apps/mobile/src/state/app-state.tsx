@@ -59,6 +59,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const setOnboarded = useCallback(async (value: boolean) => { setOnboardedState(value); await setJson("onboarded", value); }, []);
   const refresh = useCallback(async () => {
     let pendingUnlocksAwaitingReport: PendingUnlockEvent[] = [];
+    const reportedUnlocksThisRefresh: PendingUnlockEvent[] = [];
     let installationId = await getJson<string | null>("installationId", null);
     if (!installationId) { installationId = Crypto.randomUUID(); await setJson("installationId", installationId); }
     let activeDeviceId: string | null = null;
@@ -92,6 +93,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       for (const event of pending) {
         try {
           await reportUnlock(event, activeDeviceId);
+          reportedUnlocksThisRefresh.push(event);
           await restrictionEngine.acknowledgeUnlockEvent(event.clientSessionId).catch(() => undefined);
         } catch {
           remaining.push(event);
@@ -133,14 +135,29 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     }
     try {
       const { walletSchema } = await import("@screen-time/contracts");
-      const serverWallet = await apiFetch("/api/v1/wallet", walletSchema);
+      const serverWallet = await apiFetch(
+        `/api/v1/wallet?refresh=${Date.now()}`,
+        walletSchema,
+        { cache: "no-store" },
+      );
       const projectedWallet = projectPendingUnlocks(
         serverWallet,
         pendingUnlocksAwaitingReport,
       );
       setWallet(projectedWallet);
       await setJson("wallet", projectedWallet);
-    } catch { setWallet(await getJson("wallet", defaultWallet)); }
+    } catch {
+      const cachedWallet = await getJson("wallet", defaultWallet);
+      const projectedWallet = projectPendingUnlocks(
+        cachedWallet,
+        mergePendingUnlockEvents(
+          pendingUnlocksAwaitingReport,
+          reportedUnlocksThisRefresh,
+        ),
+      );
+      setWallet(projectedWallet);
+      await setJson("wallet", projectedWallet);
+    }
     setWalletHydrated(true);
   }, [config.estimatedMinutesPerAvoidedOpen]);
   useEffect(() => { void refresh(); }, [refresh]);

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
         .eq("state", "provisional")
-        .lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString()),
+        .is("verified_at", null),
       client.from("remote_config_versions").select("payload").eq("is_active", true).maybeSingle(),
       client
         .from("reward_intents")
@@ -41,13 +41,16 @@ export async function GET(request: Request) {
     if (balanceResult.error) throw new HttpError(500, "wallet_failed", balanceResult.error.message);
     const config = { ...defaultRemoteConfig, ...(configResult.data?.payload ?? {}) };
 
-    return Response.json({
-      rewardedBalance: Math.max(Number(balanceResult.data ?? 0), 0),
-      emergencyRemaining: Math.max(config.dailyEmergencyUnlocks - (emergencyResult.count ?? 0), 0),
-      unresolvedRewardClaims: claimsResult.count ?? 0,
-      rewardAdsRemainingToday: Math.max(config.maxRewardedAdsPerUtcDay - (earnedTodayResult.count ?? 0), 0),
-      resetAt: nextUtcDay(),
-    });
+    return Response.json(
+      {
+        rewardedBalance: Math.max(Number(balanceResult.data ?? 0), 0),
+        emergencyRemaining: Math.max(config.dailyEmergencyUnlocks - (emergencyResult.count ?? 0), 0),
+        unresolvedRewardClaims: claimsResult.count ?? 0,
+        rewardAdsRemainingToday: Math.max(config.maxRewardedAdsPerUtcDay - (earnedTodayResult.count ?? 0), 0),
+        resetAt: nextUtcDay(),
+      },
+      { headers: { "cache-control": "private, no-store" } },
+    );
   } catch (error) {
     return routeError(error);
   }

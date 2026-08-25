@@ -118,27 +118,42 @@ export const admobRewardProvider: RewardProvider = {
     loadedAd = null;
     return new Promise((resolve) => {
       let earned = false;
+      let closed = false;
       let settled = false;
+      let closeGraceTimer: ReturnType<typeof setTimeout> | undefined;
       const cleanups: Array<() => void> = [];
-      const cleanup = () =>
+      const cleanup = () => {
+        if (closeGraceTimer) clearTimeout(closeGraceTimer);
         cleanups.splice(0).forEach((unsubscribe) => unsubscribe());
+      };
       const finish = (result: RewardResult) => {
         if (settled) return;
         settled = true;
         cleanup();
         resolve(result);
       };
+      const finishEarned = () =>
+        finish({ status: "earned", clientEventId: Crypto.randomUUID() });
       cleanups.push(
         ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
           earned = true;
+          if (closed) finishEarned();
         }),
       );
       cleanups.push(
         ad.addAdEventListener(AdEventType.CLOSED, () => {
-          finish(
-            earned
-              ? { status: "earned", clientEventId: Crypto.randomUUID() }
-              : { status: "dismissed" },
+          closed = true;
+          if (earned) {
+            finishEarned();
+            return;
+          }
+
+          // On iOS the rewarded callback can arrive just after CLOSED. Keep a
+          // short grace period so a completed ad is not misclassified as a
+          // dismissal, while still granting nothing when no reward event comes.
+          closeGraceTimer = setTimeout(
+            () => finish({ status: "dismissed" }),
+            1_500,
           );
         }),
       );

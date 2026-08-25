@@ -1,0 +1,5 @@
+appId: com.still.screentime
+---
+- tapOn: "Tokens, tab, 2 of 4"
+- assertVisible: "1"
+- takeScreenshot: still-token-earned

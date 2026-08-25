@@ -1,0 +1,6 @@
+appId: com.apple.news
+---
+- launchApp
+- assertNotVisible: "No Unlock Tokens left"
+- assertNotVisible: "Use 1 Unlock Token"
+- takeScreenshot: still-target-unlocked

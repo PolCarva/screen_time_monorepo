@@ -13,6 +13,7 @@ const config: ExpoConfig = {
   runtimeVersion: { policy: "appVersion" },
   ios: {
     supportsTablet: false,
+    deploymentTarget: "16.4",
     bundleIdentifier: "com.still.screentime",
     entitlements: {
       "com.apple.security.application-groups": ["group.com.still.screentime"],
@@ -30,6 +31,7 @@ const config: ExpoConfig = {
   plugins: [
     "@sentry/react-native",
     "expo-router",
+    "expo-notifications",
     "expo-font",
     "expo-localization",
     "expo-splash-screen",
