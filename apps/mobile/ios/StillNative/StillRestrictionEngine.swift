@@ -143,11 +143,17 @@ final class StillRestrictionEngine: RCTEventEmitter {
     _ rewarded: NSNumber,
     emergency: NSNumber,
     resetAt: String,
+    estimatedMinutesPerAvoidedOpen: NSNumber,
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let date = ISO8601DateFormatter().date(from: resetAt) ?? Date().addingTimeInterval(86_400)
-    SharedRestrictionState.syncWallet(rewarded: rewarded.intValue, emergency: emergency.intValue, resetAt: date)
+    SharedRestrictionState.syncWallet(
+      rewarded: rewarded.intValue,
+      emergency: emergency.intValue,
+      resetAt: date,
+      estimatedMinutesPerAvoidedOpen: estimatedMinutesPerAvoidedOpen.doubleValue
+    )
     resolve(nil)
   }
 

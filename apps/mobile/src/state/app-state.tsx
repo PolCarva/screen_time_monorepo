@@ -170,9 +170,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!walletHydrated) return;
     void restrictionEngine
-      .syncWallet(wallet.rewardedBalance, wallet.emergencyRemaining, wallet.resetAt)
+      .syncWallet(
+        wallet.rewardedBalance,
+        wallet.emergencyRemaining,
+        wallet.resetAt,
+        config.estimatedMinutesPerAvoidedOpen,
+      )
       .catch(() => undefined);
-  }, [wallet.emergencyRemaining, wallet.resetAt, wallet.rewardedBalance, walletHydrated]);
+  }, [config.estimatedMinutesPerAvoidedOpen, wallet.emergencyRemaining, wallet.resetAt, wallet.rewardedBalance, walletHydrated]);
   const spendEmergency = useCallback(async () => {
     if (wallet.emergencyRemaining <= 0) return false;
     const next = spendLocalWallet(wallet, "emergency");

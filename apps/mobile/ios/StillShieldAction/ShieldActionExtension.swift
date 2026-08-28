@@ -60,7 +60,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
       return
     }
 
-    guard let source = SharedRestrictionState.consumeRewardedUnlock() else {
+    guard let source = SharedRestrictionState.consumeAvailableUnlock() else {
       SharedRestrictionState.recordIntervention(avoided: false, unlocked: false)
       let requestId = SharedRestrictionState.markRechargeRequested()
       onUnavailable()

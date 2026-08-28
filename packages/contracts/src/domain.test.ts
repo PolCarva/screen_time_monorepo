@@ -56,6 +56,15 @@ describe("wallet rules", () => {
       ),
     ).toBe(false);
   });
+
+  it("allows another ad while earlier rewards are awaiting verification", () => {
+    expect(
+      canRequestReward(
+        { ...wallet, unresolvedRewardClaims: 3 },
+        defaultRemoteConfig,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("impact calculations", () => {

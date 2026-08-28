@@ -5,7 +5,7 @@
 1. Install Node 22+, pnpm 10, Xcode 26, CocoaPods, Android SDK 36, and JDK 17.
 2. Copy root and app `.env.example` files to the corresponding `.env.local` files.
 3. Run `pnpm install` and `supabase db reset` against a local Supabase stack.
-4. Start Next.js with `pnpm --filter web dev` and Metro with `pnpm --filter mobile start`.
+4. Start Next.js (web/API) and Metro together with `npm run dev:all` (or `pnpm dev:all`).
 5. Install a custom native build with `pnpm --filter mobile ios` or `pnpm --filter mobile android`; Expo Go is unsupported.
 
 Do not run `expo prebuild --clean`: it removes the committed restriction-engine sources and extension targets. If the base native project must be regenerated, preserve those directories and rerun `ruby apps/mobile/scripts/configure-ios-targets.rb` before `pod install`.

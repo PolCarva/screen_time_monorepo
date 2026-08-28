@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -41,6 +42,13 @@ class InterventionActivity : Activity() {
       setTextColor(Color.rgb(52, 66, 55))
       setPadding(0, 0, 0, pad)
     })
+    root.addView(TextView(this).apply {
+      text = impactSummary(spanish)
+      textSize = 14f
+      gravity = Gravity.CENTER
+      setTextColor(Color.rgb(95, 96, 92))
+      setPadding(0, 0, 0, pad)
+    })
     root.addView(Button(this).apply {
       text = if (spanish) "Ahora no" else "Not now"
       isAllCaps = false
@@ -65,6 +73,31 @@ class InterventionActivity : Activity() {
     preferences.edit().putInt(key, preferences.getInt(key, 0) + 1).apply()
     startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     finish()
+  }
+
+  private fun impactSummary(spanish: Boolean): String {
+    val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
+    val avoidedOpens = preferences.all.entries.sumOf { (key, value) ->
+      if (key.startsWith("avoided_opens:")) (value as? Int)?.coerceAtLeast(0) ?: 0 else 0
+    }
+    val minutesPerOpen = preferences.getFloat(
+      StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN,
+      2f,
+    )
+    val estimatedMinutes = avoidedOpens * minutesPerOpen
+    val duration = formatSavedTime(estimatedMinutes)
+    return when {
+      spanish && avoidedOpens == 1 -> "1 entrada bloqueada · $duration de ahorro estimado"
+      spanish -> "$avoidedOpens entradas bloqueadas · $duration de ahorro estimado"
+      avoidedOpens == 1 -> "1 entry blocked · $duration saved (est.)"
+      else -> "$avoidedOpens entries blocked · $duration saved (est.)"
+    }
+  }
+
+  private fun formatSavedTime(minutes: Float): String {
+    val value = if (minutes < 60) minutes else minutes / 60
+    val formatted = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }.format(value)
+    return if (minutes < 60) "$formatted min" else "$formatted h"
   }
 
   companion object { const val EXTRA_TARGET_PACKAGE = "target_package" }
