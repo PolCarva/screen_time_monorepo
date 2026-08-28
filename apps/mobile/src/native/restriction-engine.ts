@@ -27,7 +27,7 @@ export interface RestrictionEngine {
   startUnlock(target: LocalAppHandle, durationSeconds: number): Promise<UnlockSession>;
   restoreRestriction(sessionId: string): Promise<void>;
   getHealth(): Promise<RestrictionHealth>;
-  syncWallet(rewarded: number, emergency: number, resetAt: string): Promise<void>;
+  syncWallet(rewarded: number, emergency: number, resetAt: string, estimatedMinutesPerAvoidedOpen: number): Promise<void>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;

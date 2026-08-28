@@ -14,6 +14,7 @@ enum SharedRestrictionState {
   private static let pendingRechargeKey = "pendingRechargeRequest"
   private static let walletKey = "localWallet"
   private static let unlockOutboxKey = "nativeUnlockOutbox"
+  private static let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
 
   struct UnlockRecord: Codable {
     let tokenKey: String
@@ -177,17 +178,35 @@ enum SharedRestrictionState {
     return requestId
   }
 
-  static func syncWallet(rewarded: Int, emergency: Int, resetAt: Date) {
+  static func syncWallet(
+    rewarded: Int,
+    emergency: Int,
+    resetAt: Date,
+    estimatedMinutesPerAvoidedOpen: Double
+  ) {
     let wallet = LocalWallet(rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
+    defaults.set(max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
   }
 
-  static func consumeRewardedUnlock() -> String? {
+  /// Spends the normal balance first, preserving Emergency Unlocks whenever a
+  /// verified Unlock Token is available. Shield extensions cannot offer more
+  /// than two actions, so this keeps the fallback usable from the native
+  /// shield even while a reward verification is pending.
+  static func consumeAvailableUnlock() -> String? {
     var wallet = loadWallet()
-    guard wallet.rewarded > 0 else { return nil }
-    wallet.rewarded -= 1
+    let source: String
+    if wallet.rewarded > 0 {
+      wallet.rewarded -= 1
+      source = "rewarded"
+    } else if wallet.emergency > 0 {
+      wallet.emergency -= 1
+      source = "emergency"
+    } else {
+      return nil
+    }
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
-    return "rewarded"
+    return source
   }
 
   static func refundUnlock(_ source: String) {

@@ -82,8 +82,7 @@ export default function TokensScreen() {
   }, [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared]);
   const balanceCapped =
     wallet.rewardedBalance >= config.maxRewardTokenBalance;
-  const verificationBlocked = wallet.unresolvedRewardClaims >= 3;
-  const capped = balanceCapped || verificationBlocked;
+  const capped = balanceCapped;
   const adReady = adStatus === "ready";
   useEffect(() => {
     if (
@@ -145,16 +144,14 @@ export default function TokensScreen() {
     ? localize("Opening…", "Abriendo…")
     : balanceCapped
       ? localize("Token limit reached", "Límite de tokens alcanzado")
-      : verificationBlocked
-        ? localize("Verification pending", "Verificación pendiente")
-        : adReady
-          ? t("getToken")
-          : adStatus === "unavailable"
-            ? localize("Retrying ad…", "Reintentando anuncio…")
-            : localize(
-                "Preparing in background…",
-                "Preparando en segundo plano…",
-              );
+      : adReady
+        ? t("getToken")
+        : adStatus === "unavailable"
+          ? localize("Retrying ad…", "Reintentando anuncio…")
+          : localize(
+              "Preparing in background…",
+              "Preparando en segundo plano…",
+            );
   return (
     <Screen>
       <View>
@@ -178,8 +175,8 @@ export default function TokensScreen() {
       {capped && (
         <Body style={styles.note}>
           {localize(
-            "You reached the balance cap or have rewards awaiting verification.",
-            "Alcanzaste el saldo máximo o tienes recompensas pendientes de verificación.",
+            "You reached the token balance cap.",
+            "Alcanzaste el saldo máximo de tokens.",
           )}
         </Body>
       )}

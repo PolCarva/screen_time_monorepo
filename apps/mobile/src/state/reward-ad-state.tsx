@@ -41,7 +41,6 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
     onboarded &&
     Boolean(deviceId) &&
     wallet.rewardedBalance < config.maxRewardTokenBalance &&
-    wallet.unresolvedRewardClaims < 3 &&
     wallet.rewardAdsRemainingToday > 0;
 
   useEffect(() => {

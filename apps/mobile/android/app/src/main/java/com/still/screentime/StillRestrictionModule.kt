@@ -130,11 +130,18 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun syncWallet(rewarded: Int, emergency: Int, resetAt: String, promise: Promise) {
+  fun syncWallet(
+    rewarded: Int,
+    emergency: Int,
+    resetAt: String,
+    estimatedMinutesPerAvoidedOpen: Double,
+    promise: Promise,
+  ) {
     preferences.edit()
       .putInt(KEY_REWARDED_BALANCE, rewarded.coerceAtLeast(0))
       .putInt(KEY_EMERGENCY_REMAINING, emergency.coerceAtLeast(0))
       .putString(KEY_WALLET_RESET_AT, resetAt)
+      .putFloat(KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, estimatedMinutesPerAvoidedOpen.coerceIn(0.0, 60.0).toFloat())
       .apply()
     promise.resolve(null)
   }
@@ -234,6 +241,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_REWARDED_BALANCE = "rewarded_balance"
     const val KEY_EMERGENCY_REMAINING = "emergency_remaining"
     const val KEY_WALLET_RESET_AT = "wallet_reset_at"
+    const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     private const val PICKER_REQUEST = 4270
   }
 }

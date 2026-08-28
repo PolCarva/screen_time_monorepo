@@ -13,7 +13,7 @@ A bilingual React Native app that adds a deliberate pause before distracting app
 
 1. Copy `.env.example` to `.env.local` and fill the Supabase values.
 2. Run `pnpm install`.
-3. Run `pnpm dev` for the web app and `pnpm --filter mobile start` for the Metro server.
+3. Run `npm run dev:all` (or `pnpm dev:all`) to start the Next.js web/API service and the Expo Metro server together.
 4. Because the app contains native Screen Time and Accessibility integrations, use development builds (`pnpm --filter mobile ios` / `android`), not Expo Go.
 
 See `docs/implementation-status.md`, `docs/architecture.md`, `docs/native-feasibility.md`, `docs/store-compliance.md`, and `docs/runbook.md` before changing native enforcement behavior or configuring an environment.

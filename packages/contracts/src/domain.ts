@@ -82,7 +82,6 @@ export function canRequestReward(wallet: Wallet, config: RemoteConfig): boolean 
   return (
     wallet.rewardedBalance < config.maxRewardTokenBalance &&
     wallet.rewardAdsRemainingToday > 0 &&
-    wallet.unresolvedRewardClaims < 3 &&
     config.rewardProvider !== "disabled"
   );
 }
