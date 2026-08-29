@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@expo-google-fonts/familjen-grotesk": "^0.4.2",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@screen-time/contracts": "workspace:*",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.112.3",

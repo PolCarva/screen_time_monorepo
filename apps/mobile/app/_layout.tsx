@@ -1,14 +1,16 @@
 import {
-  CormorantGaramond_500Medium,
-  CormorantGaramond_600SemiBold,
-  useFonts as useDisplayFonts,
-} from "@expo-google-fonts/cormorant-garamond";
+  FamiljenGrotesk_400Regular,
+  FamiljenGrotesk_500Medium,
+  FamiljenGrotesk_600SemiBold,
+  FamiljenGrotesk_700Bold,
+  useFonts as useBrandFonts,
+} from "@expo-google-fonts/familjen-grotesk";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_700Bold,
-  useFonts as useSansFonts,
-} from "@expo-google-fonts/inter";
+  IBMPlexMono_400Regular,
+  IBMPlexMono_500Medium,
+  IBMPlexMono_600SemiBold,
+  useFonts as useMonoFonts,
+} from "@expo-google-fonts/ibm-plex-mono";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
@@ -25,6 +27,7 @@ import {
 } from "@/native/restriction-engine";
 import { AppStateProvider, useAppState } from "@/state/app-state";
 import { RewardAdProvider } from "@/state/reward-ad-state";
+import { colors } from "@/theme/tokens";
 
 void SplashScreen.preventAutoHideAsync();
 initializeObservability();
@@ -116,7 +119,7 @@ function Navigation() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#F6F4F1" },
+        contentStyle: { backgroundColor: colors.paper },
       }}
     >
       <Stack.Screen name="index" />
@@ -132,14 +135,16 @@ function Navigation() {
 }
 
 export default function RootLayout() {
-  const [displayLoaded] = useDisplayFonts({
-    CormorantGaramond_500Medium,
-    CormorantGaramond_600SemiBold,
+  const [brandLoaded] = useBrandFonts({
+    FamiljenGrotesk_400Regular,
+    FamiljenGrotesk_500Medium,
+    FamiljenGrotesk_600SemiBold,
+    FamiljenGrotesk_700Bold,
   });
-  const [sansLoaded] = useSansFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_700Bold,
+  const [monoLoaded] = useMonoFonts({
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
+    IBMPlexMono_600SemiBold,
   });
   const queryClient = useMemo(
     () =>
@@ -149,9 +154,9 @@ export default function RootLayout() {
     [],
   );
   useEffect(() => {
-    if (displayLoaded && sansLoaded) void SplashScreen.hideAsync();
-  }, [displayLoaded, sansLoaded]);
-  if (!displayLoaded || !sansLoaded) return null;
+    if (brandLoaded && monoLoaded) void SplashScreen.hideAsync();
+  }, [brandLoaded, monoLoaded]);
+  if (!brandLoaded || !monoLoaded) return null;
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

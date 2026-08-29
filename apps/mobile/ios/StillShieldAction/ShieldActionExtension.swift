@@ -120,7 +120,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
       ? "Still está listo para recargar"
       : "Still is ready to recharge"
     content.body = spanish
-      ? "Mirá un anuncio y Still desbloqueará la app que querías abrir."
+      ? "Mira un anuncio y Still desbloqueará la app que querías abrir."
       : "Watch an ad and Still will unlock the app you were trying to open."
     content.sound = .default
     content.userInfo = [

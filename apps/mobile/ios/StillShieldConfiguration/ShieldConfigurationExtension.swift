@@ -19,9 +19,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let walletKey = "localWallet"
   private let productMetricsPrefix = "productMetrics:"
   private let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
-  private let ink = UIColor(red: 45/255, green: 46/255, blue: 49/255, alpha: 1)
-  private let forest = UIColor(red: 52/255, green: 66/255, blue: 55/255, alpha: 1)
-  private let linen = UIColor(red: 246/255, green: 244/255, blue: 241/255, alpha: 1)
+  private let ink = UIColor(red: 23/255, green: 24/255, blue: 20/255, alpha: 1)
+  private let paper = UIColor(red: 243/255, green: 240/255, blue: 232/255, alpha: 1)
+  private let signal = UIColor(red: 255/255, green: 92/255, blue: 53/255, alpha: 1)
   private var isSpanish: Bool { Locale.preferredLanguages.first?.hasPrefix("es") == true }
   private func copy(_ english: String, _ spanish: String) -> String { isSpanish ? spanish : english }
 
@@ -97,33 +97,33 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     switch unlock {
     case .rewarded:
       canUnlock = true
-      secondaryButtonText = copy("Use 1 Unlock Token", "Usar 1 Unlock Token")
+      secondaryButtonText = copy("Use 1 pass · 10 min", "Usar 1 pase · 10 min")
     case .emergency:
       canUnlock = true
-      secondaryButtonText = copy("Use 1 Emergency Unlock", "Usar 1 desbloqueo de emergencia")
+      secondaryButtonText = copy("Use emergency pass · 10 min", "Usar pase de emergencia · 10 min")
     case .none:
       canUnlock = false
-      secondaryButtonText = copy("Close and recharge in Still", "Cerrar y recargar en Still")
+      secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")
     }
     return ShieldConfiguration(
-      backgroundBlurStyle: .systemMaterialLight,
-      backgroundColor: linen,
-      icon: UIImage(systemName: "leaf"),
+      backgroundBlurStyle: .none,
+      backgroundColor: paper,
+      icon: UIImage(systemName: "pause"),
       title: .init(
         text: canUnlock
-          ? copy("A pause before you enter", "Una pausa antes de entrar")
-          : copy("No Unlock Tokens left", "No te quedan Unlock Tokens"),
-        color: forest
+          ? copy("A pause before entering", "Una pausa antes de entrar")
+          : copy("No passes available", "No hay pases disponibles"),
+        color: ink
       ),
       subtitle: .init(
         text: (canUnlock
-          ? copy("Do you really want to open this app?", "¿Realmente quieres abrir esta app?")
-          : copy("Open Still to earn another token.", "Abre Still para conseguir otro token."))
+          ? copy("One choice. Nothing else.", "Una decisión. Nada más.")
+          : copy("Close this pause or open Still to get another pass.", "Cierra esta pausa o abre Still para conseguir otro pase."))
           + "\n\n" + impactSummary,
         color: ink
       ),
-      primaryButtonLabel: .init(text: copy("Not now", "Ahora no"), color: .white),
-      primaryButtonBackgroundColor: forest,
+      primaryButtonLabel: .init(text: copy("Don't enter", "No entrar"), color: ink),
+      primaryButtonBackgroundColor: signal,
       secondaryButtonLabel: .init(
         text: secondaryButtonText,
         color: ink

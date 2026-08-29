@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BrandLockup } from "@/components/brand-mark";
 
 import { requestAdminLink } from "./actions";
 
@@ -7,8 +7,8 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
   return (
     <main className="admin-login">
       <section className="login-card">
-        <Link className="brand" href="/"><span className="brand-mark">⌁</span><span>still</span></Link>
-        <p className="eyebrow">Operaciones</p>
+        <BrandLockup />
+        <p className="mono-label">OPERACIONES / ACCESO PRIVADO</p>
         <h1>Acceso privado</h1>
         <p>Recibirás un enlace de acceso. La cuenta debe existir en <code>admin_users</code>.</p>
         {params.sent === "1" && <p className="notice notice--success">Revisa tu correo para continuar.</p>}

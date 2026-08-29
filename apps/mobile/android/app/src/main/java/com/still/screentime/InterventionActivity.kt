@@ -1,11 +1,15 @@
 package com.still.screentime
 
 import android.app.Activity
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
@@ -15,53 +19,78 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 class InterventionActivity : Activity() {
+  private val ink = Color.rgb(23, 24, 20)
+  private val muted = Color.rgb(93, 94, 88)
+  private val paper = Color.rgb(243, 240, 232)
+  private val signal = Color.rgb(255, 92, 53)
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    window.statusBarColor = Color.rgb(246, 244, 241)
-    window.navigationBarColor = Color.rgb(246, 244, 241)
-    val density = resources.displayMetrics.density
-    val pad = (28 * density).toInt()
+    window.statusBarColor = paper
+    window.navigationBarColor = paper
+    window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+    val pad = dp(28)
     val spanish = resources.configuration.locales[0].language == "es"
 
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
-      gravity = Gravity.CENTER_HORIZONTAL
-      setPadding(pad, pad * 2, pad, pad)
-      setBackgroundColor(Color.rgb(246, 244, 241))
+      gravity = Gravity.START
+      setPadding(pad, dp(48), pad, pad)
+      setBackgroundColor(paper)
     }
     root.addView(TextView(this).apply {
-      text = "⌁"
-      textSize = 72f
-      gravity = Gravity.CENTER
-      setTextColor(Color.rgb(52, 66, 55))
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-    root.addView(TextView(this).apply {
-      text = if (spanish) "¿Realmente quieres abrir esta app?" else "Do you really want to open this app?"
-      textSize = 34f
-      gravity = Gravity.CENTER
-      setTextColor(Color.rgb(52, 66, 55))
-      setPadding(0, 0, 0, pad)
+      text = if (spanish) "STILL / PAUSA 00:10" else "STILL / PAUSE 00:10"
+      textSize = 12f
+      letterSpacing = 0.16f
+      typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+      setTextColor(muted)
     })
+    root.addView(LinearLayout(this).apply {
+      orientation = LinearLayout.VERTICAL
+      addView(View(this@InterventionActivity).apply { setBackgroundColor(ink) }, LinearLayout.LayoutParams(dp(5), dp(56)))
+      addView(View(this@InterventionActivity), LinearLayout.LayoutParams(dp(5), dp(10)))
+      addView(View(this@InterventionActivity).apply { setBackgroundColor(signal) }, LinearLayout.LayoutParams(dp(5), dp(56)))
+    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(48) })
+    root.addView(TextView(this).apply {
+      text = if (spanish) "Una pausa antes\nde entrar." else "A pause before\nyou enter."
+      textSize = 42f
+      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+      setLineSpacing(0f, 0.92f)
+      setTextColor(ink)
+    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(32) })
     root.addView(TextView(this).apply {
       text = impactSummary(spanish)
-      textSize = 14f
-      gravity = Gravity.CENTER
-      setTextColor(Color.rgb(95, 96, 92))
-      setPadding(0, 0, 0, pad)
-    })
+      textSize = 13f
+      typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+      setTextColor(muted)
+    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(18) })
+    root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
     root.addView(Button(this).apply {
-      text = if (spanish) "Ahora no" else "Not now"
+      text = if (spanish) "No entrar" else "Don't enter"
       isAllCaps = false
+      textSize = 16f
+      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+      setTextColor(ink)
+      backgroundTintList = ColorStateList.valueOf(signal)
       setOnClickListener { goHome() }
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (56 * density).toInt()))
+    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
     root.addView(Button(this).apply {
-      text = if (spanish) "Abrir Still para desbloquear" else "Open Still to unlock"
+      text = if (spanish) "Usar 1 pase · 10 min" else "Use 1 pass · 10 min"
       isAllCaps = false
+      textSize = 15f
+      typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+      setTextColor(ink)
+      backgroundTintList = ColorStateList.valueOf(paper)
+      background = GradientDrawable().apply {
+        setColor(paper)
+        setStroke(dp(1), ink)
+        cornerRadius = dp(4).toFloat()
+      }
       setOnClickListener {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("still://intervention")).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
         finish()
       }
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (64 * density).toInt()).apply { topMargin = (12 * density).toInt() })
+    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)).apply { topMargin = dp(12) })
     setContentView(root)
   }
 
@@ -99,6 +128,8 @@ class InterventionActivity : Activity() {
     val formatted = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }.format(value)
     return if (minutes < 60) "$formatted min" else "$formatted h"
   }
+
+  private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
   companion object { const val EXTRA_TARGET_PACKAGE = "target_package" }
 }

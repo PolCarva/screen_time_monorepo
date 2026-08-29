@@ -4,42 +4,42 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Still",
-  description: "How Still handles device, wellbeing, advertising, and impact data.",
+  title: "Privacidad",
+  description: "Cómo Still trata los datos del dispositivo, bienestar, publicidad e impacto.",
 };
 
 const sections = [
   {
-    title: "1. What stays on your device",
-    body: "Your restricted-app selection, app names, bundle identifiers, package names, and detailed Screen Time or Usage Stats history remain on your device. Still does not send this information to its servers, analytics providers, or advertising partners.",
+    title: "1. Lo que permanece en tu dispositivo",
+    body: "La selección de apps, sus nombres, bundle identifiers, package names y el historial detallado de Screen Time o Usage Stats permanecen en tu dispositivo. Still no envía esa información a sus servidores, proveedores de analytics ni socios publicitarios.",
   },
   {
-    title: "2. Data we process",
-    body: "Still may process an anonymous account identifier, linked Apple or Google account details when you choose to link an account, registered devices and push tokens, platform and country, confirmation that you are 18 or older, token-ledger events, unlock sessions, votes, and daily aggregate wellbeing counts. We do not ask for your date of birth.",
+    title: "2. Datos que procesamos",
+    body: "Still puede procesar un identificador anónimo, datos de una cuenta Apple o Google si decides vincularla, dispositivos y push tokens registrados, plataforma y país, confirmación de mayoría de edad, eventos del ledger de pases, sesiones, votos y conteos diarios agregados. No solicitamos tu fecha de nacimiento.",
   },
   {
-    title: "3. Rewarded advertising",
-    body: "Rewarded ads are optional. Still uses Google AdMob and the Google User Messaging Platform to request consent where required. The MVP requests non-personalized or limited ads. Completing an eligible rewarded ad grants one non-transferable Unlock Token. Still allocates a percentage of its advertising revenue to the Impact Fund; an individual ad does not itself donate money.",
+    title: "3. Publicidad opcional",
+    body: "Los anuncios recompensados son opcionales. Still usa Google AdMob y Google User Messaging Platform para solicitar consentimiento cuando corresponde. El MVP pide anuncios no personalizados o limitados. Completar un anuncio elegible concede un pase no transferible. Still asigna un porcentaje de su ingreso publicitario al fondo; un anuncio individual no dona dinero por sí mismo.",
   },
   {
-    title: "4. Analytics and diagnostics",
-    body: "Still may use PostHog for product analytics and Sentry for error diagnostics. Events may include platform, country, a generic category, and aggregate counts. They never include the name, package name, or bundle identifier of an app you installed or restricted, nor your detailed usage history.",
+    title: "4. Analytics y diagnóstico",
+    body: "Still puede usar PostHog para analytics de producto y Sentry para diagnóstico de errores. Los eventos pueden incluir plataforma, país, una categoría genérica y conteos agregados. Nunca incluyen el nombre, package name o bundle identifier de una app instalada o elegida, ni el historial detallado de uso.",
   },
   {
-    title: "5. Retention",
-    body: "Identifiable wellbeing aggregates are retained for up to 90 days and may then be kept only in anonymous aggregate form. Product analytics are retained for up to 13 months. Revenue, donation, and administrative audit records may be retained for seven years or for the period required by applicable law.",
+    title: "5. Conservación",
+    body: "Los agregados de bienestar identificables se conservan hasta 90 días y después pueden mantenerse solo de forma anónima y agregada. Los analytics de producto se conservan hasta 13 meses. Los registros de ingresos, donaciones y auditoría administrativa pueden conservarse siete años o el plazo exigido por la ley aplicable.",
   },
   {
-    title: "6. Your choices and rights",
-    body: "You can decline advertising consent, use Emergency Unlocks when an ad is unavailable, revoke platform permissions, export your account data, or request deletion from the Privacy section in Still. Deletion removes your profile, devices, aggregates, and push tokens. Financial ledger entries may be retained only in pseudonymized form where legally necessary.",
+    title: "6. Tus opciones y derechos",
+    body: "Puedes rechazar el consentimiento publicitario, usar accesos de emergencia cuando no haya anuncios, revocar permisos de plataforma, exportar los datos de la cuenta o solicitar su eliminación desde Privacidad. La eliminación borra perfil, dispositivos, agregados y push tokens. Los asientos financieros pueden conservarse seudonimizados cuando sea legalmente necesario.",
   },
   {
-    title: "7. International processing and security",
-    body: "Service providers may process data in countries other than your own. Still uses access controls, row-level security, encrypted transport, server-only financial mutations, and data minimization to protect the limited information it processes.",
+    title: "7. Procesamiento internacional y seguridad",
+    body: "Los proveedores pueden procesar datos en países distintos del tuyo. Still usa controles de acceso, row-level security, transporte cifrado, mutaciones financieras exclusivas del servidor y minimización de datos para proteger la información limitada que procesa.",
   },
   {
-    title: "8. Adults only and changes",
-    body: "Still is intended for adults aged 18 and older. We may update this policy as the product or legal requirements change. Material changes will be communicated in the app or on this page before they take effect when required.",
+    title: "8. Personas adultas y cambios",
+    body: "Still está destinado a personas de 18 años o más. Podemos actualizar esta política cuando cambie el producto o las obligaciones legales. Los cambios materiales se comunicarán en la app o en esta página antes de entrar en vigor cuando corresponda.",
   },
 ];
 
@@ -47,23 +47,22 @@ export default function PrivacyPage() {
   return (
     <main>
       <SiteHeader />
-      <article className="legal-page shell">
+      <article className="legal-page shell-wide">
         <header className="legal-hero">
-          <p className="eyebrow">Privacy · Privacidad</p>
-          <h1>Your attention is yours.</h1>
-          <p>
-            This policy explains how Still handles information across the mobile app,
-            public Impact Fund, and administrative services.
-          </p>
-          <p className="legal-date">Effective August 23, 2026</p>
+          <p className="mono-label">PRIVACIDAD / EN LENGUAJE CLARO</p>
+          <h1>Tu atención es tuya.</h1>
+          <div className="legal-hero__intro">
+            <p>Esta política explica cómo Still trata la información en la app, el fondo público y los servicios administrativos.</p>
+            <p className="legal-date">Vigente desde el 23 de agosto de 2026</p>
+          </div>
         </header>
 
         <section className="legal-summary" aria-label="Privacy summary">
-          <strong>Plain-language promise</strong>
+          <strong>Promesa directa</strong>
           <p>
-            App selections and detailed usage stay local. We collect only the minimum
-            aggregate and operational data needed to provide tokens, unlocks, voting,
-            transparency, security, and privacy requests.
+            Las apps elegidas y el historial detallado permanecen en el dispositivo.
+            Recopilamos solo los datos agregados y operativos necesarios para pases,
+            sesiones, votos, transparencia, seguridad y solicitudes de privacidad.
           </p>
         </section>
 
@@ -77,13 +76,14 @@ export default function PrivacyPage() {
         </div>
 
         <section className="legal-contact">
-          <h2>Questions or requests</h2>
-          <p>
-            Use <strong>Settings → Privacy</strong> in the Still app for export and
-            deletion requests. Until the beta opens, privacy inquiries can also be
-            submitted through the project administrator.
-          </p>
-          <Link className="text-link" href="/">Return to Still →</Link>
+          <h2>Preguntas o solicitudes</h2>
+          <div>
+            <p>
+              Usa <strong>Ajustes → Privacidad</strong> en la app para exportar o eliminar datos.
+              Hasta que abra la beta, las consultas también pueden enviarse al administrador del proyecto.
+            </p>
+            <Link className="text-link" href="/">Volver a Still</Link>
+          </div>
         </section>
       </article>
     </main>

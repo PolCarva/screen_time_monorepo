@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-labelledby="title desc">
+  <title id="title">Still - Secuencia de pausa</title>
+  <desc id="desc">Story vertical que muestra el intervalo de decisión en cuatro estados.</desc>
+  <rect width="1080" height="1920" fill="#F3F0E8"/>
+  <text x="74" y="106" fill="#5D5E58" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="24" letter-spacing="4">STILL / INTERVALO REGISTRADO</text>
+  <text x="74" y="330" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="118" letter-spacing="-5">Elige antes</text>
+  <text x="74" y="448" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="118" letter-spacing="-5">de entrar.</text>
+  <line x1="74" y1="570" x2="1006" y2="570" stroke="#171814" stroke-width="3"/>
+  <g font-family="IBM Plex Mono,monospace" font-size="24" font-weight="600" letter-spacing="3">
+    <text x="74" y="692" fill="#5D5E58">00:10 / PAUSA</text><text x="760" y="692" fill="#171814">RESPIRAR</text>
+    <line x1="74" y1="742" x2="1006" y2="742" stroke="#C9C5BA"/>
+    <text x="74" y="864" fill="#5D5E58">00:06 / PREGUNTA</text><text x="760" y="864" fill="#171814">ELEGIR</text>
+    <line x1="74" y1="914" x2="1006" y2="914" stroke="#C9C5BA"/>
+    <text x="74" y="1036" fill="#5D5E58">00:01 / SALIDA</text><text x="760" y="1036" fill="#171814">UN TOQUE</text>
+    <line x1="74" y1="1086" x2="1006" y2="1086" stroke="#C9C5BA"/>
+    <text x="74" y="1208" fill="#5D5E58">00:00 / REGISTRO</text><text x="760" y="1208" fill="#171814">LOCAL</text>
+  </g>
+  <rect x="74" y="1370" width="932" height="170" rx="8" fill="#FF5C35"/>
+  <text x="110" y="1474" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="54">No entrar</text>
+  <line x1="74" y1="1640" x2="516" y2="1640" stroke="#171814" stroke-width="8"/>
+  <line x1="564" y1="1640" x2="1006" y2="1640" stroke="#171814" stroke-width="8"/>
+  <text x="74" y="1810" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="28" letter-spacing="4">UNA PAUSA QUE CUENTA.</text>
+</svg>

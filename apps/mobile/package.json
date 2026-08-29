@@ -14,8 +14,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@expo-google-fonts/cormorant-garamond": "latest",
-    "@expo-google-fonts/inter": "latest",
+    "@expo-google-fonts/familjen-grotesk": "^0.4.2",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo/dom-webview": "~57.0.1",
     "@expo/log-box": "~57.0.3",
     "@expo/metro-runtime": "~57.0.12",

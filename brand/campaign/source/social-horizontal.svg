@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="628" viewBox="0 0 1200 628" role="img" aria-labelledby="title desc">
+  <title id="title">Still - lanzamiento horizontal</title><desc id="desc">Master horizontal para LinkedIn, X y paid social.</desc>
+  <rect width="1200" height="628" fill="#F3F0E8"/><rect width="748" height="628" fill="#FF5C35"/>
+  <g transform="translate(58 42) scale(.72)" fill="none" stroke="#171814" stroke-width="14" stroke-linecap="square" stroke-linejoin="round"><path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/><path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/></g>
+  <text x="58" y="272" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="82" letter-spacing="-3.5">Elige antes</text><text x="58" y="354" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="82" letter-spacing="-3.5">de entrar.</text>
+  <line x1="58" y1="428" x2="690" y2="428" stroke="#171814" stroke-width="3"/><text x="58" y="484" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="20" letter-spacing="3">UNA PAUSA QUE CUENTA.</text>
+  <text x="798" y="82" fill="#5D5E58" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="18" letter-spacing="3">SECUENCIA / 01-03</text>
+  <g font-family="IBM Plex Mono,monospace" font-weight="600" font-size="21"><text x="798" y="190" fill="#5D5E58">01 / PAUSA</text><text x="1082" y="190" fill="#171814">00:10</text><line x1="798" y1="220" x2="1142" y2="220" stroke="#C9C5BA"/><text x="798" y="304" fill="#5D5E58">02 / ELECCIÓN</text><text x="1062" y="304" fill="#171814">01 TAP</text><line x1="798" y1="334" x2="1142" y2="334" stroke="#C9C5BA"/><text x="798" y="418" fill="#5D5E58">03 / REGISTRO</text><text x="1070" y="418" fill="#171814">LOCAL</text></g>
+  <rect x="798" y="500" width="344" height="70" rx="7" fill="#171814"/><text x="824" y="545" fill="#F3F0E8" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="25">Ver estado de la beta</text>
+</svg>

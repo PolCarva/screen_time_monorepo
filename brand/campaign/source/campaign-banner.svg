@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="480" viewBox="0 0 1440 480" role="img" aria-labelledby="title desc">
+  <title id="title">Still - campaign banner</title><desc id="desc">Banner web de campaña con el Still cut.</desc>
+  <rect width="1440" height="480" fill="#C9F36B"/>
+  <text x="64" y="84" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="20" letter-spacing="3">IMPACTO / SEMANA CERRADA</text><text x="64" y="234" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="92" letter-spacing="-4">Cada semana, una prueba.</text><text x="64" y="310" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-size="32">Importe, fecha, destino y recibo. Sin promesas vagas.</text>
+  <rect x="64" y="366" width="318" height="64" rx="7" fill="#171814"/><text x="93" y="408" fill="#F3F0E8" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="25">Abrir registro público</text>
+  <g transform="translate(1110 92) scale(2.05)" fill="none" stroke="#171814" stroke-width="14" stroke-linecap="square" stroke-linejoin="round"><path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/><path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/></g>
+</svg>

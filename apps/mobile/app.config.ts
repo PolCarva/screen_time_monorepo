@@ -9,6 +9,7 @@ const config: ExpoConfig = {
   version: "0.1.0",
   orientation: "portrait",
   scheme: "still",
+  icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   runtimeVersion: { policy: "appVersion" },
   ios: {
@@ -26,6 +27,10 @@ const config: ExpoConfig = {
   },
   android: {
     package: "com.still.screentime",
+    adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-icon.png",
+      backgroundColor: "#FF5C35",
+    },
     permissions: ["android.permission.PACKAGE_USAGE_STATS", "android.permission.POST_NOTIFICATIONS"],
   },
   plugins: [
@@ -34,7 +39,7 @@ const config: ExpoConfig = {
     "expo-notifications",
     "expo-font",
     "expo-localization",
-    "expo-splash-screen",
+    ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 256, resizeMode: "contain", backgroundColor: "#F3F0E8" }],
     "expo-sqlite",
     "expo-status-bar",
     "expo-web-browser",

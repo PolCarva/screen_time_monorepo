@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { z } from "zod";
 
 import { apiFetch } from "@/lib/api";
 import { capture } from "@/lib/analytics";
+import { IntervalMark } from "@/components/interval-mark";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
-import { Surface } from "@/components/surface";
-import { Body, Display, Eyebrow } from "@/components/typography";
+import { Body, Data, Display, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -127,7 +127,7 @@ export default function TokensScreen() {
           localize("Could not unlock", "No se pudo desbloquear"),
           localize(
             "Your token is still available. Return to the restricted app and try again.",
-            "Tu token sigue disponible. Volvé a la app restringida e intentá nuevamente.",
+            "Tu pase sigue disponible. Vuelve a la app restringida e inténtalo de nuevo.",
           ),
         );
       })
@@ -141,94 +141,129 @@ export default function TokensScreen() {
     wallet.rewardedBalance,
   ]);
   const buttonLabel = busy
-    ? localize("Opening…", "Abriendo…")
+    ? localize("Preparing the ad…", "Preparando el anuncio…")
     : balanceCapped
-      ? localize("Token limit reached", "Límite de tokens alcanzado")
+      ? localize("Pass limit reached", "Límite de pases alcanzado")
       : adReady
-        ? t("getToken")
+        ? localize("Get 1 pass", "Conseguir 1 pase")
         : adStatus === "unavailable"
-          ? localize("Retrying ad…", "Reintentando anuncio…")
+          ? localize("Ad unavailable · retrying", "Anuncio no disponible · reintentando")
           : localize(
-              "Preparing in background…",
-              "Preparando en segundo plano…",
+              "Preparing the ad…",
+              "Preparando el anuncio…",
             );
   return (
     <Screen>
-      <View>
-        <Eyebrow>
-          {localize("Your time, your choice", "Tu tiempo, tu elección")}
-        </Eyebrow>
-        <Display>{t("tokens")}</Display>
-      </View>
-      <View style={styles.ring}>
-        <View style={styles.inner}>
-          <Text style={styles.balance}>{wallet.rewardedBalance}</Text>
-          <Body style={styles.center}>{t("available")}</Body>
-        </View>
-      </View>
-      <PrimaryButton
-        onPress={() => void earn()}
-        disabled={capped || busy || !deviceId || !adReady}
-      >
-        {buttonLabel}
-      </PrimaryButton>
-      {capped && (
-        <Body style={styles.note}>
+      <View style={styles.header}>
+        <Eyebrow>{localize("PASSES / YOUR CHOICE", "PASES / TU ELECCIÓN")}</Eyebrow>
+        <Display>{localize("Ten minutes,\nwhen you choose.", "Diez minutos,\ncuando eliges.")}</Display>
+        <Body style={styles.lede}>
           {localize(
-            "You reached the token balance cap.",
-            "Alcanzaste el saldo máximo de tokens.",
+            "A pass opens a selected app for 10 minutes. Getting one is always optional.",
+            "Un pase abre una app elegida durante 10 minutos. Conseguirlo siempre es opcional.",
+          )}
+        </Body>
+      </View>
+
+      <View style={styles.balancePanel}>
+        <View style={styles.balanceHeader}>
+          <Eyebrow>{localize("AVAILABLE NOW", "DISPONIBLES AHORA")}</Eyebrow>
+          <Mono>{wallet.rewardedBalance} / {config.maxRewardTokenBalance}</Mono>
+        </View>
+        <View style={styles.balanceRow}>
+          <Data style={styles.balance}>{String(wallet.rewardedBalance).padStart(2, "0")}</Data>
+          <View style={styles.balanceCopy}>
+            <Heading>{localize("passes", "pases")}</Heading>
+            <Body style={styles.note}>{localize("non-transferable", "no transferibles")}</Body>
+          </View>
+        </View>
+        <IntervalMark label={localize("10 MIN / PASS", "10 MIN / PASE")} />
+        <PrimaryButton
+          onPress={() => void earn()}
+          disabled={capped || busy || !deviceId || !adReady}
+          variant="signal"
+        >
+          {buttonLabel}
+        </PrimaryButton>
+      </View>
+      {capped && (
+        <Body style={styles.limitNote}>
+          {localize(
+            "You already have the maximum number of passes.",
+            "Ya tienes el máximo de pases disponible.",
           )}
         </Body>
       )}
-      <Eyebrow>{localize("Other options", "Otras opciones")}</Eyebrow>
-      <Surface style={styles.row}>
-        <Text style={styles.rowIcon}>♙</Text>
-        <View>
-          <Text style={styles.rowTitle}>{t("emergency")}</Text>
-          <Body style={styles.note}>
-            {wallet.emergencyRemaining}{" "}
-            {localize(
-              "available today · work offline",
-              "disponibles hoy · funcionan offline",
-            )}
-          </Body>
+
+      <View style={styles.emergency}>
+        <View style={styles.sectionTop}>
+          <Eyebrow>02 / {localize("OFFLINE OPTION", "OPCIÓN SIN CONEXIÓN")}</Eyebrow>
+          <Data style={styles.emergencyCount}>{wallet.emergencyRemaining}</Data>
         </View>
-      </Surface>
-      <Surface style={styles.policy}>
-        <Eyebrow>{localize("No pressure", "Sin presión")}</Eyebrow>
-        <Body>
+        <Heading>{t("emergency")}</Heading>
+        <Body style={styles.note}>
           {localize(
-            "Ads are optional, limited, and non-personalized. The platform allocates part of its advertising revenue to the fund; no individual ad ‘donates’ money.",
-            "Los anuncios son opcionales, limitados y no personalizados. La plataforma asigna parte de su ingreso publicitario al fondo; ningún anuncio individual “dona” dinero.",
+            "Available today. They work even when an ad or connection doesn’t.",
+            "Disponibles hoy. Funcionan incluso cuando no hay anuncio o conexión.",
           )}
         </Body>
-      </Surface>
+      </View>
+
+      <View style={styles.policy}>
+        <Eyebrow>{localize("HOW ADS WORK", "CÓMO FUNCIONAN LOS ANUNCIOS")}</Eyebrow>
+        <Body style={styles.policyBody}>
+          {localize(
+            "Optional, limited ads fund Still. The platform allocates part of that revenue to the weekly fund; an individual ad is not a donation.",
+            "Los anuncios opcionales y limitados financian Still. La plataforma asigna parte de ese ingreso al fondo semanal; un anuncio individual no es una donación.",
+          )}
+        </Body>
+      </View>
     </Screen>
   );
 }
 const styles = StyleSheet.create({
-  ring: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    borderWidth: 8,
-    borderColor: colors.stone,
-    borderTopColor: colors.sage,
-    alignSelf: "center",
-    alignItems: "center",
-    justifyContent: "center",
+  header: { gap: spacing.lg },
+  lede: { color: colors.muted },
+  balancePanel: {
+    paddingVertical: spacing.lg,
+    gap: spacing.xl,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.ink,
   },
-  inner: { alignItems: "center" },
+  balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  balanceRow: { minHeight: 122, flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   balance: {
-    fontFamily: fonts.display,
-    fontSize: 76,
-    lineHeight: 78,
-    color: colors.forest,
+    fontFamily: fonts.monoMedium,
+    fontSize: 92,
+    lineHeight: 96,
+    letterSpacing: -5,
   },
-  center: { textAlign: "center", color: colors.muted },
+  balanceCopy: { paddingBottom: spacing.sm, gap: spacing.xs },
   note: { fontSize: 12, color: colors.muted },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  rowIcon: { fontSize: 28, color: colors.sage },
-  rowTitle: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.ink },
-  policy: { backgroundColor: "rgba(220,201,179,.22)" },
+  limitNote: {
+    padding: spacing.md,
+    borderLeftWidth: 5,
+    borderColor: colors.warning,
+    backgroundColor: colors.paperRaised,
+    color: colors.muted,
+    fontSize: 13,
+  },
+  emergency: {
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.rule,
+  },
+  sectionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  emergencyCount: { fontSize: 34, lineHeight: 36 },
+  policy: {
+    padding: spacing.lg,
+    gap: spacing.md,
+    borderLeftWidth: 7,
+    borderColor: colors.record,
+    backgroundColor: colors.paperRaised,
+  },
+  policyBody: { fontSize: 14, lineHeight: 22 },
 });

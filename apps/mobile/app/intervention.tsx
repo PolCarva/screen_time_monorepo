@@ -1,17 +1,107 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
+import { IntervalMark } from "@/components/interval-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
-import { Body, Display, Eyebrow } from "@/components/typography";
-import { localize, t } from "@/i18n";
+import { Body, Display, Eyebrow, Mono } from "@/components/typography";
+import { localize } from "@/i18n";
 import { useAppState } from "@/state/app-state";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, spacing } from "@/theme/tokens";
 
 export default function InterventionScreen() {
-  const { wallet, config, unlockCurrent }=useAppState(); const [busy,setBusy]=useState(false);
-  async function unlock(){setBusy(true);try{if(wallet.rewardedBalance<=0&&wallet.emergencyRemaining<=0){router.replace("/(tabs)/(tokens)");return;}await unlockCurrent();router.back();}catch{Alert.alert(localize("Unlock unavailable", "Desbloqueo no disponible"),localize("Open Still again or use an Emergency Unlock.", "Abre Still otra vez o usa un desbloqueo de emergencia."));}finally{setBusy(false);}}
-  return <Screen contentContainerStyle={styles.screen}><Eyebrow>{localize("A pause before you enter", "Una pausa antes de entrar")}</Eyebrow><View style={styles.seal}><Text style={styles.leaf}>⌁</Text></View><View><Display style={styles.center}>{t("interventionTitle")}</Display><Body style={styles.detail}>{localize("Your selected-app time is shown on Today", "Tu tiempo en apps seleccionadas aparece en Hoy")}</Body></View><View style={styles.actions}><Text style={styles.nowNot} onPress={()=>router.back()}>{t("nowNot")}</Text><PrimaryButton onPress={unlock} disabled={busy}>{wallet.rewardedBalance>0?t("useToken"):`Emergency Unlock · ${wallet.emergencyRemaining}`}</PrimaryButton><Body style={styles.note}>{localize(`The unlock lasts ${Math.round(config.unlockDurationSeconds/60)} minutes and is restored even if you close Still.`, `El desbloqueo dura ${Math.round(config.unlockDurationSeconds/60)} minutos y se restaura incluso si cierras Still.`)}</Body></View></Screen>;
+  const { wallet, config, stats, unlockCurrent } = useAppState();
+  const [busy, setBusy] = useState(false);
+  const durationMinutes = Math.round(config.unlockDurationSeconds / 60);
+  const hasRewardedPass = wallet.rewardedBalance > 0;
+  const hasEmergencyAccess = wallet.emergencyRemaining > 0;
+
+  async function unlock() {
+    setBusy(true);
+    try {
+      if (!hasRewardedPass && !hasEmergencyAccess) {
+        router.replace("/(tabs)/(tokens)");
+        return;
+      }
+      const session = await unlockCurrent();
+      router.replace({ pathname: "/unlock-ready", params: { endsAt: session.endsAt } });
+    } catch {
+      Alert.alert(
+        localize("Couldn’t open the app", "No se pudo abrir la app"),
+        localize(
+          "No pass was lost. Open Still again or use an Emergency Access.",
+          "No perdiste ningún pase. Abre Still otra vez o usa un acceso de emergencia.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const secondaryLabel = busy
+    ? localize("Opening…", "Abriendo…")
+    : hasRewardedPass
+      ? localize(`Use 1 pass · ${durationMinutes} min`, `Usar 1 pase · ${durationMinutes} min`)
+      : hasEmergencyAccess
+        ? localize(`Emergency Access · ${wallet.emergencyRemaining}`, `Acceso de emergencia · ${wallet.emergencyRemaining}`)
+        : localize("Get a pass", "Conseguir un pase");
+
+  return (
+    <Screen contentContainerStyle={styles.screen}>
+      <View style={styles.top}>
+        <Eyebrow>
+          {new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date())}
+          {localize(" / PAUSE", " / PAUSA")}
+        </Eyebrow>
+        <Mono>{localize("STILL / BEFORE ENTERING", "STILL / ANTES DE ENTRAR")}</Mono>
+      </View>
+
+      <View style={styles.decision}>
+        <IntervalMark label="00:01" />
+        <View style={styles.copy}>
+          <Eyebrow>{localize("ONE SECOND TO CHOOSE", "UN SEGUNDO PARA ELEGIR")}</Eyebrow>
+          <Display style={styles.title}>{localize("Still want to\ngo in?", "¿Aún quieres\nentrar?")}</Display>
+          <Body style={styles.detail}>
+            {localize(
+              `You’ve spent ${Math.floor(stats.screenTimeMinutes / 60)} hr ${stats.screenTimeMinutes % 60} min in selected apps today.`,
+              `Llevas ${Math.floor(stats.screenTimeMinutes / 60)} h ${stats.screenTimeMinutes % 60} min hoy en las apps elegidas.`,
+            )}
+          </Body>
+        </View>
+      </View>
+
+      <View style={styles.actions}>
+        <PrimaryButton onPress={() => router.back()}>
+          {localize("Not now", "No entrar")}
+        </PrimaryButton>
+        <PrimaryButton onPress={unlock} disabled={busy} variant="secondary">
+          {secondaryLabel}
+        </PrimaryButton>
+        <Body style={styles.note}>
+          {localize(
+            `The pass lasts ${durationMinutes} minutes. The pause returns when it ends.`,
+            `El pase dura ${durationMinutes} minutos. La pausa vuelve cuando termina.`,
+          )}
+        </Body>
+      </View>
+    </Screen>
+  );
 }
-const styles=StyleSheet.create({screen:{flexGrow:1,justifyContent:"space-between",alignItems:"center",paddingVertical:spacing.xxl},seal:{width:150,height:150,borderRadius:75,backgroundColor:colors.stone,borderWidth:1,borderColor:"#C8BBA8",alignItems:"center",justifyContent:"center",shadowColor:colors.ink,shadowOpacity:.15,shadowRadius:20,shadowOffset:{width:0,height:10}},leaf:{fontSize:62,color:colors.forest},center:{textAlign:"center",fontSize:38},detail:{textAlign:"center",color:colors.muted,marginTop:spacing.md},actions:{width:"100%",gap:spacing.md},nowNot:{fontFamily:fonts.sansBold,textAlign:"center",fontSize:16,color:colors.forest,padding:spacing.lg},note:{fontSize:11,textAlign:"center",color:colors.muted}});
+
+const styles = StyleSheet.create({
+  screen: { flexGrow: 1, minHeight: 720, justifyContent: "space-between", paddingVertical: spacing.lg },
+  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
+  decision: {
+    paddingVertical: spacing.xl,
+    gap: spacing.xxl,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.ink,
+  },
+  copy: { gap: spacing.lg },
+  title: { fontSize: 54, lineHeight: 51 },
+  detail: { color: colors.muted },
+  actions: { gap: spacing.sm },
+  note: { marginTop: spacing.sm, color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center" },
+});

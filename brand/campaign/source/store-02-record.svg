@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1290" height="2796" viewBox="0 0 1290 2796" role="img" aria-labelledby="title desc">
+  <title id="title">Still store screen 2 - pases</title><desc id="desc">Asset de tienda con captura real del sistema de pases en la build Release.</desc>
+  <defs><clipPath id="screen"><rect x="216" y="790" width="858" height="1860" rx="82"/></clipPath></defs>
+  <rect width="1290" height="2796" fill="#171814"/>
+  <text x="90" y="214" fill="#9CB8FF" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="28" letter-spacing="4">02 / PASES</text>
+  <text x="90" y="440" fill="#F3F0E8" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="126" letter-spacing="-6">Diez minutos,</text>
+  <text x="90" y="566" fill="#F3F0E8" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="126" letter-spacing="-6">cuando eliges.</text>
+  <rect x="198" y="772" width="894" height="1896" rx="98" fill="#F3F0E8"/>
+  <image href="../../product-screens/mobile-passes-ios.png" x="216" y="790" width="858" height="1860" preserveAspectRatio="xMidYMid meet" clip-path="url(#screen)"/>
+</svg>

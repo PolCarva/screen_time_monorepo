@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Still - Cada semana, una prueba.</title>
+  <desc id="desc">Pieza social lima sobre el registro público de impacto de Still.</desc>
+  <rect width="1080" height="1080" fill="#C9F36B"/>
+  <text x="76" y="106" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="24" letter-spacing="4">IMPACTO / REGISTRO PÚBLICO</text>
+  <text x="76" y="322" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="112" letter-spacing="-5">Cada semana,</text>
+  <text x="76" y="436" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="112" letter-spacing="-5">una prueba.</text>
+  <line x1="76" y1="556" x2="1004" y2="556" stroke="#171814" stroke-width="3"/>
+  <text x="76" y="632" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="500" font-size="25" letter-spacing="2">80% DEL MARGEN NETO PUBLICITARIO</text>
+  <line x1="76" y1="678" x2="1004" y2="678" stroke="#171814" stroke-width="1"/>
+  <text x="76" y="748" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="500" font-size="25" letter-spacing="2">VOTO / DESTINO / RECIBO / FECHA</text>
+  <line x1="76" y1="794" x2="1004" y2="794" stroke="#171814" stroke-width="1"/>
+  <g transform="translate(80 842) scale(1.05)" fill="none" stroke="#171814" stroke-width="14" stroke-linecap="square" stroke-linejoin="round">
+    <path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/><path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/>
+  </g>
+  <text x="250" y="962" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="26" letter-spacing="3">STILL / SIN ATAJOS VERDES</text>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 240" role="img" aria-labelledby="title desc">
+  <title id="title">Still interval ruler</title>
+  <desc id="desc">A repeated time ruler interrupted by a signal-orange interval.</desc>
+  <rect width="1440" height="240" fill="#F3F0E8"/>
+  <path d="M0 120H580M700 120H1440" stroke="#171814" stroke-width="2"/>
+  <path d="M24 96V144M72 104V136M120 104V136M168 104V136M216 96V144M264 104V136M312 104V136M360 104V136M408 96V144M456 104V136M504 104V136M552 104V136M724 96V144M772 104V136M820 104V136M868 104V136M916 96V144M964 104V136M1012 104V136M1060 104V136M1108 96V144M1156 104V136M1204 104V136M1252 104V136M1300 96V144M1348 104V136M1396 104V136" stroke="#171814" stroke-width="2"/>
+  <rect x="580" y="106" width="120" height="28" fill="#FF5C35"/>
+  <text x="596" y="126" fill="#171814" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600">00:01 PAUSE</text>
+</svg>
