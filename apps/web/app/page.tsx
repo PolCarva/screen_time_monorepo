@@ -1,49 +1,14 @@
+import Image from "next/image";
 import Link from "next/link";
 
+import { AttentionField } from "@/components/attention-field";
 import { BrandLockup } from "@/components/brand-mark";
 import { ImpactCard } from "@/components/impact-card";
 import { InterventionDemo } from "@/components/intervention-demo";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentImpactWeek } from "@/lib/impact";
 
-const mechanics = [
-  {
-    index: "01",
-    time: "00:00",
-    title: "El reflejo se corta.",
-    body: "Still aparece justo antes de las apps que elegiste. No bloquea el teléfono ni clasifica tu atención.",
-  },
-  {
-    index: "02",
-    time: "00:01",
-    title: "La decisión vuelve.",
-    body: "No entrar requiere un toque. Si decides seguir, un pase abre la app durante 10 minutos.",
-  },
-  {
-    index: "03",
-    time: "10:00",
-    title: "El corte regresa.",
-    body: "Cuando el pase termina, la pausa vuelve a estar activa. Nada queda abierto por accidente.",
-  },
-] as const;
-
-const faqs = [
-  {
-    question: "¿Still bloquea todo el teléfono?",
-    answer:
-      "No. Protege sólo las apps que elegiste y aparece antes de abrirlas. Puedes no entrar con un toque o usar un pase de 10 minutos.",
-  },
-  {
-    question: "¿Qué información sale del dispositivo?",
-    answer:
-      "Los nombres de las apps, sus identificadores y el historial detallado permanecen en tu teléfono. Still comparte únicamente los conteos necesarios para pases, votos e impacto.",
-  },
-  {
-    question: "¿Cómo funciona el fondo de impacto?",
-    answer:
-      "La plataforma asigna una parte de sus ingresos al fondo; un anuncio individual no equivale a una donación. Cada semana publicamos el monto estimado, el cierre, la asignación y el comprobante.",
-  },
-] as const;
+const weekly = [76, 52, 63, 41, 58, 29, 34];
 
 export default async function HomePage() {
   const impact = await getCurrentImpactWeek();
@@ -52,166 +17,126 @@ export default async function HomePage() {
     <main>
       <SiteHeader />
 
-      <section className="hero shell-wide">
-        <div className="hero__meta mono-label">
-          <span>UNA PAUSA ANTES DE ENTRAR</span>
-          <span>IOS + ANDROID / BETA PRIVADA</span>
-        </div>
-        <div className="hero__copy">
-          <h1>
-            Una pausa
-            <span>que <mark>cuenta.</mark></span>
-          </h1>
-          <div className="hero__lede">
-            <p>
-              Still aparece antes de las apps que abres por reflejo. Salir es un toque.
-              Entrar sigue siendo una elección.
-            </p>
-            <div className="hero__actions" id="download">
-              <a className="button button--signal" href="#beta-status">
-                Ver disponibilidad
-              </a>
-              <Link className="text-link" href="/impact">Ver el fondo semanal</Link>
+      <section className="hero-v3 shell-wide">
+        <div className="hero-v3__meta mono-label"><span>QUIET TECHNOLOGY / BETA PRIVADA</span><span>IOS + ANDROID</span></div>
+        <div className="hero-v3__grid">
+          <div className="hero-v3__copy">
+            <h1>Un segundo<br />antes de entrar.</h1>
+            <p>Still aparece antes de las apps que abres automáticamente. Hace visible la decisión; no la toma por ti.</p>
+            <div className="hero-v3__actions" id="download">
+              <a className="button button--ink" href="#beta-status">Ver disponibilidad</a>
+              <a className="text-link" href="#intervencion">Ver la intervención</a>
             </div>
-            <p className="fine-print">18+ · Los nombres de tus apps no salen de tu dispositivo.</p>
+            <p className="fine-print">18+ · Los nombres de las apps y el historial detallado permanecen en tu dispositivo.</p>
           </div>
+          <InterventionDemo />
         </div>
-        <InterventionDemo />
+        <dl className="hero-v3__facts">
+          <div><dt>Tiempo recuperado hoy</dt><dd>42 min</dd></div>
+          <div><dt>Apps protegidas</dt><dd>06</dd></div>
+          <div><dt>Fondo semanal</dt><dd>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(impact.impactFundMinor / 100)}</dd></div>
+          <div><dt>Siguiente acción</dt><dd>Revisar selección →</dd></div>
+        </dl>
       </section>
 
-      <section className="mechanism shell-wide" aria-labelledby="mechanism-title">
-        <header className="section-heading">
-          <p className="mono-label">SECUENCIA / CÓMO FUNCIONA</p>
-          <h2 id="mechanism-title">Un segundo cambia la secuencia.</h2>
-          <p>No necesitas otra meta diaria. Necesitas ver el momento que normalmente desaparece.</p>
-        </header>
-        <ol className="mechanism__list">
-          {mechanics.map((item) => (
-            <li key={item.index}>
-              <span className="mechanism__index">{item.index}</span>
-              <span className="mechanism__time">{item.time}</span>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="choice-section">
-        <div className="shell-wide choice-section__grid">
-          <div className="choice-section__statement">
-            <p className="mono-label">DISEÑADO PARA SALIR</p>
-            <h2>La opción más fácil es no entrar.</h2>
-            <p>
-              Still no es una puerta cerrada. Es un intervalo claro: contexto suficiente,
-              una salida visible y una alternativa con duración explícita.
-            </p>
-          </div>
-          <div className="choice-spec" aria-label="Jerarquía de la intervención">
-            <div className="choice-spec__row choice-spec__row--primary">
-              <span>01 / ACCIÓN PRIMARIA</span>
-              <strong>No entrar</strong>
-              <b>1 toque</b>
-            </div>
-            <div className="choice-spec__cut"><span>00:01 / ELECCIÓN</span></div>
-            <div className="choice-spec__row">
-              <span>02 / ALTERNATIVA</span>
-              <strong>Usar 1 pase</strong>
-              <b>10 min</b>
-            </div>
-          </div>
+      <section className="observed-section shell-wide" aria-labelledby="problem-title">
+        <div className="observed-section__image">
+          <Image alt="Una persona repara una silla usada con luz natural" fill priority={false} sizes="(max-width: 800px) 100vw, 62vw" src="/images/v3/repair-chair-wide.png" />
+          <span className="image-caption">ATENCIÓN APLICADA / REPARAR EN VEZ DE REEMPLAZAR</span>
         </div>
-      </section>
-
-      <section className="day-record shell-wide" aria-labelledby="day-record-title">
-        <header className="section-heading section-heading--compact">
-          <p className="mono-label">HOY / HASTA AHORA</p>
-          <h2 id="day-record-title">Un registro, no una nota.</h2>
-          <p>Still describe lo que pasó. No convierte tu día en un score.</p>
-        </header>
-        <div className="day-record__dashboard">
-          <div className="day-record__hero-stat">
-            <strong>1:14</strong>
-            <span>horas / apps elegidas</span>
-          </div>
-          <div className="time-strip" aria-label="Actividad de apps elegidas entre las 8 y las 18 horas">
-            <span className="time-strip__label">08:00</span>
-            <div className="time-strip__track" aria-hidden="true">
-              <i style={{ left: "7%", width: "8%" }} />
-              <i style={{ left: "31%", width: "15%" }} />
-              <i className="is-cut" style={{ left: "61%", width: "3%" }} />
-              <i style={{ left: "76%", width: "11%" }} />
-            </div>
-            <span className="time-strip__label">18:00</span>
-          </div>
-          <dl className="day-record__stats">
-            <div><dt>Aperturas evitadas</dt><dd>06</dd><dd className="metric-context">seis decisiones de no entrar</dd></div>
-            <div><dt>Tiempo fuera del flujo</dt><dd>42 min</dd><dd className="metric-context">estimado con tu configuración</dd></div>
-            <div><dt>Última actualización</dt><dd>14:32</dd><dd className="metric-context">datos procesados en el dispositivo</dd></div>
+        <div className="observed-section__copy">
+          <p className="mono-label">EL PROBLEMA / CASI INVISIBLE</p>
+          <h2 id="problem-title">La app suele abrirse antes de que aparezca una intención.</h2>
+          <p>Still no intenta convencerte de abandonar el teléfono. Inserta contexto en el único punto donde sirve: justo antes de entrar.</p>
+          <dl className="observed-section__record">
+            <div><dt>14:31:59</dt><dd>gesto automático</dd></div>
+            <div className="is-current"><dt>14:32:00</dt><dd>la decisión aparece</dd></div>
+            <div><dt>14:32:01</dt><dd>volver o entrar 10 min</dd></div>
           </dl>
         </div>
       </section>
 
-      <section className="impact-section shell-wide" aria-labelledby="impact-title">
-        <div className="impact-section__copy">
-          <p className="mono-label">REGISTRO PÚBLICO / CADA SEMANA</p>
-          <h2 id="impact-title">El fondo deja rastro.</h2>
-          <p>
-            Publicamos el monto estimado, el cierre, la asignación y el comprobante.
-            Un anuncio individual no “dona”: la plataforma asigna parte de su ingreso al fondo.
-          </p>
-          <Link className="text-link" href="/impact">Abrir el registro completo</Link>
-        </div>
-        <ImpactCard week={impact} />
-      </section>
-
-      <section className="privacy-statement shell-wide">
-        <p className="mono-label">PRIVADO POR DISEÑO</p>
-        <h2>Los nombres de tus apps se quedan en tu teléfono.</h2>
-        <div>
-          <p>
-            Still comparte conteos generales para pases, votos e impacto. La selección de apps,
-            sus identificadores y tu historial detallado permanecen en el dispositivo.
-          </p>
-          <Link className="text-link" href="/privacy">Leer la política completa</Link>
+      <section className="sequence-section" id="intervencion" aria-labelledby="sequence-title">
+        <div className="shell-wide sequence-section__inner">
+          <header className="section-intro">
+            <p className="mono-label">INTERVENCIÓN / AUTOMÁTICO → CONSCIENTE</p>
+            <h2 id="sequence-title">El campo se abre. La elección queda en el centro.</h2>
+            <p>Una transición de 520 ms, un háptico y dos caminos explícitos. Sin respiración guiada, culpa, score ni animación en loop.</p>
+          </header>
+          <ol className="sequence-list">
+            <li><span>00</span><h3>Denso</h3><p>El gesto ya empezó. Los módulos registran una apertura automática.</p></li>
+            <li className="is-open"><span>01</span><h3>Abierto</h3><p>El campo se separa una vez y revela el contexto de hoy.</p></li>
+            <li><span>10</span><h3>Elegido</h3><p>Volver es una acción. Continuar abre un pase con duración clara.</p></li>
+          </ol>
         </div>
       </section>
 
-      <section className="faq-section shell-wide" aria-labelledby="faq-title">
-        <header>
-          <p className="mono-label">PREGUNTAS / SIN LETRA PEQUEÑA</p>
-          <h2 id="faq-title">Antes de empezar.</h2>
-        </header>
-        <dl className="faq-section__list">
-          {faqs.map((item, index) => (
-            <div key={item.question}>
-              <dt>
-                <span className="mono-label">0{index + 1}</span>
-                {item.question}
-              </dt>
-              <dd>{item.answer}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="closing-cta" id="beta-status" aria-labelledby="closing-title">
-        <div className="shell-wide closing-cta__inner">
-          <p className="mono-label">00:01 / TUYO</p>
-          <h2 id="closing-title">Antes de entrar, un segundo es tuyo.</h2>
-          <span className="beta-status">BETA PRIVADA / IOS + ANDROID</span>
-          <p>Acceso por invitación · disponibilidad limitada por país y plataforma.</p>
+      <section className="product-section shell-wide" id="producto" aria-labelledby="product-title">
+        <div className="product-section__device" aria-label="Vista de la pantalla Hoy de Still">
+          <div className="phone-screen">
+            <header><span>29 AGO</span><b>•••</b></header>
+            <div className="phone-screen__hero"><strong>42</strong><div><b>minutos</b><span>recuperados hoy</span></div></div>
+            <p>14 aperturas automáticas se convirtieron en decisiones conscientes.</p>
+            <dl><div><dt>Apps protegidas</dt><dd>06</dd></div><div><dt>Aperturas evitadas</dt><dd>14</dd></div></dl>
+            <div className="phone-screen__field"><span>TIEMPO EN APPS / 7 DÍAS</span><AttentionField label="Tiempo en apps seleccionadas durante siete días" passes={1} values={weekly} /></div>
+            <div className="phone-screen__row"><span><small>FONDO DE IMPACTO</small><b>$18,421</b></span><em>ESTIMADO →</em></div>
+            <div className="phone-screen__row"><span><small>SIGUIENTE</small><b>Revisar apps protegidas</b></span><em>→</em></div>
+          </div>
+        </div>
+        <div className="product-section__copy">
+          <p className="mono-label">PRODUCTO / CINCO RESPUESTAS</p>
+          <h2 id="product-title">Hoy empieza con lo que importa ahora.</h2>
+          <ol>
+            <li><span>01</span><p><strong>Tiempo recuperado.</strong> Una métrica protagonista, sin score.</p></li>
+            <li><span>02</span><p><strong>Apps protegidas.</strong> La selección actual se entiende de inmediato.</p></li>
+            <li><span>03</span><p><strong>Progreso.</strong> El field representa datos reales, no decoración.</p></li>
+            <li><span>04</span><p><strong>Impacto.</strong> Monto y estado antes que una historia emotiva.</p></li>
+            <li><span>05</span><p><strong>Siguiente acción.</strong> Una sola cosa concreta por hacer.</p></li>
+          </ol>
         </div>
       </section>
 
-      <footer className="site-footer shell-wide">
-        <BrandLockup />
-        <p>Una pausa que cuenta.</p>
-        <nav aria-label="Pie">
-          <Link href="/impact">Impacto</Link>
-          <Link href="/privacy">Privacidad</Link>
-        </nav>
-      </footer>
+      <section className="impact-section-v3" aria-labelledby="impact-title">
+        <div className="shell-wide impact-section-v3__inner">
+          <div className="impact-section-v3__copy">
+            <p className="mono-label">IMPACTO / DATO, ESTADO, PRUEBA</p>
+            <h2 id="impact-title">El fondo no necesita una metáfora verde.</h2>
+            <p>Still muestra cuánto hay disponible, de dónde viene, si está estimado o conciliado, cómo se asigna y cuándo existe comprobante.</p>
+            <ul>
+              <li><span />Ingresos registrados, no promesas por anuncio.</li>
+              <li><span />Votación visible y cierre semanal.</li>
+              <li><span />Comprobante sólo después de donar.</li>
+            </ul>
+            <Link className="text-link" href="/impact">Abrir el registro completo</Link>
+          </div>
+          <ImpactCard week={impact} />
+        </div>
+      </section>
+
+      <section className="care-section shell-wide" aria-labelledby="care-title">
+        <div className="care-section__copy">
+          <p className="mono-label">RESULTADO / TIEMPO APLICADO</p>
+          <h2 id="care-title">Menos gesto automático. Más espacio para algo concreto.</h2>
+          <p>La marca no promete que 42 minutos cambien una vida. Registra que existieron y deja que cada persona decida dónde ponerlos.</p>
+          <div className="care-section__principles"><span>Sin rachas</span><span>Sin culpa</span><span>Sin vigilancia de nombres</span><span>Sin decorado “eco”</span></div>
+        </div>
+        <div className="care-section__image"><Image alt="Dos manos remiendan una prenda oscura junto a una ventana" fill sizes="(max-width: 800px) 100vw, 42vw" src="/images/v3/mend-jacket-portrait.png" /></div>
+      </section>
+
+      <section className="privacy-section shell-wide" aria-labelledby="privacy-title">
+        <div><p className="mono-label">PRIVADO POR DISEÑO</p><h2 id="privacy-title">Los nombres se quedan en el dispositivo.</h2></div>
+        <div><p>Still comparte sólo conteos generales necesarios para pases, impacto y operación. La selección de apps y el detalle de uso no salen del teléfono.</p><Link className="text-link" href="/privacy">Leer la política en lenguaje claro</Link></div>
+      </section>
+
+      <section className="closing-v3" id="beta-status">
+        <div className="shell-wide closing-v3__inner">
+          <p className="mono-label">BETA PRIVADA / IOS + ANDROID</p>
+          <h2>El momento antes de entrar también puede ser tuyo.</h2>
+          <div><a className="button button--chalk" href="mailto:beta@still.app">Solicitar acceso</a><span>Acceso por invitación · disponibilidad limitada por país y plataforma.</span></div>
+        </div>
+      </section>
+
+      <footer className="site-footer shell-wide"><BrandLockup /><p>Quiet technology for a conscious moment.</p><nav aria-label="Pie"><Link href="/impact">Impacto</Link><Link href="/privacy">Privacidad</Link></nav></footer>
     </main>
   );
 }

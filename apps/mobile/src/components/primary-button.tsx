@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type 
 
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
-type ButtonVariant = "primary" | "secondary" | "signal" | "danger";
+type ButtonVariant = "primary" | "secondary" | "quiet" | "signal" | "danger";
 type PrimaryButtonProps = Omit<PressableProps, "children" | "style"> & {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -24,7 +24,7 @@ export function PrimaryButton({ children, style, variant = "primary", disabled, 
         style,
       ]}
     >
-      <Text style={[styles.label, variant === "primary" || variant === "danger" ? styles.labelLight : styles.labelDark]}>
+      <Text style={[styles.label, variant === "primary" || variant === "signal" || variant === "danger" ? styles.labelLight : styles.labelDark]}>
         {children}
       </Text>
     </Pressable>
@@ -40,13 +40,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primary: { borderColor: colors.ink, backgroundColor: colors.ink },
-  secondary: { borderColor: colors.ink, backgroundColor: "transparent" },
-  signal: { borderColor: colors.signal, backgroundColor: colors.signal },
+  primary: { borderColor: colors.graphite, backgroundColor: colors.graphite },
+  secondary: { borderColor: colors.graphite, backgroundColor: "transparent" },
+  quiet: { borderColor: colors.fog, backgroundColor: colors.chalkRaised },
+  signal: { borderColor: colors.mineral, backgroundColor: colors.mineral },
   danger: { borderColor: colors.danger, backgroundColor: colors.danger },
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.42 },
   label: { fontFamily: fonts.brandSemiBold, fontSize: 15 },
-  labelLight: { color: colors.paperRaised },
-  labelDark: { color: colors.ink },
+  labelLight: { color: colors.chalkRaised },
+  labelDark: { color: colors.graphite },
 });

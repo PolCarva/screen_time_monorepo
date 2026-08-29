@@ -3,20 +3,10 @@
   android:height="108dp"
   android:viewportWidth="160"
   android:viewportHeight="160">
-  <group android:translateX="20" android:translateY="20">
-    <path
-      android:pathData="M94,24H45C28,24 20,32 20,43C20,54 29,60 45,60H50"
-      android:fillColor="@android:color/transparent"
-      android:strokeColor="#171814"
-      android:strokeWidth="14"
-      android:strokeLineCap="square"
-      android:strokeLineJoin="round" />
-    <path
-      android:pathData="M70,60H76C92,60 100,66 100,77C100,88 92,96 75,96H26"
-      android:fillColor="@android:color/transparent"
-      android:strokeColor="#171814"
-      android:strokeWidth="14"
-      android:strokeLineCap="square"
-      android:strokeLineJoin="round" />
-  </group>
+  <path android:pathData="M45,48H73V59H45Z" android:fillColor="#242826" />
+  <path android:pathData="M87,48H115V59H87Z" android:fillColor="#242826" />
+  <path android:pathData="M39,73H67V84H39Z" android:fillColor="#697F8C" />
+  <path android:pathData="M93,73H121V84H93Z" android:fillColor="#D39A83" />
+  <path android:pathData="M45,98H73V109H45Z" android:fillColor="#242826" />
+  <path android:pathData="M87,98H115V109H87Z" android:fillColor="#242826" />
 </vector>

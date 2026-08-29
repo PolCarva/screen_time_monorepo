@@ -10,8 +10,8 @@ export function Data(props: TextProps) { return <Text selectable {...props} styl
 
 const styles = StyleSheet.create({
   eyebrow: {
-    fontFamily: fonts.monoSemiBold,
-    color: colors.muted,
+    fontFamily: fonts.brandSemiBold,
+    color: colors.graphiteSoft,
     fontSize: type.label.fontSize,
     lineHeight: type.label.lineHeight,
     textTransform: "uppercase",

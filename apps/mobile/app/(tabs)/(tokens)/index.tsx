@@ -5,14 +5,15 @@ import { z } from "zod";
 
 import { apiFetch } from "@/lib/api";
 import { capture } from "@/lib/analytics";
-import { IntervalMark } from "@/components/interval-mark";
+import { AttentionField } from "@/components/attention-field";
+import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
-import { Body, Data, Display, Eyebrow, Heading, Mono } from "@/components/typography";
+import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, spacing } from "@/theme/tokens";
 
 const claimSchema = z.object({
   intentId: z.string().uuid(),
@@ -153,16 +154,10 @@ export default function TokensScreen() {
               "Preparando el anuncio…",
             );
   return (
-    <Screen>
-      <View style={styles.header}>
-        <Eyebrow>{localize("PASSES / YOUR CHOICE", "PASES / TU ELECCIÓN")}</Eyebrow>
-        <Display>{localize("Ten minutes,\nwhen you choose.", "Diez minutos,\ncuando eliges.")}</Display>
-        <Body style={styles.lede}>
-          {localize(
-            "A pass opens a selected app for 10 minutes. Getting one is always optional.",
-            "Un pase abre una app elegida durante 10 minutos. Conseguirlo siempre es opcional.",
-          )}
-        </Body>
+    <Screen contentContainerStyle={styles.screen}>
+      <View style={styles.topline}>
+        <FieldApertureMark size={34} />
+        <Eyebrow>{localize("PASSES / 10 MIN", "PASES / 10 MIN")}</Eyebrow>
       </View>
 
       <View style={styles.balancePanel}>
@@ -171,13 +166,17 @@ export default function TokensScreen() {
           <Mono>{wallet.rewardedBalance} / {config.maxRewardTokenBalance}</Mono>
         </View>
         <View style={styles.balanceRow}>
-          <Data style={styles.balance}>{String(wallet.rewardedBalance).padStart(2, "0")}</Data>
+          <Data style={styles.balance}>{wallet.rewardedBalance}</Data>
           <View style={styles.balanceCopy}>
-            <Heading>{localize("passes", "pases")}</Heading>
-            <Body style={styles.note}>{localize("non-transferable", "no transferibles")}</Body>
+            <Heading>{wallet.rewardedBalance === 1 ? localize("pass available", "pase disponible") : localize("passes available", "pases disponibles")}</Heading>
+            <Body style={styles.note}>{localize("Each one opens one selected app for 10 minutes.", "Cada uno abre una app seleccionada durante 10 minutos.")}</Body>
           </View>
         </View>
-        <IntervalMark label={localize("10 MIN / PASS", "10 MIN / PASE")} />
+        <AttentionField
+          accessibilityLabel={localize(`${wallet.rewardedBalance} passes available out of ${config.maxRewardTokenBalance}.`, `${wallet.rewardedBalance} pases disponibles de ${config.maxRewardTokenBalance}.`)}
+          values={[0, 0, 0, 0, 0, 0, wallet.rewardedBalance]}
+          passes={wallet.rewardedBalance}
+        />
         <PrimaryButton
           onPress={() => void earn()}
           disabled={capped || busy || !deviceId || !adReady}
@@ -197,7 +196,7 @@ export default function TokensScreen() {
 
       <View style={styles.emergency}>
         <View style={styles.sectionTop}>
-          <Eyebrow>02 / {localize("OFFLINE OPTION", "OPCIÓN SIN CONEXIÓN")}</Eyebrow>
+          <Eyebrow>{localize("OFFLINE ACCESS", "ACCESO SIN CONEXIÓN")}</Eyebrow>
           <Data style={styles.emergencyCount}>{wallet.emergencyRemaining}</Data>
         </View>
         <Heading>{t("emergency")}</Heading>
@@ -210,7 +209,10 @@ export default function TokensScreen() {
       </View>
 
       <View style={styles.policy}>
-        <Eyebrow>{localize("HOW ADS WORK", "CÓMO FUNCIONAN LOS ANUNCIOS")}</Eyebrow>
+        <View style={styles.sectionTop}>
+          <Eyebrow>{localize("OPTIONAL ADS", "ANUNCIOS OPCIONALES")}</Eyebrow>
+          <Mono>{localize("MAX 10 / DAY", "MÁX 10 / DÍA")}</Mono>
+        </View>
         <Body style={styles.policyBody}>
           {localize(
             "Optional, limited ads fund Still. The platform allocates part of that revenue to the weekly fund; an individual ad is not a donation.",
@@ -222,48 +224,45 @@ export default function TokensScreen() {
   );
 }
 const styles = StyleSheet.create({
-  header: { gap: spacing.lg },
-  lede: { color: colors.muted },
+  screen: { gap: 0 },
+  topline: { minHeight: 58, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   balancePanel: {
-    paddingVertical: spacing.lg,
-    gap: spacing.xl,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.ink,
+    paddingVertical: spacing.xl,
+    gap: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
   },
   balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  balanceRow: { minHeight: 122, flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
+  balanceRow: { minHeight: 104, flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   balance: {
-    fontFamily: fonts.monoMedium,
-    fontSize: 92,
-    lineHeight: 96,
-    letterSpacing: -5,
+    fontSize: 84,
+    lineHeight: 84,
+    letterSpacing: -4,
   },
   balanceCopy: { paddingBottom: spacing.sm, gap: spacing.xs },
-  note: { fontSize: 12, color: colors.muted },
+  note: { maxWidth: 240, fontSize: 12, lineHeight: 18, color: colors.graphiteSoft },
   limitNote: {
     padding: spacing.md,
-    borderLeftWidth: 5,
+    borderLeftWidth: 3,
     borderColor: colors.warning,
-    backgroundColor: colors.paperRaised,
-    color: colors.muted,
+    color: colors.graphiteSoft,
     fontSize: 13,
   },
   emergency: {
     paddingVertical: spacing.xl,
     gap: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.rule,
+    borderColor: colors.fog,
   },
   sectionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   emergencyCount: { fontSize: 34, lineHeight: 36 },
   policy: {
-    padding: spacing.lg,
+    paddingVertical: spacing.xl,
     gap: spacing.md,
-    borderLeftWidth: 7,
-    borderColor: colors.record,
-    backgroundColor: colors.paperRaised,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
   },
   policyBody: { fontSize: 14, lineHeight: 22 },
 });

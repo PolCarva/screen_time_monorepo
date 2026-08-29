@@ -1,21 +1,24 @@
-import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { IntervalMark } from "@/components/interval-mark";
-import { PrimaryButton } from "@/components/primary-button";
+import { AttentionField } from "@/components/attention-field";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { useAppState } from "@/state/app-state";
-import { colors, spacing } from "@/theme/tokens";
+import { colors, fonts, spacing } from "@/theme/tokens";
 
 export default function InterventionScreen() {
+  const { app } = useLocalSearchParams<{ app?: string }>();
   const { wallet, config, stats, unlockCurrent } = useAppState();
   const [busy, setBusy] = useState(false);
   const durationMinutes = Math.round(config.unlockDurationSeconds / 60);
   const hasRewardedPass = wallet.rewardedBalance > 0;
   const hasEmergencyAccess = wallet.emergencyRemaining > 0;
+  const appLabel = app || localize("Selected app", "App seleccionada");
+  const attempts = Math.max(stats.openAttempts, stats.avoidedOpens + stats.unlocks);
 
   async function unlock() {
     setBusy(true);
@@ -29,10 +32,7 @@ export default function InterventionScreen() {
     } catch {
       Alert.alert(
         localize("Couldn’t open the app", "No se pudo abrir la app"),
-        localize(
-          "No pass was lost. Open Still again or use an Emergency Access.",
-          "No perdiste ningún pase. Abre Still otra vez o usa un acceso de emergencia.",
-        ),
+        localize("No pass was lost. Try again from Still.", "No perdiste ningún pase. Inténtalo otra vez desde Still."),
       );
     } finally {
       setBusy(false);
@@ -44,44 +44,54 @@ export default function InterventionScreen() {
     : hasRewardedPass
       ? localize(`Use 1 pass · ${durationMinutes} min`, `Usar 1 pase · ${durationMinutes} min`)
       : hasEmergencyAccess
-        ? localize(`Emergency Access · ${wallet.emergencyRemaining}`, `Acceso de emergencia · ${wallet.emergencyRemaining}`)
+        ? localize(`Emergency access · ${durationMinutes} min`, `Acceso de emergencia · ${durationMinutes} min`)
         : localize("Get a pass", "Conseguir un pase");
 
   return (
-    <Screen contentContainerStyle={styles.screen}>
-      <View style={styles.top}>
-        <Eyebrow>
-          {new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date())}
-          {localize(" / PAUSE", " / PAUSA")}
-        </Eyebrow>
-        <Mono>{localize("STILL / BEFORE ENTERING", "STILL / ANTES DE ENTRAR")}</Mono>
+    <Screen style={styles.root} contentContainerStyle={styles.screen}>
+      <StatusBar style="light" />
+      <View style={styles.topline}>
+        <Eyebrow style={styles.lightLabel}>{appLabel}</Eyebrow>
+        <Mono style={styles.timer}>00:01</Mono>
       </View>
 
-      <View style={styles.decision}>
-        <IntervalMark label="00:01" />
-        <View style={styles.copy}>
-          <Eyebrow>{localize("ONE SECOND TO CHOOSE", "UN SEGUNDO PARA ELEGIR")}</Eyebrow>
-          <Display style={styles.title}>{localize("Still want to\ngo in?", "¿Aún quieres\nentrar?")}</Display>
-          <Body style={styles.detail}>
-            {localize(
-              `You’ve spent ${Math.floor(stats.screenTimeMinutes / 60)} hr ${stats.screenTimeMinutes % 60} min in selected apps today.`,
-              `Llevas ${Math.floor(stats.screenTimeMinutes / 60)} h ${stats.screenTimeMinutes % 60} min hoy en las apps elegidas.`,
-            )}
-          </Body>
-        </View>
+      <AttentionField
+        accessibilityLabel={localize("The attention field opens to make space for a decision.", "El campo de atención se abre para dejar espacio a una decisión.")}
+        mode="intervention"
+        dark
+      />
+
+      <View style={styles.copy}>
+        <Display style={styles.title}>
+          {localize(`${appLabel} opened\n${attempts} ${attempts === 1 ? "time" : "times"} today.`, `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`)}
+        </Display>
+        <Body style={styles.question}>
+          {localize("What do you want from the next 10 minutes?", "¿Qué quieres de los próximos 10 minutos?")}
+        </Body>
       </View>
 
       <View style={styles.actions}>
-        <PrimaryButton onPress={() => router.back()}>
-          {localize("Not now", "No entrar")}
-        </PrimaryButton>
-        <PrimaryButton onPress={unlock} disabled={busy} variant="secondary">
-          {secondaryLabel}
-        </PrimaryButton>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+        >
+          <Text style={styles.primaryLabel}>{localize("Go back", "Volver")}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={unlock}
+          style={({ pressed }) => [styles.secondary, pressed && styles.pressed, busy && styles.disabled]}
+        >
+          <Text style={styles.secondaryLabel}>{secondaryLabel}</Text>
+          <Text style={styles.secondaryArrow}>→</Text>
+        </Pressable>
         <Body style={styles.note}>
           {localize(
-            `The pass lasts ${durationMinutes} minutes. The pause returns when it ends.`,
-            `El pase dura ${durationMinutes} minutos. La pausa vuelve cuando termina.`,
+            `The pause returns after ${durationMinutes} minutes. Continuing is a choice, not a failure.`,
+            `La pausa vuelve después de ${durationMinutes} minutos. Continuar es una elección, no un fracaso.`,
           )}
         </Body>
       </View>
@@ -90,18 +100,21 @@ export default function InterventionScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flexGrow: 1, minHeight: 720, justifyContent: "space-between", paddingVertical: spacing.lg },
-  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
-  decision: {
-    paddingVertical: spacing.xl,
-    gap: spacing.xxl,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.ink,
-  },
+  root: { flex: 1, backgroundColor: colors.graphite },
+  screen: { minHeight: 760, flexGrow: 1, justifyContent: "space-between", paddingVertical: spacing.lg, backgroundColor: colors.graphite },
+  topline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
+  lightLabel: { color: colors.chalk },
+  timer: { color: colors.chalk, fontFamily: fonts.brandSemiBold, letterSpacing: 1 },
   copy: { gap: spacing.lg },
-  title: { fontSize: 54, lineHeight: 51 },
-  detail: { color: colors.muted },
-  actions: { gap: spacing.sm },
-  note: { marginTop: spacing.sm, color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center" },
+  title: { color: colors.chalk, fontSize: 38, lineHeight: 41, letterSpacing: -1.2 },
+  question: { color: colors.mineralLight, fontSize: 15, lineHeight: 22 },
+  actions: { gap: 0 },
+  primary: { minHeight: 56, alignItems: "center", justifyContent: "center", borderRadius: 4, backgroundColor: colors.chalk },
+  primaryLabel: { color: colors.graphite, fontFamily: fonts.brandSemiBold, fontSize: 15 },
+  secondary: { minHeight: 64, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.graphiteSoft },
+  secondaryLabel: { color: colors.chalk, fontFamily: fonts.brandSemiBold, fontSize: 15 },
+  secondaryArrow: { color: colors.chalk, fontFamily: fonts.brandMedium, fontSize: 21 },
+  note: { paddingTop: spacing.lg, color: colors.mineralLight, fontSize: 12, lineHeight: 18 },
+  pressed: { opacity: 0.62 },
+  disabled: { opacity: 0.42 },
 });

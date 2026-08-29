@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, Share, StyleSheet, Switch, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
+import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
-import { Body, Display, Eyebrow, Heading, Mono } from "@/components/typography";
+import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { analytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
@@ -14,7 +15,7 @@ import { getJson, setJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { restrictionEngine, type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
 function authorizationLabel(status: RestrictionHealth["authorization"] | undefined) {
   switch (status) {
@@ -32,7 +33,7 @@ function authorizationLabel(status: RestrictionHealth["authorization"] | undefin
 }
 
 export default function SettingsScreen() {
-  const { setOnboarded } = useAppState();
+  const { setOnboarded, refresh } = useAppState();
   const [health, setHealth] = useState<RestrictionHealth | null>(null);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
 
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
     const selection = await restrictionEngine.presentAppPicker();
     await restrictionEngine.applyRestrictions(selection);
     setHealth(await restrictionEngine.getHealth());
+    await refresh();
   }
 
   async function toggleAnalytics(value: boolean) {
@@ -100,10 +102,13 @@ export default function SettingsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen contentContainerStyle={styles.screen}>
+      <View style={styles.topline}>
+        <FieldApertureMark size={34} />
+        <Eyebrow>{localize("SETTINGS / DEVICE", "AJUSTES / DISPOSITIVO")}</Eyebrow>
+      </View>
       <View style={styles.header}>
-        <Eyebrow>{localize("DEVICE / ACCOUNT / PRIVACY", "DISPOSITIVO / CUENTA / PRIVACIDAD")}</Eyebrow>
-        <Display>{localize("Still, on\nyour terms.", "Still, en\ntus términos.")}</Display>
+        <Heading style={styles.pageTitle}>{localize("On your device, on your terms.", "En tu dispositivo, en tus términos.")}</Heading>
         <Body style={styles.lede}>
           {localize(
             "Choose where pauses appear, what leaves this device, and whether to link an identity.",
@@ -159,14 +164,14 @@ export default function SettingsScreen() {
             <Heading style={styles.sectionTitle}>{localize("Product analytics", "Analytics de producto")}</Heading>
             <Body style={styles.muted}>{localize("General events and counts only. Never app names.", "Solo eventos y conteos generales. Nunca nombres de apps.")}</Body>
           </View>
-          <Switch value={analyticsEnabled} onValueChange={toggleAnalytics} trackColor={{ true: colors.signal }} />
+          <Switch value={analyticsEnabled} onValueChange={toggleAnalytics} trackColor={{ true: colors.mineral, false: colors.fog }} thumbColor={colors.chalkRaised} />
         </View>
         <Pressable accessibilityRole="button" style={({ pressed }) => [styles.textAction, pressed && styles.pressed]} onPress={() => void AdsConsent.showPrivacyOptionsForm()}>
           <Text style={styles.actionLabel}>{localize("Advertising privacy options", "Opciones de privacidad publicitaria")}</Text>
         </Pressable>
       </View>
 
-      <View style={[styles.section, styles.privacy]}>
+      <View style={styles.section}>
         <Eyebrow>04 / {localize("PRIVACY BY DESIGN", "PRIVACIDAD POR DISEÑO")}</Eyebrow>
         <Heading style={styles.sectionTitle}>{localize("The names stay here.", "Los nombres se quedan aquí.")}</Heading>
         <Body style={styles.privacyBody}>
@@ -187,42 +192,39 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: { gap: 0 },
+  topline: { minHeight: 58, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   header: { gap: spacing.lg },
-  lede: { color: colors.muted },
+  pageTitle: { fontSize: 30, lineHeight: 33 },
+  lede: { paddingBottom: spacing.xl, color: colors.graphiteSoft },
   section: {
     paddingVertical: spacing.xl,
     gap: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.rule,
+    borderColor: colors.fog,
   },
   sectionHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontSize: 21, lineHeight: 24 },
   health: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   healthCopy: { flex: 1, gap: spacing.xs },
-  indicator: { width: 14, height: 14, backgroundColor: colors.danger },
-  on: { backgroundColor: colors.impact },
-  muted: { fontSize: 13, lineHeight: 20, color: colors.muted },
+  indicator: { width: 12, height: 12, borderRadius: radius.xs, backgroundColor: colors.danger },
+  on: { backgroundColor: colors.success },
+  muted: { fontSize: 13, lineHeight: 20, color: colors.graphiteSoft },
   identity: {
     minHeight: 52,
     borderWidth: 1,
-    borderColor: colors.ink,
-    borderRadius: 8,
+    borderColor: colors.graphite,
+    borderRadius: radius.control,
     alignItems: "center",
     justifyContent: "center",
   },
-  identityText: { fontFamily: fonts.brandSemiBold, color: colors.ink },
+  identityText: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
   pressed: { opacity: 0.65 },
   between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   switchCopy: { flex: 1, paddingRight: spacing.md, gap: spacing.xs },
-  privacy: {
-    paddingHorizontal: spacing.lg,
-    borderLeftWidth: 7,
-    borderLeftColor: colors.record,
-    backgroundColor: colors.paperRaised,
-  },
   privacyBody: { fontSize: 14, lineHeight: 22 },
-  textAction: { minHeight: 48, paddingVertical: spacing.md, justifyContent: "center", borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.rule },
-  actionLabel: { fontFamily: fonts.brandSemiBold, color: colors.ink },
+  textAction: { minHeight: 48, paddingVertical: spacing.md, justifyContent: "center", borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.fog },
+  actionLabel: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
   dangerLabel: { fontFamily: fonts.brandSemiBold, color: colors.danger },
 });

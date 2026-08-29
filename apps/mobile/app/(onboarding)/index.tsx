@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { IntervalMark } from "@/components/interval-mark";
+import { AttentionField } from "@/components/attention-field";
+import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow, Mono } from "@/components/typography";
@@ -14,54 +15,41 @@ import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
 const steps = [
   {
-    eyebrow: localize("01 / A PAUSE", "01 / UNA PAUSA"),
-    title: localize("One second is\nyours again.", "Un segundo vuelve\na ser tuyo."),
-    body: localize(
-      "Still appears before the apps you choose. It doesn’t decide for you—it makes the decision visible.",
-      "Still aparece antes de las apps que eliges. No decide por ti: hace visible el momento de decidir.",
-    ),
-    action: localize("See how it works", "Ver cómo funciona"),
-    marker: "00:01",
-    before: localize("OPEN", "ABRIR"),
-    after: localize("CHOOSE", "ELEGIR"),
-  },
-  {
-    eyebrow: localize("02 / TWO PATHS", "02 / DOS CAMINOS"),
-    title: localize("Leaving is the\nshort path.", "Salir es el\ncamino corto."),
-    body: localize(
-      "Not going in takes one tap. If you continue, one pass opens the app for 10 minutes.",
-      "No entrar requiere un toque. Si decides seguir, un pase abre la app durante 10 minutos.",
-    ),
-    action: localize("Got it", "Entendido"),
-    marker: "01 TAP",
-    before: localize("NOT NOW", "NO ENTRAR"),
-    after: localize("10 MIN", "10 MIN"),
-  },
-  {
-    eyebrow: localize("03 / ON THIS DEVICE", "03 / EN TU DISPOSITIVO"),
-    title: localize("The names\nstay here.", "Los nombres\nse quedan aquí."),
-    body: localize(
-      "Your selected apps and detailed history stay on your phone. Still only shares general counts.",
-      "Las apps elegidas y tu historial detallado permanecen en el teléfono. Still comparte solo conteos generales.",
-    ),
+    label: localize("01 / THE MOMENT", "01 / EL MOMENTO"),
+    title: localize("Notice the second\nbefore you enter.", "Nota el segundo\nantes de entrar."),
+    body: localize("Still appears before the apps you choose. It makes an automatic opening visible without deciding for you.", "Still aparece antes de las apps que eliges. Hace visible una apertura automática sin decidir por ti."),
     action: localize("Continue", "Continuar"),
-    marker: localize("LOCAL", "LOCAL"),
-    before: localize("APP NAMES", "NOMBRES"),
-    after: localize("COUNTS", "CONTEOS"),
+    mode: "intervention" as const,
   },
   {
-    eyebrow: localize("04 / CHOOSE THE CUT", "04 / ELEGIR EL CORTE"),
-    title: localize("Where should\nStill pause?", "¿Dónde quieres\nuna pausa?"),
-    body: localize(
-      "Confirm you’re 18 or older, authorize Still, and choose the apps you tend to open on reflex.",
-      "Confirma que tienes 18 años, autoriza Still y elige las apps que abres por reflejo.",
-    ),
+    label: localize("02 / THE CHOICE", "02 / LA ELECCIÓN"),
+    title: localize("Go back, or enter\nfor 10 minutes.", "Vuelve, o entra\npor 10 minutos."),
+    body: localize("Going back is one tap. A pass keeps the app open for a clear amount of time, then the pause returns.", "Volver requiere un toque. Un pase mantiene la app abierta durante un tiempo claro y luego vuelve la pausa."),
+    action: localize("Continue", "Continuar"),
+    mode: "progress" as const,
+  },
+  {
+    label: localize("03 / ON DEVICE", "03 / EN EL DISPOSITIVO"),
+    title: localize("App names and detail\nstay on your phone.", "Los nombres y el detalle\nse quedan en tu teléfono."),
+    body: localize("Still shares general counts for passes and impact. It does not send your app selection or detailed activity history.", "Still comparte conteos generales para pases e impacto. No envía tu selección de apps ni el historial detallado."),
+    action: localize("Continue", "Continuar"),
+    mode: "progress" as const,
+  },
+  {
+    label: localize("04 / SETUP", "04 / CONFIGURACIÓN"),
+    title: localize("Choose where the\npause should appear.", "Elige dónde debería\naparecer la pausa."),
+    body: localize("Authorize Still and select the apps you tend to open automatically. You can change the selection later.", "Autoriza Still y selecciona las apps que tiendes a abrir automáticamente. Puedes cambiar la selección después."),
     action: localize("Choose apps", "Elegir apps"),
-    marker: localize("SET", "LISTO"),
-    before: localize("REFLEX", "REFLEJO"),
-    after: localize("PAUSE", "PAUSA"),
+    mode: "progress" as const,
   },
 ] as const;
+
+const samples = [
+  [12, 18, 8, 26, 17, 31, 21],
+  [8, 12, 14, 18, 22, 27, 33],
+  [21, 18, 17, 14, 12, 9, 7],
+  [0, 0, 0, 0, 0, 0, 0],
+];
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -72,7 +60,7 @@ export default function OnboardingScreen() {
 
   async function next() {
     if (step < steps.length - 1) {
-      setStep((currentStep) => currentStep + 1);
+      setStep((value) => value + 1);
       return;
     }
     if (!adult) return;
@@ -80,24 +68,12 @@ export default function OnboardingScreen() {
     try {
       const restrictionStatus = await restrictionEngine.requestAuthorization();
       if (restrictionStatus !== "authorized") {
-        Alert.alert(
-          localize("Allow pauses", "Autoriza las pausas"),
-          localize(
-            "Enable Still in Settings, return, and try again.",
-            "Activa Still en Ajustes, vuelve aquí e inténtalo otra vez.",
-          ),
-        );
+        Alert.alert(localize("Allow the pause", "Autoriza la pausa"), localize("Enable Still in Settings, return, and try again.", "Activa Still en Ajustes, vuelve e inténtalo otra vez."));
         return;
       }
       const wellbeingStatus = await restrictionEngine.requestWellbeingAuthorization();
       if (Platform.OS === "android" && wellbeingStatus !== "authorized") {
-        Alert.alert(
-          localize("Allow wellbeing stats", "Autoriza las estadísticas"),
-          localize(
-            "Enable Usage Access, return, and try again.",
-            "Activa el acceso de uso, vuelve aquí e inténtalo otra vez.",
-          ),
-        );
+        Alert.alert(localize("Allow device activity", "Autoriza la actividad"), localize("Enable Usage Access, return, and try again.", "Activa el acceso de uso, vuelve e inténtalo otra vez."));
         return;
       }
       const selection = await restrictionEngine.presentAppPicker();
@@ -105,13 +81,7 @@ export default function OnboardingScreen() {
       await setOnboarded(true);
       router.replace("/(tabs)/(today)");
     } catch {
-      Alert.alert(
-        localize("Setup paused", "Configuración en pausa"),
-        localize(
-          "Nothing changed. You can try again whenever you’re ready.",
-          "Nada cambió. Puedes intentarlo de nuevo cuando quieras.",
-        ),
-      );
+      Alert.alert(localize("Setup paused", "Configuración en pausa"), localize("Nothing changed. Try again whenever you are ready.", "Nada cambió. Inténtalo de nuevo cuando quieras."));
     } finally {
       setBusy(false);
     }
@@ -120,26 +90,26 @@ export default function OnboardingScreen() {
   return (
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.top}>
-        <Eyebrow>{current.eyebrow}</Eyebrow>
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={() => setStep(steps.length - 1)}
-        >
+        <FieldApertureMark size={34} />
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={() => setStep(steps.length - 1)}>
           <Text style={styles.skip}>{localize("Skip", "Saltar")}</Text>
         </Pressable>
       </View>
 
-      <Animated.View key={`art-${step}`} entering={FadeIn.duration(220)} style={styles.art}>
-        <View style={styles.artLabels}>
-          <Mono>{current.before}</Mono>
-          <Mono>{current.after}</Mono>
+      <Animated.View key={`field-${step}`} entering={FadeIn.duration(200)} style={styles.field}>
+        <View style={styles.fieldTop}>
+          <Eyebrow>{current.label}</Eyebrow>
+          <Mono>{String(step + 1).padStart(2, "0")} / 04</Mono>
         </View>
-        <IntervalMark label={current.marker} />
-        <Mono style={styles.stepCount}>{String(step + 1).padStart(2, "0")}</Mono>
+        <AttentionField
+          accessibilityLabel={localize("A visual example of the attention field.", "Un ejemplo visual del campo de atención.")}
+          mode={current.mode}
+          values={samples[step]}
+          animate={step === 0}
+        />
       </Animated.View>
 
-      <Animated.View key={`copy-${step}`} entering={FadeIn.duration(220)} style={styles.copy}>
+      <Animated.View key={`copy-${step}`} entering={FadeIn.duration(200)} style={styles.copy}>
         <Display>{current.title}</Display>
         <Body style={styles.body}>{current.body}</Body>
       </Animated.View>
@@ -151,22 +121,16 @@ export default function OnboardingScreen() {
           onPress={() => setAdult((value) => !value)}
           style={({ pressed }) => [styles.checkRow, pressed && styles.pressed]}
         >
-          <View style={[styles.check, adult && styles.checkOn]}>
-            {adult ? <Text style={styles.tick}>✓</Text> : null}
-          </View>
-          <Body style={styles.checkLabel}>
-            {localize("I confirm that I’m 18 or older.", "Confirmo que tengo 18 años o más.")}
-          </Body>
+          <View style={[styles.check, adult && styles.checkOn]}>{adult ? <Text style={styles.tick}>✓</Text> : null}</View>
+          <Body style={styles.checkLabel}>{localize("I confirm that I am 18 or older.", "Confirmo que tengo 18 años o más.")}</Body>
         </Pressable>
       ) : null}
 
       <View style={styles.footer}>
-        <View style={styles.progress} accessibilityLabel={`${step + 1} / ${steps.length}`}>
-          {steps.map((_, index) => (
-            <View key={index} style={[styles.progressSegment, index <= step && styles.progressSegmentActive]} />
-          ))}
+        <View accessible accessibilityLabel={`${step + 1} / ${steps.length}`} style={styles.progress}>
+          {steps.map((_, index) => <View key={index} style={[styles.progressSegment, index <= step && styles.progressSegmentActive, index === step && styles.progressSegmentCurrent]} />)}
         </View>
-        <PrimaryButton onPress={next} disabled={busy || (step === steps.length - 1 && !adult)} variant={step === 0 ? "signal" : "primary"}>
+        <PrimaryButton onPress={next} disabled={busy || (step === steps.length - 1 && !adult)}>
           {busy ? localize("Opening settings…", "Abriendo ajustes…") : current.action}
         </PrimaryButton>
       </View>
@@ -177,52 +141,20 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   screen: { flexGrow: 1, minHeight: 760, justifyContent: "space-between" },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  skip: { color: colors.muted, fontFamily: fonts.brandMedium, fontSize: 13 },
-  art: {
-    minHeight: 205,
-    paddingVertical: spacing.lg,
-    justifyContent: "space-between",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.ink,
-  },
-  artLabels: { flexDirection: "row", justifyContent: "space-between" },
-  stepCount: {
-    alignSelf: "flex-end",
-    color: colors.ruleStrong,
-    fontFamily: fonts.monoMedium,
-    fontSize: 46,
-    lineHeight: 48,
-    letterSpacing: -2,
-  },
+  skip: { color: colors.graphiteSoft, fontFamily: fonts.brandMedium, fontSize: 13 },
+  field: { minHeight: 210, paddingVertical: spacing.lg, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.fog },
+  fieldTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   copy: { gap: spacing.lg },
-  body: { maxWidth: 520, color: colors.muted },
-  checkRow: {
-    minHeight: 68,
-    padding: spacing.md,
-    flexDirection: "row",
-    gap: spacing.md,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.ruleStrong,
-    borderRadius: radius.control,
-    borderCurve: "continuous",
-  },
-  check: {
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.ink,
-    borderRadius: 4,
-  },
-  checkOn: { backgroundColor: colors.impact },
-  tick: { color: colors.ink, fontFamily: fonts.brandBold },
+  body: { maxWidth: 520, color: colors.graphiteSoft },
+  checkRow: { minHeight: 68, padding: spacing.md, flexDirection: "row", gap: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.mineralLight, borderRadius: radius.control },
+  check: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.graphite, borderRadius: radius.sm },
+  checkOn: { backgroundColor: colors.mineral },
+  tick: { color: colors.chalk, fontFamily: fonts.brandBold },
   checkLabel: { flex: 1, fontSize: 14, lineHeight: 20 },
-  pressed: { opacity: 0.72 },
+  pressed: { opacity: 0.62 },
   footer: { gap: spacing.lg },
-  progress: { height: 3, flexDirection: "row", gap: spacing.xs },
-  progressSegment: { flex: 1, backgroundColor: colors.rule },
-  progressSegmentActive: { backgroundColor: colors.signal },
+  progress: { height: 5, flexDirection: "row", gap: spacing.xs },
+  progressSegment: { flex: 1, borderRadius: radius.xs, backgroundColor: colors.fog },
+  progressSegmentActive: { backgroundColor: colors.mineralLight },
+  progressSegmentCurrent: { backgroundColor: colors.mineral },
 });

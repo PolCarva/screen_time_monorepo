@@ -29,7 +29,7 @@ const config: ExpoConfig = {
     package: "com.still.screentime",
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#FF5C35",
+      backgroundColor: "#F1EFE8",
     },
     permissions: ["android.permission.PACKAGE_USAGE_STATS", "android.permission.POST_NOTIFICATIONS"],
   },
@@ -39,7 +39,7 @@ const config: ExpoConfig = {
     "expo-notifications",
     "expo-font",
     "expo-localization",
-    ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 256, resizeMode: "contain", backgroundColor: "#F3F0E8" }],
+    ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 220, resizeMode: "contain", backgroundColor: "#F1EFE8" }],
     "expo-sqlite",
     "expo-status-bar",
     "expo-web-browser",

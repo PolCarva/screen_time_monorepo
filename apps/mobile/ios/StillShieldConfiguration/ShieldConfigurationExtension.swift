@@ -19,30 +19,41 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let walletKey = "localWallet"
   private let productMetricsPrefix = "productMetrics:"
   private let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
-  private let ink = UIColor(red: 23/255, green: 24/255, blue: 20/255, alpha: 1)
-  private let paper = UIColor(red: 243/255, green: 240/255, blue: 232/255, alpha: 1)
-  private let signal = UIColor(red: 255/255, green: 92/255, blue: 53/255, alpha: 1)
+  private let graphite = UIColor(red: 36/255, green: 40/255, blue: 38/255, alpha: 1)
+  private let graphiteSoft = UIColor(red: 78/255, green: 84/255, blue: 81/255, alpha: 1)
+  private let chalk = UIColor(red: 241/255, green: 239/255, blue: 232/255, alpha: 1)
+  private let mineralLight = UIColor(red: 167/255, green: 181/255, blue: 186/255, alpha: 1)
+  private let mineral = UIColor(red: 105/255, green: 127/255, blue: 140/255, alpha: 1)
+  private let peach = UIColor(red: 211/255, green: 154/255, blue: 131/255, alpha: 1)
   private var isSpanish: Bool { Locale.preferredLanguages.first?.hasPrefix("es") == true }
   private func copy(_ english: String, _ spanish: String) -> String { isSpanish ? spanish : english }
+
+  private var todayKey: String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    return productMetricsPrefix + formatter.string(from: Date())
+  }
+
+  private var todayMetrics: LocalProductMetrics {
+    guard let defaults = UserDefaults(suiteName: appGroup),
+          let data = defaults.data(forKey: todayKey),
+          let metrics = try? JSONDecoder().decode(LocalProductMetrics.self, from: data)
+    else { return .init(openAttempts: 0, avoidedOpens: 0, unlocks: 0) }
+    return metrics
+  }
 
   private var impactSummary: String {
     let avoidedOpens = lifetimeAvoidedOpens
     let estimatedMinutes = Double(avoidedOpens) * estimatedMinutesPerAvoidedOpen
     let duration = formatSavedTime(minutes: estimatedMinutes)
-    if avoidedOpens == 1 {
-      return copy(
-        "1 entry blocked · \(duration) saved (est.)",
-        "1 entrada bloqueada · \(duration) de ahorro estimado"
-      )
-    }
-    return copy(
-      "\(avoidedOpens) entries blocked · \(duration) saved (est.)",
-      "\(avoidedOpens) entradas bloqueadas · \(duration) de ahorro estimado"
-    )
+    return avoidedOpens == 1
+      ? copy("1 automatic open avoided · \(duration) returned (est.)", "1 apertura automática evitada · \(duration) recuperados (est.)")
+      : copy("\(avoidedOpens) automatic opens avoided · \(duration) returned (est.)", "\(avoidedOpens) aperturas automáticas evitadas · \(duration) recuperados (est.)")
   }
 
-  /// Aggregates every locally retained day into one device-wide total, with no
-  /// application-level breakdown.
   private var lifetimeAvoidedOpens: Int {
     guard let defaults = UserDefaults(suiteName: appGroup) else { return 0 }
     return defaults.dictionaryRepresentation().reduce(into: 0) { total, entry in
@@ -71,23 +82,33 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     return minutes < 60 ? "\(formatted) min" : "\(formatted) h"
   }
 
-  private enum AvailableUnlock {
-    case rewarded
-    case emergency
-    case none
-  }
-
+  private enum AvailableUnlock { case rewarded, emergency, none }
   private var availableUnlock: AvailableUnlock {
-    guard
-      let defaults = UserDefaults(suiteName: appGroup),
-      let data = defaults.data(forKey: walletKey),
-      let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
-    else {
-      return .none
-    }
+    guard let defaults = UserDefaults(suiteName: appGroup),
+          let data = defaults.data(forKey: walletKey),
+          let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
+    else { return .none }
     if wallet.rewarded > 0 { return .rewarded }
     if wallet.emergency > 0 { return .emergency }
     return .none
+  }
+
+  private func fieldIcon() -> UIImage {
+    let size = CGSize(width: 64, height: 64)
+    return UIGraphicsImageRenderer(size: size).image { _ in
+      let module = CGSize(width: 24, height: 10)
+      let xLeft: CGFloat = 5
+      let xRight: CGFloat = 35
+      let rows: [CGFloat] = [8, 27, 46]
+      for (index, y) in rows.enumerated() {
+        let leftOffset: CGFloat = index == 1 ? -3 : 0
+        let rightOffset: CGFloat = index == 1 ? 3 : 0
+        (index == 1 ? mineral : chalk).setFill()
+        UIBezierPath(roundedRect: CGRect(x: xLeft + leftOffset, y: y, width: module.width, height: module.height), cornerRadius: 2).fill()
+        (index == 1 ? peach : chalk).setFill()
+        UIBezierPath(roundedRect: CGRect(x: xRight + rightOffset, y: y, width: module.width, height: module.height), cornerRadius: 2).fill()
+      }
+    }
   }
 
   override func configuration(shielding application: Application) -> ShieldConfiguration {
@@ -100,34 +121,29 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       secondaryButtonText = copy("Use 1 pass · 10 min", "Usar 1 pase · 10 min")
     case .emergency:
       canUnlock = true
-      secondaryButtonText = copy("Use emergency pass · 10 min", "Usar pase de emergencia · 10 min")
+      secondaryButtonText = copy("Emergency access · 10 min", "Acceso de emergencia · 10 min")
     case .none:
       canUnlock = false
       secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")
     }
+    let appName = application.localizedDisplayName ?? copy("Selected app", "App seleccionada")
+    let attempt = todayMetrics.openAttempts + 1
+    let observedFact = attempt == 1
+      ? copy("\(appName) opened once today.", "\(appName) se abrió una vez hoy.")
+      : copy("\(appName) opened \(attempt) times today.", "\(appName) se abrió \(attempt) veces hoy.")
+
     return ShieldConfiguration(
       backgroundBlurStyle: .none,
-      backgroundColor: paper,
-      icon: UIImage(systemName: "pause"),
-      title: .init(
-        text: canUnlock
-          ? copy("A pause before entering", "Una pausa antes de entrar")
-          : copy("No passes available", "No hay pases disponibles"),
-        color: ink
-      ),
+      backgroundColor: graphite,
+      icon: fieldIcon(),
+      title: .init(text: "00:01 · " + observedFact, color: chalk),
       subtitle: .init(
-        text: (canUnlock
-          ? copy("One choice. Nothing else.", "Una decisión. Nada más.")
-          : copy("Close this pause or open Still to get another pass.", "Cierra esta pausa o abre Still para conseguir otro pase."))
-          + "\n\n" + impactSummary,
-        color: ink
+        text: copy("What do you want from the next 10 minutes?", "¿Qué quieres de los próximos 10 minutos?") + "\n\n" + impactSummary,
+        color: mineralLight
       ),
-      primaryButtonLabel: .init(text: copy("Don't enter", "No entrar"), color: ink),
-      primaryButtonBackgroundColor: signal,
-      secondaryButtonLabel: .init(
-        text: secondaryButtonText,
-        color: ink
-      )
+      primaryButtonLabel: .init(text: copy("Go back", "Volver"), color: graphite),
+      primaryButtonBackgroundColor: chalk,
+      secondaryButtonLabel: .init(text: secondaryButtonText, color: canUnlock ? chalk : mineralLight)
     )
   }
 

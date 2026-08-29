@@ -18,19 +18,21 @@ import {
 import {
   restrictionEngine,
   type PendingUnlockEvent,
+  type RestrictionHealth,
   type UnlockSession,
 } from "@/native/restriction-engine";
 
 type LocalStats = { screenTimeMinutes: number; openAttempts: number; avoidedOpens: number; unlocks: number; weeklyScreenTimeMinutes: number[] };
 type AppStateValue = {
   ready: boolean; walletHydrated: boolean; onboarded: boolean; deviceId: string | null; setOnboarded(value: boolean): Promise<void>;
-  config: RemoteConfig; wallet: Wallet; stats: LocalStats; refresh(): Promise<void>;
+  config: RemoteConfig; wallet: Wallet; stats: LocalStats; health: RestrictionHealth; refresh(): Promise<void>;
   spendEmergency(): Promise<boolean>; addProvisionalToken(): Promise<void>;
   unlockCurrent(): Promise<UnlockSession>;
 };
 
 const defaultWallet: Wallet = { rewardedBalance: 0, emergencyRemaining: 3, unresolvedRewardClaims: 0, rewardAdsRemainingToday: 10, resetAt: new Date(Date.now() + 86_400_000).toISOString() };
 const defaultStats: LocalStats = { screenTimeMinutes: 0, openAttempts: 0, avoidedOpens: 0, unlocks: 0, weeklyScreenTimeMinutes: [] };
+const defaultHealth: RestrictionHealth = { authorization: "notDetermined", engineActive: false, selectedCount: 0 };
 const unlockResponseSchema = z.object({ id: z.string().uuid(), endsAt: z.string(), source: z.enum(["rewarded", "emergency"]) });
 const AppStateContext = createContext<AppStateValue | null>(null);
 
@@ -54,10 +56,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [wallet, setWallet] = useState(defaultWallet);
   const [walletHydrated, setWalletHydrated] = useState(false);
   const [stats, setStats] = useState(defaultStats);
+  const [health, setHealth] = useState(defaultHealth);
 
   useEffect(() => { void getJson("onboarded", false).then(setOnboardedState).finally(() => setReady(true)); }, []);
   const setOnboarded = useCallback(async (value: boolean) => { setOnboardedState(value); await setJson("onboarded", value); }, []);
   const refresh = useCallback(async () => {
+    setHealth(await restrictionEngine.getHealth().catch(() => defaultHealth));
     let pendingUnlocksAwaitingReport: PendingUnlockEvent[] = [];
     const reportedUnlocksThisRefresh: PendingUnlockEvent[] = [];
     let installationId = await getJson<string | null>("installationId", null);
@@ -235,7 +239,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
     return nativeSession;
   }, [config.unlockDurationSeconds, deviceId, wallet]);
-  const value = useMemo(() => ({ ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent }), [ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, refresh, spendEmergency, addProvisionalToken, unlockCurrent]);
+  const value = useMemo(() => ({ ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, health, refresh, spendEmergency, addProvisionalToken, unlockCurrent }), [ready, walletHydrated, onboarded, deviceId, setOnboarded, config, wallet, stats, health, refresh, spendEmergency, addProvisionalToken, unlockCurrent]);
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 

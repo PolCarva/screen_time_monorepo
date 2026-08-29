@@ -34,19 +34,19 @@ struct DailyReportView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       Text(isSpanish ? "TIEMPO EN PANTALLA" : "SCREEN TIME")
-        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        .font(.system(size: 10, weight: .semibold))
         .tracking(1.2)
-        .foregroundStyle(Color(red: 93/255, green: 94/255, blue: 88/255))
+        .foregroundStyle(Color(red: 78/255, green: 84/255, blue: 81/255))
       Text(Duration.seconds(configuration.totalSeconds).formatted(.time(pattern: .hourMinute)))
-        .font(.system(size: 42, weight: .semibold, design: .monospaced))
+        .font(.system(size: 42, weight: .medium, design: .monospaced))
         .tracking(-2)
-        .foregroundStyle(Color(red: 23/255, green: 24/255, blue: 20/255))
+        .foregroundStyle(Color(red: 36/255, green: 40/255, blue: 38/255))
       Rectangle()
-        .fill(Color(red: 23/255, green: 24/255, blue: 20/255))
+        .fill(Color(red: 217/255, green: 222/255, blue: 220/255))
         .frame(height: 1)
       Text(isSpanish ? "\(configuration.pickups) ACTIVACIONES" : "\(configuration.pickups) PICKUPS")
-        .font(.system(size: 11, weight: .medium, design: .monospaced))
-        .foregroundStyle(Color(red: 93/255, green: 94/255, blue: 88/255))
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(Color(red: 78/255, green: 84/255, blue: 81/255))
     }
     .padding(.vertical, 12)
   }
@@ -83,25 +83,30 @@ struct WeeklyReportView: View {
     let maximum = max(values.max() ?? 1, 1)
     VStack(alignment: .leading, spacing: 14) {
       Text(isSpanish ? "ÚLTIMOS 7 DÍAS" : "LAST 7 DAYS")
-        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        .font(.system(size: 10, weight: .semibold))
         .tracking(1.2)
-        .foregroundStyle(Color(red: 93/255, green: 94/255, blue: 88/255))
+        .foregroundStyle(Color(red: 78/255, green: 84/255, blue: 81/255))
       HStack(alignment: .bottom, spacing: 8) {
         ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+          let activeCount = value <= 0 ? 0 : max(1, Int((value / maximum * 5).rounded()))
           VStack(spacing: 5) {
-            Rectangle()
-              .fill(index == values.count - 1
-                ? Color(red: 255/255, green: 92/255, blue: 53/255)
-                : Color(red: 23/255, green: 24/255, blue: 20/255))
-              .frame(height: max(4, 62 * value / maximum))
+            VStack(spacing: 4) {
+              ForEach(0..<5, id: \.self) { module in
+                RoundedRectangle(cornerRadius: 2)
+                  .fill(module < activeCount
+                    ? Color(red: 105/255, green: 127/255, blue: 140/255).opacity(0.58 + Double(module) * 0.08)
+                    : Color(red: 217/255, green: 222/255, blue: 220/255).opacity(0.6))
+                  .frame(height: 8)
+              }
+            }
             Text(labels[index])
-              .font(.system(size: 10, weight: .medium, design: .monospaced))
-              .foregroundStyle(Color(red: 93/255, green: 94/255, blue: 88/255))
+              .font(.system(size: 10, weight: index == values.count - 1 ? .bold : .medium))
+              .foregroundStyle(Color(red: 78/255, green: 84/255, blue: 81/255))
           }
           .frame(maxWidth: .infinity)
         }
       }
-      .frame(height: 84, alignment: .bottom)
+      .frame(height: 82, alignment: .bottom)
     }
     .padding(.vertical, 12)
   }

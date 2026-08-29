@@ -5,7 +5,7 @@ import { colors } from "@/theme/tokens";
 
 export default function TabsLayout() {
   return (
-    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.signal}>
+    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.mineral}>
       <NativeTabs.Trigger name="(today)">
         <NativeTabs.Trigger.Icon sf={{ default: "clock", selected: "clock.fill" }} md="schedule" />
         <NativeTabs.Trigger.Label>{t("today")}</NativeTabs.Trigger.Label>
