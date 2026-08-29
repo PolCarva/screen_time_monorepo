@@ -1,18 +1,18 @@
 import { getLocales } from "expo-localization";
 
 const en = {
-  today: "Today", tokens: "Tokens", impact: "Impact", settings: "Settings",
-  greeting: "A quieter day", screenTime: "Screen time", avoided: "Opens avoided", saved: "Estimated time saved",
-  available: "tokens available", getToken: "Get an Unlock Token", emergency: "Emergency Unlocks",
-  voteNow: "Vote now", estimated: "Estimated", nowNot: "Not now", useToken: "Use 1 Unlock Token",
-  interventionTitle: "Do you really want to open this app?", permissionHealth: "Restriction health",
+  today: "Today", tokens: "Passes", impact: "Impact", settings: "Settings",
+  greeting: "Today, recorded", screenTime: "Screen time", avoided: "Opens avoided", saved: "Estimated time saved",
+  available: "passes available", getToken: "Get 1 pass", emergency: "Emergency passes",
+  voteNow: "Vote now", estimated: "Estimated", nowNot: "Don't enter", useToken: "Use 1 pass · 10 min",
+  interventionTitle: "A pause before entering", permissionHealth: "Restriction health",
 } as const;
 const es: Record<keyof typeof en, string> = {
-  today: "Hoy", tokens: "Tokens", impact: "Impacto", settings: "Ajustes",
-  greeting: "Un día más tranquilo", screenTime: "Tiempo en pantalla", avoided: "Aperturas evitadas", saved: "Tiempo ahorrado estimado",
-  available: "tokens disponibles", getToken: "Obtener Unlock Token", emergency: "Desbloqueos de emergencia",
-  voteNow: "Votar ahora", estimated: "Estimado", nowNot: "Ahora no", useToken: "Usar 1 Unlock Token",
-  interventionTitle: "¿Realmente quieres abrir esta app?", permissionHealth: "Estado de las restricciones",
+  today: "Hoy", tokens: "Pases", impact: "Impacto", settings: "Ajustes",
+  greeting: "Hoy, registrado", screenTime: "Tiempo en pantalla", avoided: "Entradas evitadas", saved: "Tiempo ahorrado estimado",
+  available: "pases disponibles", getToken: "Conseguir 1 pase", emergency: "Pases de emergencia",
+  voteNow: "Votar ahora", estimated: "Estimado", nowNot: "No entrar", useToken: "Usar 1 pase · 10 min",
+  interventionTitle: "Una pausa antes de entrar", permissionHealth: "Estado de las restricciones",
 };
 
 export type TranslationKey = keyof typeof en;

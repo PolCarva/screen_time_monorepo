@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Still - smartphone mockup</title><desc id="desc">Mockup propio de la intervención real en smartphone.</desc>
+  <defs><clipPath id="phone"><rect x="914" y="92" width="408" height="884" rx="54"/></clipPath></defs><rect width="1600" height="1200" fill="#FF5C35"/>
+  <text x="82" y="112" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="22" letter-spacing="4">PRODUCTO / INTERVENCIÓN</text><text x="82" y="390" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="112" letter-spacing="-5">Una pausa</text><text x="82" y="500" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="112" letter-spacing="-5">antes de entrar.</text>
+  <line x1="82" y1="630" x2="740" y2="630" stroke="#171814" stroke-width="3"/><text x="82" y="696" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="24" letter-spacing="3">00:01 / ELEGIR</text><text x="82" y="1090" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="25" letter-spacing="4">STILL / UNA PAUSA QUE CUENTA.</text>
+  <g transform="rotate(5 1118 534)"><rect x="880" y="58" width="476" height="952" rx="76" fill="#171814"/><image href="../../product-screens/mobile-intervention-ios.png" x="914" y="92" width="408" height="884" preserveAspectRatio="xMidYMid meet" clip-path="url(#phone)"/></g>
+</svg>

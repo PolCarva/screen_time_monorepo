@@ -1,8 +1,8 @@
 appId: com.apple.mobilecal
 ---
-- assertVisible: "No Unlock Tokens left"
+- assertVisible: "No passes available"
 - tapOn:
-    text: "Close and recharge in Still"
+    text: "Open Still to get a pass"
     waitToSettleTimeoutMs: 100
 - extendedWaitUntil:
     visible: "Still is ready to recharge"
@@ -19,5 +19,5 @@ appId: com.apple.mobilecal
 - extendedWaitUntil:
     visible: "Your app is unlocked"
     timeout: 30000
-- assertVisible: "UNLOCK ACTIVE"
+- assertVisible: "PASS ACTIVE"
 - takeScreenshot: still-auto-unlock-ready

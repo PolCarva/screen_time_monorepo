@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120" role="img" aria-labelledby="title desc">
+  <title id="title">still.</title>
+  <desc id="desc">Still horizontal logo with the Interval S and signal period.</desc>
+  <g transform="translate(0 0)" fill="none" stroke="#171814" stroke-width="14" stroke-linecap="square" stroke-linejoin="round">
+    <path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/>
+    <path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/>
+  </g>
+  <text x="126" y="82" fill="#171814" font-family="Familjen Grotesk, sans-serif" font-size="70" font-weight="700" letter-spacing="-4">still</text>
+  <circle cx="297" cy="76" r="7" fill="#FF5C35"/>
+</svg>

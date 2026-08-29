@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">Still Interval S, reverse</title>
+  <desc id="desc">A broken S made from two paths separated by a deliberate interval.</desc>
+  <g fill="none" stroke="#F3F0E8" stroke-width="14" stroke-linecap="square" stroke-linejoin="round">
+    <path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/>
+    <path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/>
+  </g>
+</svg>

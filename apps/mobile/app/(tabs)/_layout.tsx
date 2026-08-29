@@ -1,15 +1,27 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { t } from "@/i18n";
-import { colors, fonts } from "@/theme/tokens";
+import { colors } from "@/theme/tokens";
 
-const icons: Record<string, keyof typeof Ionicons.glyphMap> = { "(today)": "home-outline", "(tokens)": "time-outline", "(impact)": "heart-outline", "(settings)": "person-outline" };
 export default function TabsLayout() {
-  return <Tabs screenOptions={({ route }) => ({ headerShown: false, tabBarActiveTintColor: colors.forest, tabBarInactiveTintColor: "#999B95", tabBarStyle: { position: "absolute", height: 76, paddingTop: 9, paddingBottom: 12, margin: 14, borderRadius: 22, borderTopWidth: 0, backgroundColor: "rgba(255,253,249,.96)", shadowColor: colors.ink, shadowOpacity: .1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } }, tabBarLabelStyle: { fontFamily: fonts.sansMedium, fontSize: 10 }, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name] ?? "ellipse-outline"} color={color} size={size} /> })}>
-    <Tabs.Screen name="(today)" options={{ title: t("today") }} />
-    <Tabs.Screen name="(tokens)" options={{ title: t("tokens") }} />
-    <Tabs.Screen name="(impact)" options={{ title: t("impact") }} />
-    <Tabs.Screen name="(settings)" options={{ title: t("settings") }} />
-  </Tabs>;
+  return (
+    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.mineral}>
+      <NativeTabs.Trigger name="(today)">
+        <NativeTabs.Trigger.Icon sf={{ default: "clock", selected: "clock.fill" }} md="schedule" />
+        <NativeTabs.Trigger.Label>{t("today")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="(tokens)">
+        <NativeTabs.Trigger.Icon sf={{ default: "ticket", selected: "ticket.fill" }} md="confirmation_number" />
+        <NativeTabs.Trigger.Label>{t("tokens")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="(impact)">
+        <NativeTabs.Trigger.Icon sf={{ default: "heart.text.square", selected: "heart.text.square.fill" }} md="receipt_long" />
+        <NativeTabs.Trigger.Label>{t("impact")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="(settings)">
+        <NativeTabs.Trigger.Icon sf="slider.horizontal.3" md="tune" />
+        <NativeTabs.Trigger.Label>{t("settings")}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
 }

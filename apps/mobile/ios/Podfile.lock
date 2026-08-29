@@ -194,6 +194,8 @@ PODS:
     - ExpoModulesCore
   - ExpoGlassEffect (57.0.1):
     - ExpoModulesCore
+  - ExpoHaptics (57.0.2):
+    - ExpoModulesCore
   - ExpoKeepAwake (57.0.1):
     - ExpoModulesCore
   - ExpoLinking (57.0.7):
@@ -2483,6 +2485,7 @@ DEPENDENCIES:
   - "ExpoFileSystem (from `../../../node_modules/.pnpm/expo-file-system@57.0.5_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-nati_a40f9d6ae68c4850e028222d4af67c26/node_modules/expo-file-system/ios/ExpoFileSystem.podspec`)"
   - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@57.0.1_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-native+metr_517a749468038b115483faf617f4e9d4/node_modules/expo-font/ios/ExpoFont.podspec`)"
   - "ExpoGlassEffect (from `../../../node_modules/.pnpm/expo-glass-effect@57.0.1_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-nat_352cfaa3a372b5e858d25cd4fc7b0a7c/node_modules/expo-glass-effect/ios`)"
+  - "ExpoHaptics (from `../../../node_modules/.pnpm/expo-haptics@57.0.2_expo@57.0.15/node_modules/expo-haptics/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.pnpm/expo-keep-awake@57.0.1_expo@57.0.15_react@19.2.3/node_modules/expo-keep-awake/ios`)"
   - "ExpoLinking (from `../../../node_modules/.pnpm/expo-linking@57.0.7_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-native+m_9e4795be40a2045c44a204e26cef29d0/node_modules/expo-linking/ios`)"
   - "ExpoLocalization (from `../../../node_modules/.pnpm/expo-localization@57.0.1_expo@57.0.15_react@19.2.3/node_modules/expo-localization/ios`)"
@@ -2624,6 +2627,8 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/.pnpm/expo-font@57.0.1_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-native+metr_517a749468038b115483faf617f4e9d4/node_modules/expo-font/ios/ExpoFont.podspec"
   ExpoGlassEffect:
     :path: "../../../node_modules/.pnpm/expo-glass-effect@57.0.1_expo@57.0.15_react-native@0.86.2_@babel+core@7.29.7_@react-nat_352cfaa3a372b5e858d25cd4fc7b0a7c/node_modules/expo-glass-effect/ios"
+  ExpoHaptics:
+    :path: "../../../node_modules/.pnpm/expo-haptics@57.0.2_expo@57.0.15/node_modules/expo-haptics/ios"
   ExpoKeepAwake:
     :path: "../../../node_modules/.pnpm/expo-keep-awake@57.0.1_expo@57.0.15_react@19.2.3/node_modules/expo-keep-awake/ios"
   ExpoLinking:
@@ -2843,6 +2848,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 0e74ed1536e1643f4a352d84ed55d311d795828d
   ExpoFont: 59e1faf66ba9bcd232ae1e2ce58d202a48b6f65e
   ExpoGlassEffect: 4b62afb489e6b84357701737ce002137c9d5fdbc
+  ExpoHaptics: bc5461002fc97e53c213a1af6c88c8f95965b734
   ExpoKeepAwake: c26f14275017370cc8a4b7b43a0e23361f2053a5
   ExpoLinking: 2e9ead00fcb0d3e623a8d4935fadae3cdb6d4d97
   ExpoLocalization: 659243b03b3a3e9589793cee2f728a899e181329

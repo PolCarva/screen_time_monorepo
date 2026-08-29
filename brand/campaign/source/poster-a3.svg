@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3508" height="4961" viewBox="0 0 3508 4961" role="img" aria-labelledby="title desc">
+  <title id="title">Still A3 poster</title><desc id="desc">Cartel tipográfico de lanzamiento.</desc>
+  <rect width="3508" height="4961" fill="#F3F0E8"/>
+  <text x="210" y="270" fill="#5D5E58" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="70" letter-spacing="12">STILL / INTERVENCIÓN 01</text>
+  <line x1="210" y1="440" x2="3298" y2="440" stroke="#171814" stroke-width="8"/>
+  <text x="210" y="1230" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="380" letter-spacing="-18">10 segundos.</text>
+  <text x="210" y="1610" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="380" letter-spacing="-18">Una decisión.</text>
+  <line x1="210" y1="2010" x2="1680" y2="2010" stroke="#171814" stroke-width="34"/><line x1="1828" y1="2010" x2="3298" y2="2010" stroke="#FF5C35" stroke-width="34"/>
+  <text x="210" y="2510" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="600" font-size="180">No entrar.</text>
+  <text x="210" y="2760" fill="#5D5E58" font-family="Familjen Grotesk,Arial,sans-serif" font-size="104">Una salida clara. Un solo toque.</text>
+  <g transform="translate(210 3260) scale(6)" fill="none" stroke="#171814" stroke-width="14" stroke-linecap="square" stroke-linejoin="round"><path d="M94 24H45C28 24 20 32 20 43C20 54 29 60 45 60H50"/><path d="M70 60H76C92 60 100 66 100 77C100 88 92 96 75 96H26"/></g>
+  <text x="1040" y="3740" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="320">still.</text>
+  <rect x="0" y="4540" width="3508" height="421" fill="#FF5C35"/>
+  <text x="210" y="4800" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="82" letter-spacing="10">UNA PAUSA QUE CUENTA.</text>
+</svg>

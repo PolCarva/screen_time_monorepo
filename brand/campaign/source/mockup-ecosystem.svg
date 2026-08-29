@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Still - ecosystem mockup</title><desc id="desc">Composición propia de app y web reales bajo una dirección común.</desc>
+  <defs><clipPath id="desk"><rect x="150" y="260" width="1320" height="742" rx="12"/></clipPath><clipPath id="phone"><rect x="1270" y="372" width="360" height="780" rx="48"/></clipPath></defs><rect width="1800" height="1200" fill="#F3F0E8"/>
+  <text x="78" y="94" fill="#5D5E58" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="22" letter-spacing="4">APP + WEB / UN SOLO SISTEMA</text><text x="78" y="190" fill="#171814" font-family="Familjen Grotesk,Arial,sans-serif" font-weight="700" font-size="76" letter-spacing="-3">Una decisión. Un registro. Una prueba.</text>
+  <rect x="112" y="222" width="1396" height="818" rx="28" fill="#171814"/><image href="../../product-screens/web-home-desktop.png" x="150" y="260" width="1320" height="5924" preserveAspectRatio="xMidYMin meet" clip-path="url(#desk)"/>
+  <g transform="rotate(-4 1450 760)"><rect x="1238" y="340" width="424" height="844" rx="72" fill="#171814"/><image href="../../product-screens/mobile-impact-ios.png" x="1270" y="372" width="360" height="780" preserveAspectRatio="xMidYMid meet" clip-path="url(#phone)"/></g>
+  <rect x="78" y="1080" width="660" height="58" fill="#FF5C35"/><text x="103" y="1119" fill="#171814" font-family="IBM Plex Mono,monospace" font-weight="600" font-size="21" letter-spacing="3">EL INTERVALO REGISTRADO / 2026</text>
+</svg>

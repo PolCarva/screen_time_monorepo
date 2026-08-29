@@ -1,20 +1,54 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
 
+import { AttentionField } from "@/components/attention-field";
+import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
-import { Body, Display, Eyebrow } from "@/components/typography";
+import { Body, Display, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
 const steps = [
-  { eyebrow: localize("01 · Welcome", "01 · Bienvenida"), title: localize("Less screen.\nMore life.", "Menos pantalla.\nMás vida."), body: localize("Still adds a gentle pause before the apps you choose. Your selection never leaves this device.", "Still añade una pausa amable antes de las apps que eliges. Tus selecciones nunca salen de este dispositivo."), action: localize("Continue", "Continuar") },
-  { eyebrow: localize("02 · How it works", "02 · Cómo funciona"), title: localize("Interrupt.\nChoose. Return.", "Interrumpe.\nElige. Regresa."), body: localize("When the intervention appears, ‘Not now’ is always the easiest path. One token opens ten minutes.", "Cuando aparece la intervención, ‘Ahora no’ siempre es el camino más directo. Un token abre 10 minutos."), action: localize("I understand", "Entiendo") },
-  { eyebrow: localize("03 · Privacy", "03 · Privacidad"), title: localize("Your usage is\nyours alone.", "Tu uso es\nsolo tuyo."), body: localize("The app shares general counts, never app names, package names, bundle IDs, or detailed history.", "La app comparte conteos generales, nunca nombres de apps, package names, bundle IDs ni historial detallado."), action: localize("Continue", "Continuar") },
-  { eyebrow: localize("04 · Setup", "04 · Preparación"), title: localize("Choose with\nintention.", "Elige con\nintención."), body: localize("Confirm you are 18 or older, authorize the engine, and select the apps where you want a pause.", "Confirma que tienes 18 años, autoriza el motor y selecciona las apps donde quieres una pausa."), action: localize("Set up restrictions", "Configurar restricciones") },
+  {
+    label: localize("01 / THE MOMENT", "01 / EL MOMENTO"),
+    title: localize("Notice the second\nbefore you enter.", "Nota el segundo\nantes de entrar."),
+    body: localize("Still appears before the apps you choose. It makes an automatic opening visible without deciding for you.", "Still aparece antes de las apps que eliges. Hace visible una apertura automática sin decidir por ti."),
+    action: localize("Continue", "Continuar"),
+    mode: "intervention" as const,
+  },
+  {
+    label: localize("02 / THE CHOICE", "02 / LA ELECCIÓN"),
+    title: localize("Go back, or enter\nfor 10 minutes.", "Vuelve, o entra\npor 10 minutos."),
+    body: localize("Going back is one tap. A pass keeps the app open for a clear amount of time, then the pause returns.", "Volver requiere un toque. Un pase mantiene la app abierta durante un tiempo claro y luego vuelve la pausa."),
+    action: localize("Continue", "Continuar"),
+    mode: "progress" as const,
+  },
+  {
+    label: localize("03 / ON DEVICE", "03 / EN EL DISPOSITIVO"),
+    title: localize("App names and detail\nstay on your phone.", "Los nombres y el detalle\nse quedan en tu teléfono."),
+    body: localize("Still shares general counts for passes and impact. It does not send your app selection or detailed activity history.", "Still comparte conteos generales para pases e impacto. No envía tu selección de apps ni el historial detallado."),
+    action: localize("Continue", "Continuar"),
+    mode: "progress" as const,
+  },
+  {
+    label: localize("04 / SETUP", "04 / CONFIGURACIÓN"),
+    title: localize("Choose where the\npause should appear.", "Elige dónde debería\naparecer la pausa."),
+    body: localize("Authorize Still and select the apps you tend to open automatically. You can change the selection later.", "Autoriza Still y selecciona las apps que tiendes a abrir automáticamente. Puedes cambiar la selección después."),
+    action: localize("Choose apps", "Elegir apps"),
+    mode: "progress" as const,
+  },
+] as const;
+
+const samples = [
+  [12, 18, 8, 26, 17, 31, 21],
+  [8, 12, 14, 18, 22, 27, 33],
+  [21, 18, 17, 14, 12, 9, 7],
+  [0, 0, 0, 0, 0, 0, 0],
 ];
 
 export default function OnboardingScreen() {
@@ -25,18 +59,21 @@ export default function OnboardingScreen() {
   const current = steps[step]!;
 
   async function next() {
-    if (step < steps.length - 1) return setStep(step + 1);
+    if (step < steps.length - 1) {
+      setStep((value) => value + 1);
+      return;
+    }
     if (!adult) return;
     setBusy(true);
     try {
       const restrictionStatus = await restrictionEngine.requestAuthorization();
       if (restrictionStatus !== "authorized") {
-        Alert.alert(localize("Authorize pauses", "Autoriza las pausas"), localize("Enable Still in Settings, return, and tap the button again.", "Activa Still en Ajustes, regresa y toca el botón de nuevo."));
+        Alert.alert(localize("Allow the pause", "Autoriza la pausa"), localize("Enable Still in Settings, return, and try again.", "Activa Still en Ajustes, vuelve e inténtalo otra vez."));
         return;
       }
       const wellbeingStatus = await restrictionEngine.requestWellbeingAuthorization();
       if (Platform.OS === "android" && wellbeingStatus !== "authorized") {
-        Alert.alert(localize("Authorize wellbeing stats", "Autoriza las estadísticas"), localize("Enable Usage Access, return, and tap the button again.", "Activa el acceso de uso, regresa y toca el botón de nuevo."));
+        Alert.alert(localize("Allow device activity", "Autoriza la actividad"), localize("Enable Usage Access, return, and try again.", "Activa el acceso de uso, vuelve e inténtalo otra vez."));
         return;
       }
       const selection = await restrictionEngine.presentAppPicker();
@@ -44,25 +81,80 @@ export default function OnboardingScreen() {
       await setOnboarded(true);
       router.replace("/(tabs)/(today)");
     } catch {
-      Alert.alert(
-        localize("Setup paused", "Configuración pausada"),
-        localize(
-          "Authorization was cancelled. You can try again whenever you are ready.",
-          "La autorización fue cancelada. Puedes intentarlo de nuevo cuando quieras.",
-        ),
-      );
-    } finally { setBusy(false); }
+      Alert.alert(localize("Setup paused", "Configuración en pausa"), localize("Nothing changed. Try again whenever you are ready.", "Nada cambió. Inténtalo de nuevo cuando quieras."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <Screen contentContainerStyle={styles.screen}>
-      <View style={styles.top}><Eyebrow>{current.eyebrow}</Eyebrow><Text style={styles.skip} onPress={() => setStep(steps.length - 1)}>{localize("Skip", "Saltar")}</Text></View>
-      <View style={styles.art}><View style={styles.orbit}><View style={styles.seal}><Text style={styles.leaf}>⌁</Text></View></View></View>
-      <View><Display>{current.title}</Display><Body style={styles.body}>{current.body}</Body></View>
-      {step === steps.length - 1 && <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: adult }} onPress={() => setAdult(!adult)} style={styles.checkRow}><View style={[styles.check, adult && styles.checkOn]}>{adult && <Text style={styles.tick}>✓</Text>}</View><Body>{localize("I confirm that I am 18 or older.", "Confirmo que tengo 18 años o más.")}</Body></Pressable>}
-      <View style={styles.footer}><View style={styles.dots}>{steps.map((_, index) => <View key={index} style={[styles.dot, index === step && styles.dotActive]} />)}</View><PrimaryButton onPress={next} disabled={busy || (step === steps.length - 1 && !adult)}>{busy ? localize("Preparing…", "Preparando…") : current.action}</PrimaryButton></View>
+      <View style={styles.top}>
+        <FieldApertureMark size={34} />
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={() => setStep(steps.length - 1)}>
+          <Text style={styles.skip}>{localize("Skip", "Saltar")}</Text>
+        </Pressable>
+      </View>
+
+      <Animated.View key={`field-${step}`} entering={FadeIn.duration(200)} style={styles.field}>
+        <View style={styles.fieldTop}>
+          <Eyebrow>{current.label}</Eyebrow>
+          <Mono>{String(step + 1).padStart(2, "0")} / 04</Mono>
+        </View>
+        <AttentionField
+          accessibilityLabel={localize("A visual example of the attention field.", "Un ejemplo visual del campo de atención.")}
+          mode={current.mode}
+          values={samples[step]}
+          animate={step === 0}
+        />
+      </Animated.View>
+
+      <Animated.View key={`copy-${step}`} entering={FadeIn.duration(200)} style={styles.copy}>
+        <Display>{current.title}</Display>
+        <Body style={styles.body}>{current.body}</Body>
+      </Animated.View>
+
+      {step === steps.length - 1 ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: adult }}
+          onPress={() => setAdult((value) => !value)}
+          style={({ pressed }) => [styles.checkRow, pressed && styles.pressed]}
+        >
+          <View style={[styles.check, adult && styles.checkOn]}>{adult ? <Text style={styles.tick}>✓</Text> : null}</View>
+          <Body style={styles.checkLabel}>{localize("I confirm that I am 18 or older.", "Confirmo que tengo 18 años o más.")}</Body>
+        </Pressable>
+      ) : null}
+
+      <View style={styles.footer}>
+        <View accessible accessibilityLabel={`${step + 1} / ${steps.length}`} style={styles.progress}>
+          {steps.map((_, index) => <View key={index} style={[styles.progressSegment, index <= step && styles.progressSegmentActive, index === step && styles.progressSegmentCurrent]} />)}
+        </View>
+        <PrimaryButton onPress={next} disabled={busy || (step === steps.length - 1 && !adult)}>
+          {busy ? localize("Opening settings…", "Abriendo ajustes…") : current.action}
+        </PrimaryButton>
+      </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({ screen: { flexGrow: 1, justifyContent: "space-between", minHeight: 740 }, top: { flexDirection: "row", justifyContent: "space-between" }, skip: { fontFamily: fonts.sansMedium, color: colors.muted, fontSize: 12 }, art: { alignItems: "center", justifyContent: "center", marginVertical: spacing.md }, orbit: { width: 230, height: 230, borderRadius: 115, borderWidth: 1, borderColor: colors.clay, alignItems: "center", justifyContent: "center" }, seal: { width: 134, height: 134, borderRadius: 67, backgroundColor: colors.stone, borderWidth: 1, borderColor: "#C8BBA8", alignItems: "center", justifyContent: "center", shadowColor: colors.ink, shadowOpacity: .14, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } }, leaf: { fontSize: 58, color: colors.forest }, body: { marginTop: spacing.md, color: colors.muted }, footer: { gap: spacing.lg }, dots: { flexDirection: "row", justifyContent: "center", gap: 7 }, dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.stone }, dotActive: { width: 22, backgroundColor: colors.sage }, checkRow: { padding: spacing.md, flexDirection: "row", gap: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.line, borderRadius: radius.md }, check: { width: 24, height: 24, borderWidth: 1, borderColor: colors.sage, borderRadius: 12, alignItems: "center", justifyContent: "center" }, checkOn: { backgroundColor: colors.sage }, tick: { color: colors.white, fontFamily: fonts.sansBold } });
+const styles = StyleSheet.create({
+  screen: { flexGrow: 1, minHeight: 760, justifyContent: "space-between" },
+  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  skip: { color: colors.graphiteSoft, fontFamily: fonts.brandMedium, fontSize: 13 },
+  field: { minHeight: 210, paddingVertical: spacing.lg, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.fog },
+  fieldTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  copy: { gap: spacing.lg },
+  body: { maxWidth: 520, color: colors.graphiteSoft },
+  checkRow: { minHeight: 68, padding: spacing.md, flexDirection: "row", gap: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.mineralLight, borderRadius: radius.control },
+  check: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.graphite, borderRadius: radius.sm },
+  checkOn: { backgroundColor: colors.mineral },
+  tick: { color: colors.chalk, fontFamily: fonts.brandBold },
+  checkLabel: { flex: 1, fontSize: 14, lineHeight: 20 },
+  pressed: { opacity: 0.62 },
+  footer: { gap: spacing.lg },
+  progress: { height: 5, flexDirection: "row", gap: spacing.xs },
+  progressSegment: { flex: 1, borderRadius: radius.xs, backgroundColor: colors.fog },
+  progressSegmentActive: { backgroundColor: colors.mineralLight },
+  progressSegmentCurrent: { backgroundColor: colors.mineral },
+});

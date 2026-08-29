@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { z } from "zod";
 
 import { apiFetch } from "@/lib/api";
 import { capture } from "@/lib/analytics";
+import { AttentionField } from "@/components/attention-field";
+import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
-import { Surface } from "@/components/surface";
-import { Body, Display, Eyebrow } from "@/components/typography";
+import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, spacing } from "@/theme/tokens";
 
 const claimSchema = z.object({
   intentId: z.string().uuid(),
@@ -127,7 +128,7 @@ export default function TokensScreen() {
           localize("Could not unlock", "No se pudo desbloquear"),
           localize(
             "Your token is still available. Return to the restricted app and try again.",
-            "Tu token sigue disponible. Volvé a la app restringida e intentá nuevamente.",
+            "Tu pase sigue disponible. Vuelve a la app restringida e inténtalo de nuevo.",
           ),
         );
       })
@@ -141,94 +142,127 @@ export default function TokensScreen() {
     wallet.rewardedBalance,
   ]);
   const buttonLabel = busy
-    ? localize("Opening…", "Abriendo…")
+    ? localize("Preparing the ad…", "Preparando el anuncio…")
     : balanceCapped
-      ? localize("Token limit reached", "Límite de tokens alcanzado")
+      ? localize("Pass limit reached", "Límite de pases alcanzado")
       : adReady
-        ? t("getToken")
+        ? localize("Get 1 pass", "Conseguir 1 pase")
         : adStatus === "unavailable"
-          ? localize("Retrying ad…", "Reintentando anuncio…")
+          ? localize("Ad unavailable · retrying", "Anuncio no disponible · reintentando")
           : localize(
-              "Preparing in background…",
-              "Preparando en segundo plano…",
+              "Preparing the ad…",
+              "Preparando el anuncio…",
             );
   return (
-    <Screen>
-      <View>
-        <Eyebrow>
-          {localize("Your time, your choice", "Tu tiempo, tu elección")}
-        </Eyebrow>
-        <Display>{t("tokens")}</Display>
+    <Screen contentContainerStyle={styles.screen}>
+      <View style={styles.topline}>
+        <FieldApertureMark size={34} />
+        <Eyebrow>{localize("PASSES / 10 MIN", "PASES / 10 MIN")}</Eyebrow>
       </View>
-      <View style={styles.ring}>
-        <View style={styles.inner}>
-          <Text style={styles.balance}>{wallet.rewardedBalance}</Text>
-          <Body style={styles.center}>{t("available")}</Body>
+
+      <View style={styles.balancePanel}>
+        <View style={styles.balanceHeader}>
+          <Eyebrow>{localize("AVAILABLE NOW", "DISPONIBLES AHORA")}</Eyebrow>
+          <Mono>{wallet.rewardedBalance} / {config.maxRewardTokenBalance}</Mono>
         </View>
+        <View style={styles.balanceRow}>
+          <Data style={styles.balance}>{wallet.rewardedBalance}</Data>
+          <View style={styles.balanceCopy}>
+            <Heading>{wallet.rewardedBalance === 1 ? localize("pass available", "pase disponible") : localize("passes available", "pases disponibles")}</Heading>
+            <Body style={styles.note}>{localize("Each one opens one selected app for 10 minutes.", "Cada uno abre una app seleccionada durante 10 minutos.")}</Body>
+          </View>
+        </View>
+        <AttentionField
+          accessibilityLabel={localize(`${wallet.rewardedBalance} passes available out of ${config.maxRewardTokenBalance}.`, `${wallet.rewardedBalance} pases disponibles de ${config.maxRewardTokenBalance}.`)}
+          values={[0, 0, 0, 0, 0, 0, wallet.rewardedBalance]}
+          passes={wallet.rewardedBalance}
+        />
+        <PrimaryButton
+          onPress={() => void earn()}
+          disabled={capped || busy || !deviceId || !adReady}
+          variant="signal"
+        >
+          {buttonLabel}
+        </PrimaryButton>
       </View>
-      <PrimaryButton
-        onPress={() => void earn()}
-        disabled={capped || busy || !deviceId || !adReady}
-      >
-        {buttonLabel}
-      </PrimaryButton>
       {capped && (
-        <Body style={styles.note}>
+        <Body style={styles.limitNote}>
           {localize(
-            "You reached the token balance cap.",
-            "Alcanzaste el saldo máximo de tokens.",
+            "You already have the maximum number of passes.",
+            "Ya tienes el máximo de pases disponible.",
           )}
         </Body>
       )}
-      <Eyebrow>{localize("Other options", "Otras opciones")}</Eyebrow>
-      <Surface style={styles.row}>
-        <Text style={styles.rowIcon}>♙</Text>
-        <View>
-          <Text style={styles.rowTitle}>{t("emergency")}</Text>
-          <Body style={styles.note}>
-            {wallet.emergencyRemaining}{" "}
-            {localize(
-              "available today · work offline",
-              "disponibles hoy · funcionan offline",
-            )}
-          </Body>
+
+      <View style={styles.emergency}>
+        <View style={styles.sectionTop}>
+          <Eyebrow>{localize("OFFLINE ACCESS", "ACCESO SIN CONEXIÓN")}</Eyebrow>
+          <Data style={styles.emergencyCount}>{wallet.emergencyRemaining}</Data>
         </View>
-      </Surface>
-      <Surface style={styles.policy}>
-        <Eyebrow>{localize("No pressure", "Sin presión")}</Eyebrow>
-        <Body>
+        <Heading>{t("emergency")}</Heading>
+        <Body style={styles.note}>
           {localize(
-            "Ads are optional, limited, and non-personalized. The platform allocates part of its advertising revenue to the fund; no individual ad ‘donates’ money.",
-            "Los anuncios son opcionales, limitados y no personalizados. La plataforma asigna parte de su ingreso publicitario al fondo; ningún anuncio individual “dona” dinero.",
+            "Available today. They work even when an ad or connection doesn’t.",
+            "Disponibles hoy. Funcionan incluso cuando no hay anuncio o conexión.",
           )}
         </Body>
-      </Surface>
+      </View>
+
+      <View style={styles.policy}>
+        <View style={styles.sectionTop}>
+          <Eyebrow>{localize("OPTIONAL ADS", "ANUNCIOS OPCIONALES")}</Eyebrow>
+          <Mono>{localize("MAX 10 / DAY", "MÁX 10 / DÍA")}</Mono>
+        </View>
+        <Body style={styles.policyBody}>
+          {localize(
+            "Optional, limited ads fund Still. The platform allocates part of that revenue to the weekly fund; an individual ad is not a donation.",
+            "Los anuncios opcionales y limitados financian Still. La plataforma asigna parte de ese ingreso al fondo semanal; un anuncio individual no es una donación.",
+          )}
+        </Body>
+      </View>
     </Screen>
   );
 }
 const styles = StyleSheet.create({
-  ring: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    borderWidth: 8,
-    borderColor: colors.stone,
-    borderTopColor: colors.sage,
-    alignSelf: "center",
-    alignItems: "center",
-    justifyContent: "center",
+  screen: { gap: 0 },
+  topline: { minHeight: 58, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  balancePanel: {
+    paddingVertical: spacing.xl,
+    gap: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
   },
-  inner: { alignItems: "center" },
+  balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  balanceRow: { minHeight: 104, flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   balance: {
-    fontFamily: fonts.display,
-    fontSize: 76,
-    lineHeight: 78,
-    color: colors.forest,
+    fontSize: 84,
+    lineHeight: 84,
+    letterSpacing: -4,
   },
-  center: { textAlign: "center", color: colors.muted },
-  note: { fontSize: 12, color: colors.muted },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  rowIcon: { fontSize: 28, color: colors.sage },
-  rowTitle: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.ink },
-  policy: { backgroundColor: "rgba(220,201,179,.22)" },
+  balanceCopy: { paddingBottom: spacing.sm, gap: spacing.xs },
+  note: { maxWidth: 240, fontSize: 12, lineHeight: 18, color: colors.graphiteSoft },
+  limitNote: {
+    padding: spacing.md,
+    borderLeftWidth: 3,
+    borderColor: colors.warning,
+    color: colors.graphiteSoft,
+    fontSize: 13,
+  },
+  emergency: {
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+    borderTopWidth: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
+  },
+  sectionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  emergencyCount: { fontSize: 34, lineHeight: 36 },
+  policy: {
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
+  },
+  policyBody: { fontSize: 14, lineHeight: 22 },
 });
