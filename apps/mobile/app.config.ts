@@ -65,7 +65,6 @@ const config: ExpoConfig = {
   scheme: "still",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
-  runtimeVersion: { policy: "appVersion" },
   ios: {
     supportsTablet: false,
     deploymentTarget: "16.4",
