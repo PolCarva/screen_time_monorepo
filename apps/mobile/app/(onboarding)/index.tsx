@@ -75,13 +75,6 @@ const steps = [
   },
 ] as const;
 
-const samples = [
-  [12, 18, 8, 26, 17, 31, 21],
-  [8, 12, 14, 18, 22, 27, 33],
-  [21, 18, 17, 14, 12, 9, 7],
-  [0, 0, 0, 0, 0, 0, 0],
-];
-
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [adult, setAdult] = useState(false);
@@ -202,7 +195,7 @@ export default function OnboardingScreen() {
             "Un ejemplo visual del campo de atención.",
           )}
           mode={current.mode}
-          values={samples[step]}
+          values={[]}
           animate={step === 0}
         />
       </Animated.View>

@@ -74,7 +74,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private var estimatedMinutesPerAvoidedOpen: Double {
     guard let defaults = UserDefaults(suiteName: appGroup),
           let stored = defaults.object(forKey: estimatedMinutesPerAvoidedOpenKey) as? NSNumber
-    else { return 2 }
+    else { return 0 }
     return max(0, min(stored.doubleValue, 60))
   }
 
@@ -142,7 +142,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       backgroundBlurStyle: .none,
       backgroundColor: graphite,
       icon: fieldIcon(),
-      title: .init(text: "00:01 · " + observedFact, color: chalk),
+      title: .init(text: observedFact, color: chalk),
       subtitle: .init(
         text: copy("What do you want from the next \(unlockDurationMinutes) minutes?", "¿Qué quieres de los próximos \(unlockDurationMinutes) minutos?") + "\n\n" + impactSummary,
         color: mineralLight

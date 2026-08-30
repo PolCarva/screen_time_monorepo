@@ -116,7 +116,7 @@ export default function ImpactScreen() {
   const amount = week
     ? new Intl.NumberFormat(undefined, {
         style: "currency",
-        currency: "USD",
+        currency: week.currency,
         maximumFractionDigits: 0,
       }).format(week.impactFundMinor / 100)
     : "—";

@@ -33,19 +33,19 @@ export const remoteConfigSchema = z
 export type RemoteConfig = z.infer<typeof remoteConfigSchema>;
 
 export const defaultRemoteConfig: RemoteConfig = {
-  version: 1,
+  version: 0,
   unlockDurationSeconds: 600,
-  dailyEmergencyUnlocks: 3,
-  maxRewardedAdsPerUtcDay: 10,
-  maxRewardTokenBalance: 3,
-  impactPercentage: 80,
-  platformPercentage: 20,
-  estimatedMinutesPerAvoidedOpen: 2,
-  rewardProvider: "admob",
-  votingEnabled: true,
-  iosRestrictionEnabled: true,
-  androidRestrictionEnabled: true,
-  publishedAt: "2026-08-23T00:00:00.000Z",
+  dailyEmergencyUnlocks: 0,
+  maxRewardedAdsPerUtcDay: 0,
+  maxRewardTokenBalance: 0,
+  impactPercentage: 0,
+  platformPercentage: 100,
+  estimatedMinutesPerAvoidedOpen: 0,
+  rewardProvider: "disabled",
+  votingEnabled: false,
+  iosRestrictionEnabled: false,
+  androidRestrictionEnabled: false,
+  publishedAt: "1970-01-01T00:00:00.000Z",
 };
 
 export const devicePlatformSchema = z.enum(["ios", "android"]);

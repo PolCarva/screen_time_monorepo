@@ -15,7 +15,7 @@ class StillAccessibilityService : AccessibilityService() {
   private var lastInterventionAt = 0L
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, true)) return
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
     if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
     val target = event.packageName?.toString() ?: return
     val selected = preferences.getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()

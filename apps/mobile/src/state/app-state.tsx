@@ -64,10 +64,10 @@ type AppStateValue = {
 
 const defaultWallet: Wallet = {
   rewardedBalance: 0,
-  emergencyRemaining: 3,
+  emergencyRemaining: 0,
   unresolvedRewardClaims: 0,
-  rewardAdsRemainingToday: 10,
-  resetAt: new Date(Date.now() + 86_400_000).toISOString(),
+  rewardAdsRemainingToday: 0,
+  resetAt: "1970-01-01T00:00:00.000Z",
 };
 const defaultStats: LocalStats = {
   screenTimeMinutes: 0,

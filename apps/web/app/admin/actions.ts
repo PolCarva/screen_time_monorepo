@@ -1,5 +1,6 @@
 "use server";
 
+import { charitySchema, remoteConfigSchema } from "@screen-time/contracts";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -190,13 +191,14 @@ export async function openNextWeek(
   ]);
   if (configResult.error || charitiesResult.error)
     return actionError("No se pudo cargar la configuración de impacto.");
-  const config = configResult.data;
+  const config = remoteConfigSchema.safeParse(configResult.data?.payload);
   const charities = charitiesResult.data;
   if (!charities || charities.length === 0)
     return actionError("Se necesita al menos una entidad activa.");
-  const payload = config?.payload as Record<string, unknown> | undefined;
-  const impactPercentage = Number(payload?.impactPercentage ?? 80);
-  const platformPercentage = Number(payload?.platformPercentage ?? 20);
+  if (!config.success)
+    return actionError("Publica una configuración operativa válida antes de abrir la semana.");
+  const impactPercentage = config.data.impactPercentage;
+  const platformPercentage = config.data.platformPercentage;
   const { data: weekId, error } = await client.rpc("admin_open_impact_week", {
     p_admin_user_id: admin.user.id,
     p_week_start: dateOnly(monday),
@@ -210,4 +212,85 @@ export async function openNextWeek(
   revalidatePath("/admin");
   revalidatePath("/impact");
   return actionSuccess("Semana de impacto abierta.");
+}
+
+export async function publishConfig(
+  _previous: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const admin = await requireAdminPage();
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
+  try {
+    const impactPercentage = Number(formData.get("impactPercentage"));
+    const payload = remoteConfigSchema.parse({
+      version: 1,
+      unlockDurationSeconds: Math.round(
+        Number(formData.get("unlockDurationMinutes")) * 60,
+      ),
+      dailyEmergencyUnlocks: Number(formData.get("dailyEmergencyUnlocks")),
+      maxRewardedAdsPerUtcDay: Number(formData.get("maxRewardedAdsPerUtcDay")),
+      maxRewardTokenBalance: Number(formData.get("maxRewardTokenBalance")),
+      impactPercentage,
+      platformPercentage: 100 - impactPercentage,
+      estimatedMinutesPerAvoidedOpen: Number(
+        formData.get("estimatedMinutesPerAvoidedOpen"),
+      ),
+      rewardProvider: String(formData.get("rewardProvider")),
+      votingEnabled: formData.get("votingEnabled") === "on",
+      iosRestrictionEnabled: formData.get("iosRestrictionEnabled") === "on",
+      androidRestrictionEnabled:
+        formData.get("androidRestrictionEnabled") === "on",
+      publishedAt: new Date().toISOString(),
+    });
+    const client = createAdminClient()!;
+    const { error } = await client.rpc("admin_publish_remote_config", {
+      p_admin_user_id: admin.user.id,
+      p_payload: payload,
+    });
+    if (error) return actionError("No se pudo publicar la configuración.");
+    revalidatePath("/admin");
+    revalidatePath("/impact");
+    return actionSuccess("Configuración publicada y auditada.");
+  } catch {
+    return actionError("Revisa los límites y porcentajes de la configuración.");
+  }
+}
+
+export async function createCharity(
+  _previous: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const admin = await requireAdminPage();
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
+  try {
+    const input = charitySchema.omit({ id: true }).parse({
+      name: String(formData.get("name") ?? "").trim(),
+      logoUrl: String(formData.get("logoUrl") ?? "").trim() || null,
+      shortDescription: String(formData.get("shortDescription") ?? "").trim(),
+      website: String(formData.get("website") ?? "").trim(),
+      country: String(formData.get("country") ?? "").trim(),
+      category: String(formData.get("category") ?? ""),
+    });
+    const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
+      return actionError("El slug debe usar minúsculas, números y guiones.");
+    const client = createAdminClient()!;
+    const { error } = await client.rpc("admin_create_charity", {
+      p_admin_user_id: admin.user.id,
+      p_name: input.name,
+      p_slug: slug,
+      p_short_description: input.shortDescription,
+      p_website: input.website,
+      p_country: input.country,
+      p_category: input.category,
+      p_logo_url: input.logoUrl,
+    });
+    if (error) return actionError("No se pudo crear la entidad; revisa el slug y la URL.");
+    revalidatePath("/admin");
+    return actionSuccess("Entidad creada y disponible para la próxima semana.");
+  } catch {
+    return actionError("Los datos de la entidad no son válidos.");
+  }
 }

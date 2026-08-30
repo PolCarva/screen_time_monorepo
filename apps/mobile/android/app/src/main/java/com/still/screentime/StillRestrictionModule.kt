@@ -78,7 +78,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun startUnlock(target: ReadableMap, durationSeconds: Int, promise: Promise) {
-    if (!preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, true)) {
+    if (!preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)) {
       promise.reject("restrictions_disabled", "Restrictions are temporarily disabled")
       return
     }
@@ -127,7 +127,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet())?.size ?: 0
     val accessibilityEnabled = isAccessibilityEnabled()
     val usageAccessEnabled = hasUsageAccess()
-    val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, true)
+    val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
     promise.resolve(Arguments.createMap().apply {
       putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)

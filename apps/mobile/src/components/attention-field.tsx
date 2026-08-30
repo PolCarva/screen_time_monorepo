@@ -112,11 +112,11 @@ function InterventionField({ dark = true, animate = true }: Pick<AttentionFieldP
 }
 
 function ImpactField({ values, dark = false }: Pick<AttentionFieldProps, "values" | "dark">) {
-  const source = values?.length ? values : [10, 17, 13, 24, 19, 31, 27, 38, 32, 44];
+  const source = values?.slice(0, 10) ?? [];
   const maximum = Math.max(...source, 1);
   return (
     <View style={styles.impactField}>
-      {source.slice(0, 10).map((value, index) => (
+      {source.map((value, index) => (
         <View
           key={index}
           style={[

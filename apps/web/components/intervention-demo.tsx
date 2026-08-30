@@ -7,8 +7,8 @@ export function InterventionDemo() {
       aria-label="Demostración de la intervención de Still"
     >
       <div className="intervention-demo__status">
-        <span>INSTAGRAM</span>
-        <span>00:01</span>
+        <span>APP SELECCIONADA</span>
+        <span>PAUSA ACTIVA</span>
       </div>
       <AttentionField
         dark
@@ -17,10 +17,10 @@ export function InterventionDemo() {
       />
       <div className="intervention-demo__copy">
         <h2>
-          Instagram se abrió
-          <br />7 veces hoy.
+          Una apertura automática
+          <br />se vuelve visible.
         </h2>
-        <p>¿Qué quieres de la próxima ventana de tiempo?</p>
+        <p>¿Qué quieres de la ventana de tiempo configurada?</p>
       </div>
       <div className="intervention-demo__actions" aria-hidden="true">
         <span className="demo-action demo-action--primary">Volver</span>

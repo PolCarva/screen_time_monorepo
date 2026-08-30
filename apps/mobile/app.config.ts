@@ -18,7 +18,10 @@ const supabaseUrl = buildValue("EXPO_PUBLIC_SUPABASE_URL");
 const supabasePublishableKey = buildValue(
   "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
 );
-const easProjectId = buildValue("EXPO_PUBLIC_EAS_PROJECT_ID");
+const easProjectId = buildValue(
+  "EXPO_PUBLIC_EAS_PROJECT_ID",
+  "4d11d2ed-73c9-4442-aea8-1b4a6e8bd636",
+);
 const androidAppId = buildValue(
   "ADMOB_ANDROID_APP_ID",
   "ca-app-pub-3940256099942544~3347511713",

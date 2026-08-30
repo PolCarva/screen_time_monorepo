@@ -38,6 +38,21 @@ describe("reward state machine", () => {
 });
 
 describe("wallet rules", () => {
+  const operationalConfig = {
+    ...defaultRemoteConfig,
+    version: 1,
+    dailyEmergencyUnlocks: 3,
+    maxRewardedAdsPerUtcDay: 10,
+    maxRewardTokenBalance: 3,
+    impactPercentage: 80,
+    platformPercentage: 20,
+    estimatedMinutesPerAvoidedOpen: 2,
+    rewardProvider: "admob" as const,
+    votingEnabled: true,
+    iosRestrictionEnabled: true,
+    androidRestrictionEnabled: true,
+    publishedAt: "2026-08-24T00:00:00.000Z",
+  };
   const wallet = {
     rewardedBalance: 2,
     emergencyRemaining: 3,
@@ -47,12 +62,12 @@ describe("wallet rules", () => {
   };
 
   it("allows a reward below the balance cap", () => {
-    expect(canRequestReward(wallet, defaultRemoteConfig)).toBe(true);
+    expect(canRequestReward(wallet, operationalConfig)).toBe(true);
   });
 
   it("blocks a reward at the balance cap", () => {
     expect(
-      canRequestReward({ ...wallet, rewardedBalance: 3 }, defaultRemoteConfig),
+      canRequestReward({ ...wallet, rewardedBalance: 3 }, operationalConfig),
     ).toBe(false);
   });
 
@@ -60,7 +75,7 @@ describe("wallet rules", () => {
     expect(
       canRequestReward(
         { ...wallet, unresolvedRewardClaims: 3 },
-        defaultRemoteConfig,
+        operationalConfig,
       ),
     ).toBe(true);
   });
@@ -68,16 +83,20 @@ describe("wallet rules", () => {
   it("honors the operational reward switch", () => {
     expect(
       canRequestReward(wallet, {
-        ...defaultRemoteConfig,
+        ...operationalConfig,
         rewardProvider: "disabled",
       }),
     ).toBe(false);
   });
 
+  it("fails closed before a production policy has been published", () => {
+    expect(canRequestReward(wallet, defaultRemoteConfig)).toBe(false);
+  });
+
   it("rejects an unimplemented reward provider", () => {
     expect(
       remoteConfigSchema.safeParse({
-        ...defaultRemoteConfig,
+        ...operationalConfig,
         rewardProvider: "house",
       }).success,
     ).toBe(false);

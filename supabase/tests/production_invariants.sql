@@ -30,6 +30,41 @@ insert into public.devices (
   'test-installation-hash', 'ios', '1.0.0', '26.0', 'en', 'UTC'
 );
 
+update public.remote_config_versions set is_active = false where is_active;
+insert into public.remote_config_versions (version, payload, is_active, published_at)
+values (
+  900000001,
+  jsonb_build_object(
+    'version', 900000001,
+    'unlockDurationSeconds', 600,
+    'dailyEmergencyUnlocks', 3,
+    'maxRewardedAdsPerUtcDay', 10,
+    'maxRewardTokenBalance', 3,
+    'impactPercentage', 80,
+    'platformPercentage', 20,
+    'estimatedMinutesPerAvoidedOpen', 2,
+    'rewardProvider', 'admob',
+    'votingEnabled', true,
+    'iosRestrictionEnabled', true,
+    'androidRestrictionEnabled', true,
+    'publishedAt', now()
+  ),
+  true,
+  now()
+);
+
+insert into public.charities (
+  id, name, slug, short_description, website, country, category
+) values (
+  '90000000-0000-4000-8000-000000000009',
+  'Invariant Test Charity',
+  'invariant-test-charity',
+  'A transaction-scoped charity used only by database invariants.',
+  'https://example.test/charity',
+  'Test',
+  'other'
+);
+
 insert into public.impact_weeks (
   id, week_start, week_end, status, impact_percentage, platform_percentage, opened_at
 ) values (
@@ -37,8 +72,11 @@ insert into public.impact_weeks (
   '2036-01-07', '2036-01-13', 'open', 80, 20, now()
 );
 insert into public.impact_week_candidates (impact_week_id, charity_id, display_order)
-select '90000000-0000-4000-8000-000000000003', id, 1
-from public.charities order by created_at limit 1;
+values (
+  '90000000-0000-4000-8000-000000000003',
+  '90000000-0000-4000-8000-000000000009',
+  1
+);
 
 update public.remote_config_versions
 set payload = jsonb_set(payload, '{votingEnabled}', 'false'::jsonb)

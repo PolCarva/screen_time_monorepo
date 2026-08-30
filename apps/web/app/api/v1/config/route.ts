@@ -1,7 +1,4 @@
-import {
-  defaultRemoteConfig,
-  remoteConfigSchema,
-} from "@screen-time/contracts";
+import { remoteConfigSchema } from "@screen-time/contracts";
 
 import { HttpError, routeError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase";
@@ -26,9 +23,7 @@ export async function GET(request: Request) {
         "config_unavailable",
         "Configuration is temporarily unavailable",
       );
-    const parsed = remoteConfigSchema.safeParse(
-      data?.payload ?? defaultRemoteConfig,
-    );
+    const parsed = remoteConfigSchema.safeParse(data?.payload);
     if (!parsed.success || !data)
       throw new HttpError(
         503,

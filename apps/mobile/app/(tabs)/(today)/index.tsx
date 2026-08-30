@@ -31,7 +31,7 @@ export default function TodayScreen() {
   const impactAmount = impact
     ? new Intl.NumberFormat(undefined, {
         style: "currency",
-        currency: "USD",
+        currency: impact.currency,
         maximumFractionDigits: 0,
       }).format(impact.impactFundMinor / 100)
     : "—";
@@ -137,9 +137,13 @@ export default function TodayScreen() {
         </View>
         <View style={styles.impactMeta}>
           <Mono>
-            {impact?.isEstimated
-              ? localize("ESTIMATED", "ESTIMADO")
-              : localize("VERIFIED", "VERIFICADO")}
+            {impactQuery.isLoading
+              ? localize("LOADING", "CARGANDO")
+              : impactQuery.isError || !impact
+                ? localize("UNAVAILABLE", "NO DISPONIBLE")
+                : impact.isEstimated
+                  ? localize("ESTIMATED", "ESTIMADO")
+                  : localize("RECONCILED", "CONCILIADO")}
           </Mono>
           <Text style={styles.arrow}>→</Text>
         </View>

@@ -19,7 +19,12 @@ import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { analytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
-import { linkIdentity } from "@/lib/identity";
+import {
+  getLinkedIdentityProviders,
+  isIdentityProviderEnabled,
+  linkIdentity,
+  type IdentityProvider,
+} from "@/lib/identity";
 import { getJson, setJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import {
@@ -53,15 +58,26 @@ export default function SettingsScreen() {
   const { clearLocalData, config, health, lastSyncedAt, refresh, syncStatus } =
     useAppState();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+  const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>([]);
+  const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(null);
+  const appleEnabled = isIdentityProviderEnabled("apple");
+  const googleEnabled = isIdentityProviderEnabled("google");
 
   useEffect(() => {
     void getJson("analyticsEnabled", true).then(setAnalyticsEnabled);
+    void getLinkedIdentityProviders()
+      .then(setLinkedIdentities)
+      .catch(() => setLinkedIdentities([]));
   }, []);
 
-  async function link(provider: "apple" | "google") {
+  async function link(provider: IdentityProvider) {
+    if (!isIdentityProviderEnabled(provider) || linkedIdentities.includes(provider))
+      return;
+    setIdentityBusy(provider);
     try {
       const linked = await linkIdentity(provider);
-      if (linked)
+      if (linked) {
+        setLinkedIdentities(await getLinkedIdentityProviders());
         Alert.alert(
           localize("Account linked", "Cuenta vinculada"),
           localize(
@@ -69,6 +85,7 @@ export default function SettingsScreen() {
             "Ya puedes participar en las votaciones.",
           ),
         );
+      }
     } catch {
       Alert.alert(
         localize("Could not link", "No se pudo vincular"),
@@ -77,6 +94,8 @@ export default function SettingsScreen() {
           "Revisa la configuración del proveedor e inténtalo otra vez.",
         ),
       );
+    } finally {
+      setIdentityBusy(null);
     }
   }
 
@@ -357,20 +376,64 @@ export default function SettingsScreen() {
         </Body>
         <Pressable
           accessibilityRole="button"
-          style={({ pressed }) => [styles.identity, pressed && styles.pressed]}
+          accessibilityState={{
+            disabled:
+              !appleEnabled ||
+              identityBusy !== null ||
+              linkedIdentities.includes("apple"),
+          }}
+          disabled={
+            !appleEnabled ||
+            identityBusy !== null ||
+            linkedIdentities.includes("apple")
+          }
+          style={({ pressed }) => [
+            styles.identity,
+            pressed && styles.pressed,
+            (!appleEnabled || linkedIdentities.includes("apple")) && styles.disabled,
+          ]}
           onPress={() => link("apple")}
         >
           <Text style={styles.identityText}>
-             {localize("Continue with Apple", "Continuar con Apple")}
+            {" "}
+            {linkedIdentities.includes("apple")
+              ? localize("Apple linked", "Apple vinculado")
+              : !appleEnabled
+                ? localize("Apple setup pending", "Configuración de Apple pendiente")
+                : identityBusy === "apple"
+                  ? localize("Opening Apple…", "Abriendo Apple…")
+                  : localize("Continue with Apple", "Continuar con Apple")}
           </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          style={({ pressed }) => [styles.identity, pressed && styles.pressed]}
+          accessibilityState={{
+            disabled:
+              !googleEnabled ||
+              identityBusy !== null ||
+              linkedIdentities.includes("google"),
+          }}
+          disabled={
+            !googleEnabled ||
+            identityBusy !== null ||
+            linkedIdentities.includes("google")
+          }
+          style={({ pressed }) => [
+            styles.identity,
+            pressed && styles.pressed,
+            (!googleEnabled || linkedIdentities.includes("google")) && styles.disabled,
+          ]}
           onPress={() => link("google")}
         >
           <Text style={styles.identityText}>
-            G {localize("Continue with Google", "Continuar con Google")}
+            G{" "}
+            {linkedIdentities.includes("google")
+              ? localize("Google linked", "Google vinculado")
+              : !googleEnabled
+                ? localize("Google setup pending", "Configuración de Google pendiente")
+                : identityBusy === "google"
+                  ? localize("Opening Google…", "Abriendo Google…")
+                  : localize("Continue with Google", "Continuar con Google")}
           </Text>
         </Pressable>
       </View>
@@ -507,6 +570,7 @@ const styles = StyleSheet.create({
   },
   identityText: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
   pressed: { opacity: 0.65 },
+  disabled: { opacity: 0.42 },
   between: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -40,7 +40,7 @@ class InterventionActivity : Activity() {
     } ?: if (spanish) "App seleccionada" else "Selected app"
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
-    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, true)) {
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) {
       startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
       finish()
       return
@@ -64,13 +64,6 @@ class InterventionActivity : Activity() {
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         setTextColor(chalk)
       }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-      addView(TextView(this@InterventionActivity).apply {
-        text = "00:01"
-        textSize = 12f
-        letterSpacing = 0.08f
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        setTextColor(chalk)
-      })
     })
 
     root.addView(createAttentionField(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(184)).apply { topMargin = dp(30) })
@@ -164,7 +157,7 @@ class InterventionActivity : Activity() {
   private fun impactSummary(spanish: Boolean): String {
     val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
     val avoidedOpens = preferences.all.entries.sumOf { (key, value) -> if (key.startsWith("avoided_opens:")) (value as? Int)?.coerceAtLeast(0) ?: 0 else 0 }
-    val minutesPerOpen = preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 2f)
+    val minutesPerOpen = preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
     val duration = formatSavedTime(avoidedOpens * minutesPerOpen)
     return if (spanish) "$avoidedOpens aperturas automáticas evitadas · $duration recuperados (est.)" else "$avoidedOpens automatic opens avoided · $duration returned (est.)"
   }

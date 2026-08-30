@@ -20,7 +20,7 @@ enum SharedRestrictionState {
   private static let restrictionsEnabledKey = "restrictionsEnabled"
 
   static var restrictionsEnabled: Bool {
-    guard defaults.object(forKey: restrictionsEnabledKey) != nil else { return true }
+    guard defaults.object(forKey: restrictionsEnabledKey) != nil else { return false }
     return defaults.bool(forKey: restrictionsEnabledKey)
   }
 

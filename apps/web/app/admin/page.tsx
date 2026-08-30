@@ -1,17 +1,124 @@
+import { remoteConfigSchema, type RemoteConfig } from "@screen-time/contracts";
+
 import { BrandLockup } from "@/components/brand-mark";
 import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
 import { requireAdminPage } from "@/lib/admin";
 import { getCurrentImpactWeek } from "@/lib/impact";
+import { createAdminClient } from "@/lib/supabase";
 
 import {
   closeVoting,
   confirmRevenue,
+  createCharity,
   openNextWeek,
+  publishConfig,
   recordDonation,
 } from "./actions";
 import { AdminActionForm } from "./admin-action-form";
 
 export const dynamic = "force-dynamic";
+
+function OperationalSetup({
+  config,
+  charities,
+}: {
+  config: RemoteConfig | null;
+  charities: Array<{ id: string; name: string; website: string; category: string }>;
+}) {
+  return (
+    <div className="admin-grid admin-grid--setup">
+      <section className="operation-card">
+        <p className="mono-label">CONFIGURACIÓN / VERSIÓN {config?.version ?? "—"}</p>
+        <AdminActionForm
+          action={publishConfig}
+          label="Publicar configuración"
+          pendingLabel="Publicando…"
+        >
+          <h2>Política operativa</h2>
+          <p>Los valores publicados se aplican a la app y quedan auditados.</p>
+          <label>
+            Duración de un pase (minutos)
+            <input
+              defaultValue={(config?.unlockDurationSeconds ?? 600) / 60}
+              max="60"
+              min="1"
+              name="unlockDurationMinutes"
+              required
+              type="number"
+            />
+          </label>
+          <label>
+            Accesos de emergencia por día
+            <input defaultValue={config?.dailyEmergencyUnlocks ?? 0} max="20" min="0" name="dailyEmergencyUnlocks" required type="number" />
+          </label>
+          <label>
+            Anuncios recompensados por día
+            <input defaultValue={config?.maxRewardedAdsPerUtcDay ?? 0} max="30" min="0" name="maxRewardedAdsPerUtcDay" required type="number" />
+          </label>
+          <label>
+            Saldo máximo de pases
+            <input defaultValue={config?.maxRewardTokenBalance ?? 0} max="20" min="0" name="maxRewardTokenBalance" required type="number" />
+          </label>
+          <label>
+            Porcentaje destinado al fondo
+            <input defaultValue={config?.impactPercentage ?? 0} max="100" min="0" name="impactPercentage" required step="0.01" type="number" />
+          </label>
+          <label>
+            Minutos estimados por apertura evitada
+            <input defaultValue={config?.estimatedMinutesPerAvoidedOpen ?? 0} max="60" min="0" name="estimatedMinutesPerAvoidedOpen" required step="0.1" type="number" />
+          </label>
+          <label>
+            Proveedor de recompensas
+            <select defaultValue={config?.rewardProvider ?? "disabled"} name="rewardProvider">
+              <option value="disabled">Deshabilitado</option>
+              <option value="admob">AdMob</option>
+            </select>
+          </label>
+          <label><input defaultChecked={config?.votingEnabled ?? false} name="votingEnabled" type="checkbox" /> Votación habilitada</label>
+          <label><input defaultChecked={config?.iosRestrictionEnabled ?? false} name="iosRestrictionEnabled" type="checkbox" /> Restricciones iOS habilitadas</label>
+          <label><input defaultChecked={config?.androidRestrictionEnabled ?? false} name="androidRestrictionEnabled" type="checkbox" /> Restricciones Android habilitadas</label>
+        </AdminActionForm>
+      </section>
+
+      <section className="operation-card">
+        <p className="mono-label">ENTIDADES / {charities.length} ACTIVAS</p>
+        <AdminActionForm
+          action={createCharity}
+          label="Crear entidad"
+          pendingLabel="Creando…"
+        >
+          <h2>Nueva entidad verificada</h2>
+          <p>La entidad quedará disponible para la próxima semana; no se inventan candidatos.</p>
+          <label>Nombre<input name="name" required maxLength={120} /></label>
+          <label>Slug<input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" /></label>
+          <label>Descripción<textarea name="shortDescription" required maxLength={280} /></label>
+          <label>Sitio web<input name="website" required type="url" placeholder="https://" /></label>
+          <label>País o alcance<input name="country" required maxLength={80} /></label>
+          <label>Logo (URL opcional)<input name="logoUrl" type="url" placeholder="https://" /></label>
+          <label>
+            Categoría
+            <select name="category" defaultValue="other">
+              <option value="children">Infancia</option>
+              <option value="poverty">Pobreza</option>
+              <option value="environment">Ambiente</option>
+              <option value="health">Salud</option>
+              <option value="animals">Animales</option>
+              <option value="emergencies">Emergencias</option>
+              <option value="other">Otra</option>
+            </select>
+          </label>
+        </AdminActionForm>
+        {charities.length > 0 ? (
+          <ul>
+            {charities.map((charity) => (
+              <li key={charity.id}><a href={charity.website} rel="noreferrer" target="_blank">{charity.name}</a> · {charity.category}</li>
+            ))}
+          </ul>
+        ) : <p>No hay entidades activas.</p>}
+      </section>
+    </div>
+  );
+}
 
 export default async function AdminPage() {
   const access = await requireAdminPage();
@@ -41,6 +148,19 @@ export default async function AdminPage() {
       </main>
     );
   }
+
+  const client = createAdminClient()!;
+  const [configResult, charitiesResult] = await Promise.all([
+    client.from("remote_config_versions").select("payload").eq("is_active", true).maybeSingle(),
+    client.from("charities").select("id, name, website, category").eq("is_active", true).order("created_at"),
+  ]);
+  const parsedConfig = remoteConfigSchema.safeParse(configResult.data?.payload);
+  const setup = (
+    <OperationalSetup
+      config={parsedConfig.success ? parsedConfig.data : null}
+      charities={charitiesResult.data ?? []}
+    />
+  );
 
   if (result.state !== "ready") {
     return (
@@ -75,6 +195,7 @@ export default async function AdminPage() {
             </section>
           )}
         </div>
+        {setup}
       </main>
     );
   }
@@ -114,7 +235,7 @@ export default async function AdminPage() {
           {week.status === "voting_closed" && (
             <AdminActionForm
               action={confirmRevenue}
-              label="Confirmar y congelar 80/20"
+              label={`Confirmar y congelar ${week.impactPercentage}/${100 - week.impactPercentage}`}
               pendingLabel="Confirmando…"
             >
               <input type="hidden" name="weekId" value={week.id} />
@@ -181,6 +302,7 @@ export default async function AdminPage() {
           )}
         </section>
       </div>
+      {setup}
     </main>
   );
 }

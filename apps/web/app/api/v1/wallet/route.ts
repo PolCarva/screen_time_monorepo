@@ -1,4 +1,4 @@
-import { defaultRemoteConfig } from "@screen-time/contracts";
+import { remoteConfigSchema } from "@screen-time/contracts";
 
 import { requireApiUser } from "@/lib/auth";
 import { HttpError, routeError } from "@/lib/http";
@@ -62,10 +62,14 @@ export async function GET(request: Request) {
         "wallet_failed",
         "Wallet is temporarily unavailable",
       );
-    const config = {
-      ...defaultRemoteConfig,
-      ...(configResult.data?.payload ?? {}),
-    };
+    const parsedConfig = remoteConfigSchema.safeParse(configResult.data?.payload);
+    if (!parsedConfig.success)
+      throw new HttpError(
+        503,
+        "config_unavailable",
+        "No active configuration is available",
+      );
+    const config = parsedConfig.data;
 
     return Response.json(
       {

@@ -24,7 +24,16 @@ export function AttentionField({ kind = "progress", values = [], label, passes =
   }
 
   if (kind === "impact") {
-    const source = values.length ? values.slice(0, 10) : [10, 17, 13, 24, 19, 31, 27, 38, 32, 44];
+    const source = values.slice(0, 10);
+    if (source.length === 0) {
+      return (
+        <div
+          aria-label={label}
+          className="field field--impact field--empty"
+          role="img"
+        />
+      );
+    }
     const maximum = Math.max(...source, 1);
     return (
       <div aria-label={label} className="field field--impact" role="img">

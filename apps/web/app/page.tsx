@@ -2,13 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AttentionField } from "@/components/attention-field";
+import { BetaSignupForm } from "@/components/beta-signup-form";
 import { BrandLockup } from "@/components/brand-mark";
 import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
 import { InterventionDemo } from "@/components/intervention-demo";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentImpactWeek } from "@/lib/impact";
-
-const weekly = [76, 52, 63, 41, 58, 29, 34];
 
 export const dynamic = "force-dynamic";
 
@@ -106,16 +105,16 @@ export default async function HomePage() {
           </p>
           <dl className="observed-section__record">
             <div>
-              <dt>14:31:59</dt>
+              <dt>GESTO</dt>
               <dd>gesto automático</dd>
             </div>
             <div className="is-current">
-              <dt>14:32:00</dt>
+              <dt>PAUSA</dt>
               <dd>la decisión aparece</dd>
             </div>
             <div>
-              <dt>14:32:01</dt>
-              <dd>volver o entrar 10 min</dd>
+              <dt>ELECCIÓN</dt>
+              <dd>volver o usar un pase</dd>
             </div>
           </dl>
         </div>
@@ -173,36 +172,35 @@ export default async function HomePage() {
         >
           <div className="phone-screen">
             <header>
-              <span>VISTA ILUSTRATIVA</span>
+              <span>ESTRUCTURA DEL PRODUCTO</span>
               <b>•••</b>
             </header>
             <div className="phone-screen__hero">
-              <strong>42</strong>
+              <strong>—</strong>
               <div>
                 <b>minutos</b>
                 <span>recuperados hoy</span>
               </div>
             </div>
             <p>
-              14 aperturas automáticas se convirtieron en decisiones
-              conscientes.
+              Tus métricas aparecen aquí únicamente después de registrarse en
+              el dispositivo.
             </p>
             <dl>
               <div>
                 <dt>Apps protegidas</dt>
-                <dd>06</dd>
+                <dd>—</dd>
               </div>
               <div>
                 <dt>Aperturas evitadas</dt>
-                <dd>14</dd>
+                <dd>—</dd>
               </div>
             </dl>
             <div className="phone-screen__field">
               <span>TIEMPO EN APPS / 7 DÍAS</span>
               <AttentionField
                 label="Tiempo en apps seleccionadas durante siete días"
-                passes={1}
-                values={weekly}
+                values={[]}
               />
             </div>
             <div className="phone-screen__row">
@@ -306,8 +304,8 @@ export default async function HomePage() {
             Menos gesto automático. Más espacio para algo concreto.
           </h2>
           <p>
-            La marca no promete que 42 minutos cambien una vida. Registra que
-            existieron y deja que cada persona decida dónde ponerlos.
+            La marca no inventa minutos ni promete resultados. Registra lo que
+            ocurrió y deja que cada persona decida dónde poner ese tiempo.
           </p>
           <div className="care-section__principles">
             <span>Sin rachas</span>
@@ -351,9 +349,7 @@ export default async function HomePage() {
           <p className="mono-label">BETA PRIVADA / IOS + ANDROID</p>
           <h2>El momento antes de entrar también puede ser tuyo.</h2>
           <div>
-            <a className="button button--chalk" href="mailto:beta@still.app">
-              Solicitar acceso
-            </a>
+            <BetaSignupForm />
             <span>
               Acceso por invitación · disponibilidad limitada por país y
               plataforma.

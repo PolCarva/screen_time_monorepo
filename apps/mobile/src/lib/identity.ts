@@ -5,8 +5,29 @@ import { supabase } from "@/lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export async function linkIdentity(provider: "apple" | "google") {
+export type IdentityProvider = "apple" | "google";
+
+export function isIdentityProviderEnabled(provider: IdentityProvider) {
+  return provider === "apple"
+    ? process.env.EXPO_PUBLIC_APPLE_AUTH_ENABLED === "true"
+    : process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+}
+
+export async function getLinkedIdentityProviders(): Promise<IdentityProvider[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.auth.getUserIdentities();
+  if (error) throw error;
+  return (data?.identities ?? []).flatMap((identity) =>
+    identity.provider === "apple" || identity.provider === "google"
+      ? [identity.provider]
+      : [],
+  );
+}
+
+export async function linkIdentity(provider: IdentityProvider) {
   if (!supabase) throw new Error("Supabase is not configured");
+  if (!isIdentityProviderEnabled(provider))
+    throw new Error(`${provider}_identity_provider_disabled`);
   const redirectTo = makeRedirectUri({ scheme: "still", path: "auth/callback" });
   const { data, error } = await supabase.auth.linkIdentity({
     provider,

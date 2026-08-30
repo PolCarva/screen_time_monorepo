@@ -295,6 +295,48 @@ img {
   );
   box-shadow: 5px -5px 0 color-mix(in srgb, var(--mineral) 18%, transparent);
 }
+.field--impact.field--empty {
+  border-bottom: 1px solid var(--fog);
+  opacity: 0.55;
+}
+
+.beta-form {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: 1fr minmax(120px, 0.45fr);
+  gap: 12px;
+}
+.beta-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.beta-form input,
+.beta-form select {
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--graphite);
+  border: 1px solid color-mix(in srgb, var(--chalk) 42%, transparent);
+  border-radius: 3px;
+  background: var(--chalk);
+  font: inherit;
+}
+.beta-form__consent {
+  grid-column: 1 / -1;
+  display: flex !important;
+  align-items: center;
+}
+.beta-form__consent input {
+  min-height: 0;
+}
+.beta-form .button,
+.beta-form > p {
+  grid-column: 1 / -1;
+}
+.beta-form__trap {
+  position: absolute;
+  left: -10000px;
+}
 
 /* Hero */
 .hero-v3 {

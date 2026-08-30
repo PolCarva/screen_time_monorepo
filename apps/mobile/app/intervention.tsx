@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AttentionField } from "@/components/attention-field";
 import { Screen } from "@/components/screen";
-import { Body, Display, Eyebrow, Mono } from "@/components/typography";
+import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, spacing } from "@/theme/tokens";
@@ -67,7 +67,6 @@ export default function InterventionScreen() {
       <StatusBar style="light" />
       <View style={styles.topline}>
         <Eyebrow style={styles.lightLabel}>{appLabel}</Eyebrow>
-        <Mono style={styles.timer}>00:01</Mono>
       </View>
 
       <AttentionField
