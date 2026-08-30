@@ -8,10 +8,12 @@ Run on the minimum supported iOS 16.4 device and a current iOS 26 device after A
 
 1. Authorize individual Family Controls and select a real app.
 2. Confirm its Shield appears and “Ahora no” closes it.
-3. Sync a local rewarded/emergency balance, unlock for ten minutes, and confirm the target is unshielded.
+3. Sync a local rewarded/emergency balance and a non-default remote duration, unlock, and confirm both the copy and deadline use that duration.
 4. Terminate Still, wait for expiry, and confirm `DeviceActivityMonitorExtension` restores the Shield.
 5. Reboot during a session and confirm the saved uptime/boot epoch cannot extend it.
-6. Confirm the report extension renders aggregate activity without exporting application tokens or detailed activity.
+6. Confirm the daily and seven-day report scenes render aggregate activity without exporting application tokens or detailed activity.
+7. Disable `iosRestrictionEnabled` remotely, foreground Still, and confirm shields clear without deleting the on-device selection; re-enable it and confirm shields return.
+8. Delete the account and confirm shields, monitoring schedules, App Group wallet/outbox, local notifications, and SQLite state are cleared.
 
 Opening the main app directly from Shield is treated as best-effort. The implemented safe fallback records the pending opaque target and defers; React Native resolves the unlock when the user opens Still.
 
@@ -24,11 +26,19 @@ Run on Android 10, 12, 14, 15, and 16, including Pixel, Samsung, and Xiaomi.
 3. Confirm “Ahora no” returns Home and Back cannot bypass it.
 4. Unlock and confirm the package launch intent reopens the target.
 5. Kill Still and verify detection remains active; reboot and confirm stale sessions no longer apply.
-6. Disable Accessibility, revoke Usage Access, and uninstall a selected target; Settings must show recoverable health state.
+6. Disable Accessibility, revoke Usage Access, and uninstall a selected target; Settings must show a recoverable health state and open the relevant system control.
+7. Disable `androidRestrictionEnabled` remotely, foreground Still, and confirm the service stops intervening while preserving the local selection; re-enable it and confirm detection returns.
+8. Delete the account and confirm local selections, sessions, wallet projection, and SQLite state are cleared.
 
 The implementation deliberately excludes overlays, Device Owner, `QUERY_ALL_PACKAGES`, and permanent foreground services. If recent Android/OEM behavior prevents `InterventionActivity` from appearing and a Play-incompatible permission is the only workaround, Android is a no-go.
+
+## What compilation cannot prove
+
+- Apple must grant Family Controls distribution entitlements to the main app and each extension bundle.
+- Play must accept the Accessibility disclosure and evidence; individual OEMs may still suppress the intervention activity.
+- AdMob SSV timing, notification-to-recharge handoff, background extension lifetime, reboot restoration, and real store signing require account-backed physical-device tests.
+- iOS does not expose app names/tokens to React Native by design. Returning to the just-unlocked app from Shield is best-effort on older iOS versions, so the safe fallback tells the user to use the previous-app shortcut/app switcher.
 
 ## Gate record
 
 Record device, OS build, detection latency, reblock result, evidence video, and reviewer notes for every row. External beta remains closed until all rows pass and both platform declarations are accepted.
-

@@ -1,36 +1,72 @@
-# Screen Time Impact
+# Still — Screen Time Impact
 
-A bilingual React Native app that adds a deliberate pause before distracting apps, uses non-transferable unlock tokens, and makes a weekly Impact Fund transparent.
+Still is a bilingual iOS/Android app that adds an intentional pause before selected apps, offers non-transferable timed passes, and publishes a weekly record of the advertising revenue allocated to an Impact Fund.
 
-## Workspace
+This repository contains the complete v1 system:
 
-- `apps/mobile` — Expo Router app with committed iOS and Android native projects.
-- `apps/web` — Next.js API, public impact site, and minimal admin.
-- `packages/contracts` — Zod API contracts and domain rules shared by both apps.
-- `supabase` — PostgreSQL migrations, row-level security, and seed data.
+- `apps/mobile` — Expo Router UI plus committed Swift/Kotlin restriction engines. Expo Go is not supported.
+- `apps/web` — Next.js App Router API, public Impact record, privacy pages, internal jobs, and authenticated operations console.
+- `packages/contracts` — shared Zod wire contracts and pure domain rules.
+- `supabase` — PostgreSQL schema, RLS, transactional business functions, storage setup, migrations, and development seed.
+
+## What is real
+
+- Anonymous Supabase sessions, optional Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end.
+- iOS uses Family Controls, Managed Settings shields, Device Activity monitor/report extensions, an App Group wallet/outbox, and monotonic unlock deadlines.
+- Android uses a disclosed Accessibility service, a local app picker, Usage Access aggregates, and monotonic unlock deadlines tied to the current boot.
+- Impact pages use only persisted Supabase data. Missing or unavailable data is shown explicitly; production UI never substitutes demo totals.
+- Operations can open/close weeks, reconcile revenue, upload validated donation proof files, and publish the donation through server-only transactional functions.
+
+See [the completion audit](docs/completion-audit.md) for the original gaps and their disposition.
 
 ## Local setup
 
-1. Copy `.env.example` to `.env.local` and fill the Supabase values.
-2. Run `pnpm install`.
-3. Run `npm run dev:all` (or `pnpm dev:all`) to start the Next.js web/API service and the Expo Metro server together.
-4. Because the app contains native Screen Time and Accessibility integrations, use development builds (`pnpm --filter mobile ios` / `android`), not Expo Go.
-
-See `docs/implementation-status.md`, `docs/architecture.md`, `docs/native-feasibility.md`, `docs/store-compliance.md`, and `docs/runbook.md` before changing native enforcement behavior or configuring an environment.
-
-## Validation
+Prerequisites: Node 22+, pnpm 10.8.1, Supabase CLI with Docker, JDK 17/Android SDK 36, and Xcode 26/CocoaPods for iOS.
 
 ```sh
-pnpm typecheck
-pnpm lint
-pnpm test
+pnpm install --frozen-lockfile
+cp .env.example .env.local
+cp apps/web/.env.example apps/web/.env.local
+cp apps/mobile/.env.example apps/mobile/.env.local
+supabase start
+supabase db reset
+pnpm dev:all
+```
+
+Fill the Supabase URLs/keys printed by `supabase status`. The web app runs at `http://localhost:3000`; Metro starts alongside it. Install a native development build with:
+
+```sh
+pnpm --filter mobile ios
+pnpm --filter mobile android
+```
+
+The development configuration permits Google sample ad identifiers. `APP_VARIANT=production` fails closed unless HTTPS API/Supabase endpoints, an EAS project ID, and non-sample AdMob app and rewarded-unit IDs are present.
+
+## Verification
+
+```sh
+pnpm check
+supabase test db
 pnpm --filter web build
 cd apps/mobile/android && ./gradlew :app:compileDebugKotlin
-cd apps/mobile/ios && xcodebuild -workspace Still.xcworkspace -scheme Still \
+cd apps/mobile/ios && pod install
+xcodebuild -workspace Still.xcworkspace -scheme Still -configuration Debug \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-The simulator build validates compilation. The restriction engines must still pass the signed physical-device matrix described in `docs/native-feasibility.md`; Apple Family Controls entitlements and Play Accessibility review cannot be simulated locally.
+The simulator/emulator builds prove compilation, not platform enforcement. The signed physical-device and store-review gates are listed in [native feasibility](docs/native-feasibility.md).
 
-The committed dependency patch under `patches/` is required by Xcode 26.0 and is applied by pnpm. See the runbook before changing Expo, React Native, or regenerating native projects.
+## Production deployment
+
+1. Create a Supabase project, apply every migration in lexical order, seed only the desired active charities/config, and configure Apple/Google Auth redirect URLs.
+2. Create a Vercel project rooted at `apps/web`, add the variables documented in [the runbook](docs/runbook.md), deploy, and verify the reward-reconciliation cron.
+3. Configure the AdMob SSV callback to `/api/webhooks/admob/rewarded` and the Reporting API credentials for the revenue import job.
+4. Configure EAS remote credentials, Apple Family Controls entitlements for the app and extensions, the EAS environment variables, then run `eas build --platform all --profile production` from `apps/mobile`.
+5. Complete the signed-device matrix and the seven-day closed-beta soak before store rollout.
+
+Detailed migration, job, credential, rollback, and release instructions are in [the operations runbook](docs/runbook.md). Architecture and trust boundaries are in [architecture](docs/architecture.md).
+
+## Known external gates
+
+No repository change can grant Apple Family Controls distribution entitlements, approve Play Accessibility use, create OAuth/AdMob/Sentry/PostHog/EAS accounts, or validate OEM behavior on physical devices. Those are explicit release gates, not mocked functionality. Until they pass, keep distribution on closed internal tracks.

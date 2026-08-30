@@ -2,44 +2,101 @@
 
 ## Bootstrap
 
-1. Install Node 22+, pnpm 10, Xcode 26, CocoaPods, Android SDK 36, and JDK 17.
-2. Copy root and app `.env.example` files to the corresponding `.env.local` files.
-3. Run `pnpm install` and `supabase db reset` against a local Supabase stack.
-4. Start Next.js (web/API) and Metro together with `npm run dev:all` (or `pnpm dev:all`).
-5. Install a custom native build with `pnpm --filter mobile ios` or `pnpm --filter mobile android`; Expo Go is unsupported.
+1. Install Node 22+, pnpm 10.8.1, Supabase CLI + Docker, Xcode 26, CocoaPods, Android SDK 36, and JDK 17.
+2. Copy `.env.example`, `apps/web/.env.example`, and `apps/mobile/.env.example` to matching `.env.local` files.
+3. Run `pnpm install --frozen-lockfile`.
+4. Run `supabase start`, copy its local URL/keys into the env files, then run `supabase db reset` to apply migrations and `supabase/seed.sql`.
+5. Run `pnpm dev:all`, then install a native build with `pnpm --filter mobile ios` or `pnpm --filter mobile android`. Expo Go is unsupported.
 
-Do not run `expo prebuild --clean`: it removes the committed restriction-engine sources and extension targets. If the base native project must be regenerated, preserve those directories and rerun `ruby apps/mobile/scripts/configure-ios-targets.rb` before `pod install`.
+Do not run `expo prebuild --clean`: it removes the committed restriction-engine sources and extension targets. If native regeneration is unavoidable, preserve those directories, reapply the config plugin, run `ruby apps/mobile/scripts/configure-ios-targets.rb`, and then `pod install`.
 
-The mobile workspace is pinned to Expo SDK 57 / React Native 0.86.2. Xcode 26.0 needs the committed pnpm patch in `patches/expo-modules-jsi@57.0.5.patch`; `pnpm install --frozen-lockfile` applies it automatically. Recheck and preferably remove that patch after upgrading Expo or Xcode, then repeat the full iOS extension build.
+The workspace is pinned to Expo SDK 57 / React Native 0.86.2. Xcode 26 needs `patches/expo-modules-jsi@57.0.5.patch`; pnpm applies it automatically. Re-evaluate the patch after any Expo, React Native, or Xcode upgrade and repeat both native builds.
 
-## Required secrets
+## Environment inventory
 
-- Supabase URL, publishable key, service-role key, and database connection.
-- `REWARD_INTENT_SECRET` and `INTERNAL_JOB_SECRET` (different high-entropy values).
-- AdMob app/unit IDs, SSV callback URL, and Reporting API credentials.
-- PostHog host/key and Sentry DSN/auth token.
-- Apple/Google OAuth providers, Vercel cron secret, EAS project/signing configuration.
+Public values are bundled into clients and must never contain secrets.
 
-Production startup should fail closed when server secrets are missing. Mobile config uses the last validated ETag response or safe local defaults.
+| Variable                                                                                   | Surface      | Required in production | Purpose                                             |
+| ------------------------------------------------------------------------------------------ | ------------ | ---------------------- | --------------------------------------------------- |
+| `NEXT_PUBLIC_APP_URL`                                                                      | web          | yes                    | canonical HTTPS URL, OAuth callback, robots/sitemap |
+| `NEXT_PUBLIC_SUPABASE_URL`                                                                 | web          | yes                    | Supabase project URL                                |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                     | web          | yes                    | browser publishable key                             |
+| `SUPABASE_SERVICE_ROLE_KEY`                                                                | web          | yes                    | server-only data/RPC/storage access                 |
+| `REWARD_INTENT_SECRET`                                                                     | web          | yes                    | signs expiring AdMob custom data                    |
+| `INTERNAL_JOB_SECRET`                                                                      | web          | yes                    | AdMob revenue import bearer token                   |
+| `CRON_SECRET`                                                                              | web          | yes on Vercel          | stale reward reconciliation bearer token            |
+| `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API                                 |
+| `EXPO_PUBLIC_API_URL`                                                                      | mobile       | yes                    | public HTTPS web/API base URL                       |
+| `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                         | mobile       | yes                    | mobile Auth only                                    |
+| `EXPO_PUBLIC_EAS_PROJECT_ID`                                                               | mobile       | yes                    | EAS project binding                                 |
+| `ADMOB_IOS_APP_ID`, `ADMOB_ANDROID_APP_ID`                                                 | mobile build | yes                    | native Mobile Ads initialization                    |
+| `EXPO_PUBLIC_ADMOB_REWARDED_IOS`, `EXPO_PUBLIC_ADMOB_REWARDED_ANDROID`                     | mobile       | yes                    | rewarded ad units                                   |
+| `EXPO_PUBLIC_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`                                      | mobile       | recommended            | privacy-scrubbed product analytics                  |
+| `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`                                                     | mobile/web   | recommended            | crash/error telemetry                               |
 
-## Scheduled operations
+Use different high-entropy values for `REWARD_INTENT_SECRET`, `INTERNAL_JOB_SECRET`, and `CRON_SECRET`. Vercel automatically sends `Authorization: Bearer $CRON_SECRET` to cron routes. The reconciliation route falls back to `INTERNAL_JOB_SECRET` only for non-Vercel deployments.
 
-- Daily: call `/api/internal/jobs/admob-revenue` with `Authorization: Bearer $INTERNAL_JOB_SECRET` and the reconciled report rows.
-- Monday 00:00 UTC: create/open the week and snapshot the current impact/platform percentage.
-- Sunday close: stop voting, reconcile final revenue, and select the winning candidate.
-- After payment: upload the proof to the controlled public Storage bucket and use the admin console to record the donation.
+`APP_VARIANT=production` is set by `eas.json`. Production config evaluation rejects HTTP endpoints, missing core values, and Google's sample AdMob identifiers. Sample IDs in `.env.example` are development-only.
 
-Every admin action is inserted into `admin_audit_log`.
+## Database and storage
+
+Apply every file in `supabase/migrations` in lexical order. For a linked project:
+
+```sh
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push --dry-run
+supabase db push
+```
+
+Review the dry run before applying. The migrations create RLS policies, server-only RPC grants, the public-read `donation-proofs` bucket, reward reconciliation, runtime-switch enforcement, and deletion rollback support. Never expose the service-role key to the mobile or browser bundles.
+
+The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates their byte signature before uploading. The Storage bucket has a larger database-level ceiling to preserve operational headroom; the web boundary is intentionally stricter.
+
+## Scheduled and weekly operations
+
+- Daily at 03:17 UTC: Vercel calls `GET /api/internal/jobs/reconcile-rewards`; stale provisional grants older than 26 hours are rejected and an available pass is reversed idempotently.
+- Daily after AdMob reports settle: call `POST /api/internal/jobs/admob-revenue` with `Authorization: Bearer $INTERNAL_JOB_SECRET` and the reconciled rows.
+- Monday: use `/admin` to open the week. The function snapshots the active impact/platform percentages and selected charities.
+- Sunday: close voting, import/reconcile final revenue, and confirm the gross amount.
+- After payment: upload the actual proof and record the donation. Publication occurs only after the database transition succeeds.
+
+Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable while pending and return inline success/error feedback; retry only after checking the current week state.
+
+## Web deployment
+
+1. Create a Vercel project with root directory `apps/web` and add the web variables above.
+2. Set `NEXT_PUBLIC_APP_URL` to the final canonical URL before configuring OAuth redirects.
+3. Deploy and verify `/`, `/impact`, `/privacy`, `/api/v1/config`, and `/api/v1/impact/current`.
+4. Call the reconciliation route once with the cron bearer token and confirm a JSON `{ "reconciled": number }` response.
+5. Configure AdMob SSV to `https://YOUR_HOST/api/webhooks/admob/rewarded` and verify a real test-device callback before enabling rewards.
+
+## Mobile release
+
+1. Add production mobile values to the EAS production environment.
+2. Run `eas credentials:configure-build -p android -e production` and the iOS equivalent. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
+3. Obtain Family Controls distribution entitlements for the app and all iOS extensions.
+4. Run `eas build --platform all --profile production`, then `eas submit --platform android --profile production` / iOS when the closed-beta gates pass.
+5. Enable Google Play App Signing and retain the upload credential according to the account recovery policy.
 
 ## Verification
 
-Run `pnpm check`, then compile native code:
-
 ```sh
+pnpm check
+supabase test db
+pnpm --filter web build
 cd apps/mobile/android && ./gradlew :app:compileDebugKotlin
 cd apps/mobile/ios && pod install
-xcodebuild -workspace Still.xcworkspace -scheme Still -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -workspace Still.xcworkspace -scheme Still -configuration Debug \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
 ```
 
-Simulator builds validate compilation only. Family Controls, Accessibility behavior, AdMob SSV, kill/reboot recovery, and OEM timing must be signed and tested on physical devices.
+For a production web smoke test, start `pnpm --filter web start` after the build and exercise the three public pages plus config/current/history APIs with a real configured backend. See `docs/test-report.md` for the latest repository verification.
+
+## Failure and recovery notes
+
+- If AdMob SSV is delayed, the pass remains provisional. Do not manually edit the ledger; the reconciliation job is idempotent.
+- If donation recording fails after upload, the server action removes the uploaded object and reports an inline error.
+- If Supabase Auth rejects account deletion, the API invokes `restore_financial_ledger_identity`. A `delete_rollback_failed` response requires operator investigation before retrying.
+- If runtime config cannot be loaded, mobile uses its last validated cache for offline continuity; public Impact and config APIs fail explicitly rather than publishing defaults.
+- Simulator builds validate compilation only. Family Controls, Accessibility behavior, AdMob SSV, kill/reboot recovery, and OEM timing require signed physical devices.

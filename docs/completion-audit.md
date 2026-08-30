@@ -1,0 +1,44 @@
+# Completion audit
+
+This is the production-readiness audit completed on 2026-08-30. It distinguishes repository-complete work from account/store/device gates that cannot be satisfied by source code alone.
+
+## Findings and disposition
+
+| Area                     | Finding                                                                                                                                                    | Disposition                                                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public Impact            | Home, Impact, API, and admin silently substituted a polished demo week when Supabase was missing or failed.                                                | Demo data removed. Callers now render explicit unconfigured, empty, or temporary-error states; public routes return 404/503 as appropriate and dynamic pages do not freeze transient build-time failures. |
+| Public metrics           | Hero values and the phone preview looked live but were static.                                                                                             | Capability copy replaces fake KPI values; the remaining preview is explicitly labeled illustrative. Verified-action counts now come from verified reward intents.                                         |
+| Impact history           | Database snake_case rows were returned without the shared response contract.                                                                               | Rows are normalized and validated with `impactHistorySchema`.                                                                                                                                             |
+| Donation proof           | Admin accepted an arbitrary external URL.                                                                                                                  | Admin uploads a PDF/PNG/JPEG, validates the byte signature and 5 MB limit, stores it in the controlled bucket, and rolls the object back if the donation RPC fails.                                       |
+| Admin UX                 | Server-action failures escaped to the framework error page.                                                                                                | Forms now expose pending, success, and safe inline error states.                                                                                                                                          |
+| Reward claim             | Mobile credited a local pass before the server accepted the claim.                                                                                         | Server claim now precedes local credit, eliminating phantom passes on network/API failure.                                                                                                                |
+| Reward verification      | A provisional grant could remain indefinitely without SSV.                                                                                                 | Daily reconciliation rejects stale provisional intents and reverses an available grant idempotently without creating hidden negative debt. Lock ordering matches claims/unlocks to avoid deadlocks.       |
+| Reward provider          | A `house` provider existed in contracts/config but had no real implementation.                                                                             | Public contracts now allow only implemented AdMob or disabled. PostgreSQL rejects unsupported/mismatched providers.                                                                                       |
+| Runtime switches         | Voting and platform restriction flags existed but were unused.                                                                                             | Mobile UI/native engines observe them; PostgreSQL enforces voting and per-platform unlock switches so stale clients cannot bypass operations controls.                                                    |
+| Unlock duration          | Several native/JS labels and Android timing paths assumed ten minutes.                                                                                     | Active config is synchronized to both native engines and all user-visible duration copy. Android now uses the same clamped duration for deadline, handler, and response.                                  |
+| iOS weekly chart         | React Native displayed seven zero bars because detailed Device Activity is intentionally unavailable to JS.                                                | Today embeds the real privacy-preserving native seven-day Device Activity report scene.                                                                                                                   |
+| Offline/sync             | Cached data existed but connectivity and last successful sync were invisible; first-run local metrics/outbox could be skipped without a registered device. | Local metrics/outbox load independently, cached projections remain usable, and Settings shows syncing/online/offline plus last success. API requests have a deadline covering authentication and fetch.   |
+| Permissions              | Settings checked only part of Android health and did not guide repair.                                                                                     | Accessibility and Usage Access are reported separately; the relevant system screen opens and health refreshes on return.                                                                                  |
+| Deletion                 | Server deletion did not clear native restriction state, and an Auth failure after pseudonymization could detach a live wallet.                             | Mobile clears SQLite/native sessions/selections/shields/notifications. The server restores ledger identity if the Auth Admin deletion fails and raises an operator-specific error if recovery also fails. |
+| API errors               | Unexpected database/upstream details could be returned to clients; several parallel query errors were ignored.                                             | Unexpected details are logged server-side behind request IDs; known rules map to stable safe codes and all critical query branches are checked.                                                           |
+| OAuth callback           | `next` could accept unsafe redirect forms.                                                                                                                 | Only normalized same-origin absolute paths are accepted; protocol-relative, backslash, and external destinations fall back safely.                                                                        |
+| Production mobile config | Missing values could silently ship localhost or Google's sample ads; release signing intent was implicit.                                                  | Production config fails closed on core missing/HTTP/sample values. The EAS production profile explicitly uses remote credentials.                                                                         |
+
+## Intentionally local or illustrative
+
+- App selections, application identifiers, and detailed Screen Time/Usage Stats remain device-only by product design.
+- The marketing-site intervention panel and onboarding attention fields are clearly visual explanations, not live device controls or reported user data.
+- Emergency access works from the cached/native daily projection so loss of connectivity cannot lock the user out.
+- Remote push delivery is not a visible v1 feature. Recharge notifications are local iOS notifications created by the Shield extension.
+
+## External release gates
+
+The repository is functionally connected, but public store release remains gated on:
+
+1. Apple Family Controls distribution entitlements for the app and all extensions.
+2. Google Play approval of the Accessibility use/disclosure.
+3. Real Supabase/Vercel/OAuth/AdMob/UMP/PostHog/Sentry/EAS accounts and credentials.
+4. Applying and smoke-testing the latest migrations against the target Supabase project.
+5. The signed physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
+
+These gates have no honest local mock substitute; production config and public data paths fail explicitly until their required services are configured.

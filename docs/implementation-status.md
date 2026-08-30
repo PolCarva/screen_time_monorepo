@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated 2026-08-23.
+Updated 2026-08-30.
 
 ## Implemented in this repository
 
@@ -9,18 +9,21 @@ Updated 2026-08-23.
 - iOS Family Controls picker, Managed Settings Shield Action/Configuration, Device Activity Monitor/Report extensions, app-group wallet/outbox, and monotonic unlock restoration.
 - Android launcher picker, minimal Accessibility service, intervention activity, Usage Stats aggregates, local wallet/outbox, monotonic unlock restoration, and no overlay or `QUERY_ALL_PACKAGES` permission.
 - Anonymous Supabase authentication with Apple/Google identity linking for voting.
-- Versioned remote configuration with validation, cache fallback, wallet limits, Emergency Unlocks, AdMob adapter, UMP consent, reward intents, provisional claims, signed SSV verification, and append-only token ledger.
-- All planned v1 API routes, privacy export/delete, daily wellbeing aggregates, public Impact pages, authenticated admin operations, AdMob revenue import, donation proof records, and audit log.
+- Versioned remote configuration with validation, cache fallback, platform/reward/voting kill switches enforced in UI and PostgreSQL, wallet limits, Emergency Unlocks, AdMob adapter, UMP consent, reward intents, provisional claims, signed SSV verification, stale-claim reconciliation, and append-only token ledger.
+- All planned v1 API routes, privacy export/delete with compensating rollback, daily wellbeing aggregates, truthful public Impact pages, authenticated admin operations with inline states, AdMob revenue import, validated donation-proof upload, and audit log.
 - PostgreSQL RLS and server-only business RPCs. Unlock duration/time, reward timestamps, weekly snapshots, voting transitions, and donation transitions are database-controlled and atomic.
 - Privacy-safe PostHog/Sentry boundary that removes application identity fields.
+- Offline-aware mobile sync status, cached wallet/config/metrics, durable iOS unlock outbox, permission repair, dynamic unlock copy, native weekly iOS reports, and full local cleanup after account deletion.
+- Production mobile config that rejects missing HTTPS endpoints, missing EAS binding, and sample AdMob identifiers.
 
 ## Verified locally
 
-- `pnpm check`: 15 unit tests pass; TypeScript and ESLint pass.
-- Next.js production build: 18 routes generated successfully.
+- `pnpm check`: 33 unit tests pass across contracts, mobile, and web; TypeScript and ESLint pass.
+- Clean local Supabase startup applies every migration plus seed; 15 pgTAP database invariants pass for RPC grants, runtime switches, reward reconciliation, hidden-debt prevention, and privacy-deletion recovery.
+- Next.js production build and Playwright production smoke: public pages and configured config/current/history APIs respond successfully with no browser console or failed-response errors.
 - Android Kotlin compile: succeeds with min SDK 29, compile SDK 36, and target SDK 36.
 - iOS simulator workspace compile: succeeds for the app and all four extension targets with Xcode/iOS SDK 26.
-- All migrations plus seed apply to a clean PostgreSQL 18 database. Security assertions confirm authenticated clients cannot execute business RPCs directly and unlock sessions use the server clock and the configured 600-second duration.
+- Every migration through `202608290004` plus the seed applies cleanly to the local Supabase PostgreSQL 17 image. Database lint reports only the intentional wire-compatibility parameters documented in the functions.
 
 ## External release gates
 
@@ -30,7 +33,7 @@ The implementation is not a validated store beta until these account/device-depe
 2. The signed iOS 16.4/current-device matrix proves Shield, kill/reboot recovery, and reblock behavior.
 3. The Android 10–16 Pixel/Samsung/Xiaomi matrix proves intervention latency and OEM behavior.
 4. Play accepts the Accessibility declaration/disclosure and evidence video.
-5. Real Supabase, Vercel, OAuth, AdMob SSV/Reporting, UMP, PostHog, Sentry, EAS, and signing credentials are configured.
+5. Real Supabase, Vercel, OAuth, AdMob SSV/Reporting, UMP, PostHog, Sentry, EAS, and signing credentials are configured, and the new migrations are applied to that project.
 6. Seven-day soak, crash-free, reblock, duplicate-grant, and no-fill fallback acceptance thresholds pass.
 
 Keep external beta closed until both platform gates pass, as specified in `native-feasibility.md`.
