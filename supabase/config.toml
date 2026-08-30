@@ -17,7 +17,7 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["screentimeimpact://auth/callback"]
+additional_redirect_urls = ["still://auth/callback"]
 enable_signup = true
 enable_anonymous_sign_ins = true
 enable_manual_linking = true

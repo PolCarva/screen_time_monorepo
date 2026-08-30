@@ -29,6 +29,7 @@ Public values are bundled into clients and must never contain secrets.
 | `EXPO_PUBLIC_API_URL`                                                                      | mobile       | yes                    | public HTTPS web/API base URL                       |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                         | mobile       | yes                    | mobile Auth only                                    |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`                                                               | mobile       | yes                    | EAS project binding                                 |
+| `EXPO_PUBLIC_APPLE_AUTH_ENABLED`, `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED`                        | mobile       | yes                    | display social linking only after provider setup    |
 | `ADMOB_IOS_APP_ID`, `ADMOB_ANDROID_APP_ID`                                                 | mobile build | yes                    | native Mobile Ads initialization                    |
 | `EXPO_PUBLIC_ADMOB_REWARDED_IOS`, `EXPO_PUBLIC_ADMOB_REWARDED_ANDROID`                     | mobile       | yes                    | rewarded ad units                                   |
 | `EXPO_PUBLIC_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`                                      | mobile       | recommended            | privacy-scrubbed product analytics                  |
@@ -50,12 +51,14 @@ supabase db push
 
 Review the dry run before applying. The migrations create RLS policies, server-only RPC grants, the public-read `donation-proofs` bucket, reward reconciliation, runtime-switch enforcement, and deletion rollback support. Never expose the service-role key to the mobile or browser bundles.
 
+The seed is intentionally empty. Use `/admin` to publish operational policy and add verified charities. The cleanup migration removes only the prototype fixture IDs and installs a fail-closed policy if no real active policy exists.
+
 The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates their byte signature before uploading. The Storage bucket has a larger database-level ceiling to preserve operational headroom; the web boundary is intentionally stricter.
 
 ## Scheduled and weekly operations
 
 - Daily at 03:17 UTC: Vercel calls `GET /api/internal/jobs/reconcile-rewards`; stale provisional grants older than 26 hours are rejected and an available pass is reversed idempotently.
-- Daily after AdMob reports settle: call `POST /api/internal/jobs/admob-revenue` with `Authorization: Bearer $INTERNAL_JOB_SECRET` and the reconciled rows.
+- Daily at 08:42 UTC: Vercel calls `GET /api/internal/jobs/admob-revenue`; the job refreshes the configured Google OAuth token, reads the previous 14 days from the AdMob Reporting API, upserts estimates, and recomputes overlapping open weeks. `POST` remains available only for explicitly publisher-provided corrections.
 - Monday: use `/admin` to open the week. The function snapshots the active impact/platform percentages and selected charities.
 - Sunday: close voting, import/reconcile final revenue, and confirm the gross amount.
 - After payment: upload the actual proof and record the donation. Publication occurs only after the database transition succeeds.
@@ -72,7 +75,7 @@ Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable whi
 
 ## Mobile release
 
-1. Add production mobile values to the EAS production environment.
+1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`).
 2. Run `eas credentials:configure-build -p android -e production` and the iOS equivalent. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
 3. Obtain Family Controls distribution entitlements for the app and all iOS extensions.
 4. Run `eas build --platform all --profile production`, then `eas submit --platform android --profile production` / iOS when the closed-beta gates pass.
@@ -98,5 +101,5 @@ For a production web smoke test, start `pnpm --filter web start` after the build
 - If AdMob SSV is delayed, the pass remains provisional. Do not manually edit the ledger; the reconciliation job is idempotent.
 - If donation recording fails after upload, the server action removes the uploaded object and reports an inline error.
 - If Supabase Auth rejects account deletion, the API invokes `restore_financial_ledger_identity`. A `delete_rollback_failed` response requires operator investigation before retrying.
-- If runtime config cannot be loaded, mobile uses its last validated cache for offline continuity; public Impact and config APIs fail explicitly rather than publishing defaults.
+- If runtime config cannot be loaded, mobile uses its last validated cache for offline continuity. A cold install uses a disabled zero-cap policy; public Impact and config APIs fail explicitly rather than publishing defaults.
 - Simulator builds validate compilation only. Family Controls, Accessibility behavior, AdMob SSV, kill/reboot recovery, and OEM timing require signed physical devices.

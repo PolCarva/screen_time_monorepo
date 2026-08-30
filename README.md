@@ -7,15 +7,16 @@ This repository contains the complete v1 system:
 - `apps/mobile` — Expo Router UI plus committed Swift/Kotlin restriction engines. Expo Go is not supported.
 - `apps/web` — Next.js App Router API, public Impact record, privacy pages, internal jobs, and authenticated operations console.
 - `packages/contracts` — shared Zod wire contracts and pure domain rules.
-- `supabase` — PostgreSQL schema, RLS, transactional business functions, storage setup, migrations, and development seed.
+- `supabase` — PostgreSQL schema, RLS, transactional business functions, storage setup, migrations, and an intentionally empty development seed.
 
 ## What is real
 
-- Anonymous Supabase sessions, optional Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end.
+- Anonymous Supabase sessions, provider-gated Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Social buttons remain disabled until their real provider is enabled.
 - iOS uses Family Controls, Managed Settings shields, Device Activity monitor/report extensions, an App Group wallet/outbox, and monotonic unlock deadlines.
 - Android uses a disclosed Accessibility service, a local app picker, Usage Access aggregates, and monotonic unlock deadlines tied to the current boot.
 - Impact pages use only persisted Supabase data. Missing or unavailable data is shown explicitly; production UI never substitutes demo totals.
-- Operations can open/close weeks, reconcile revenue, upload validated donation proof files, and publish the donation through server-only transactional functions.
+- Operations can publish runtime policy, add verified charities, open/close weeks, reconcile revenue, upload validated donation proof files, and publish the donation through server-only transactional functions.
+- The website beta form persists consented requests in `beta_waitlist`; it does not send mail to an unverified placeholder address.
 
 See [the completion audit](docs/completion-audit.md) for the original gaps and their disposition.
 
@@ -59,7 +60,7 @@ The simulator/emulator builds prove compilation, not platform enforcement. The s
 
 ## Production deployment
 
-1. Create a Supabase project, apply every migration in lexical order, seed only the desired active charities/config, and configure Apple/Google Auth redirect URLs.
+1. Create a Supabase project, apply every migration in lexical order, then create real charities and publish policy through `/admin`; the repository does not seed public demo data. Configure Apple/Google Auth redirect URLs only after their real credentials exist.
 2. Create a Vercel project rooted at `apps/web`, add the variables documented in [the runbook](docs/runbook.md), deploy, and verify the reward-reconciliation cron.
 3. Configure the AdMob SSV callback to `/api/webhooks/admob/rewarded` and the Reporting API credentials for the revenue import job.
 4. Configure EAS remote credentials, Apple Family Controls entitlements for the app and extensions, the EAS environment variables, then run `eas build --platform all --profile production` from `apps/mobile`.
