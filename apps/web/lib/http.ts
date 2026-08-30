@@ -12,7 +12,10 @@ export class HttpError extends Error {
   }
 }
 
-export async function parseJson<T>(request: Request, schema: ZodType<T>): Promise<T> {
+export async function parseJson<T>(
+  request: Request,
+  schema: ZodType<T>,
+): Promise<T> {
   let body: unknown;
   try {
     body = await request.json();
@@ -21,7 +24,12 @@ export async function parseJson<T>(request: Request, schema: ZodType<T>): Promis
   }
   const result = schema.safeParse(body);
   if (!result.success) {
-    throw new HttpError(400, "validation_error", "Request validation failed", result.error.flatten());
+    throw new HttpError(
+      400,
+      "validation_error",
+      "Request validation failed",
+      result.error.flatten(),
+    );
   }
   return result.data;
 }
@@ -29,7 +37,11 @@ export async function parseJson<T>(request: Request, schema: ZodType<T>): Promis
 export function requireIdempotencyKey(request: Request): string {
   const value = request.headers.get("idempotency-key")?.trim();
   if (!value || value.length > 128) {
-    throw new HttpError(400, "idempotency_key_required", "A valid Idempotency-Key header is required");
+    throw new HttpError(
+      400,
+      "idempotency_key_required",
+      "A valid Idempotency-Key header is required",
+    );
   }
   return value;
 }
@@ -42,6 +54,24 @@ export function json(data: unknown, init: ResponseInit = {}): Response {
       ...init.headers,
     },
   });
+}
+
+type DatabaseRule = readonly [
+  needle: string,
+  status: number,
+  code: string,
+  message: string,
+];
+
+export function databaseHttpError(
+  databaseMessage: string,
+  rules: readonly DatabaseRule[],
+  fallback: { status: number; code: string; message: string },
+): HttpError {
+  const match = rules.find(([needle]) => databaseMessage.includes(needle));
+  return match
+    ? new HttpError(match[1], match[2], match[3])
+    : new HttpError(fallback.status, fallback.code, fallback.message);
 }
 
 export function routeError(error: unknown): Response {
@@ -59,10 +89,15 @@ export function routeError(error: unknown): Response {
       { status: error.status },
     );
   }
-  const message = error instanceof Error ? error.message : "Unexpected error";
   console.error("Unhandled route error", { requestId, error });
   return json(
-    { error: { code: "internal_error", message, requestId } },
+    {
+      error: {
+        code: "internal_error",
+        message: "An unexpected error occurred",
+        requestId,
+      },
+    },
     { status: 500 },
   );
 }

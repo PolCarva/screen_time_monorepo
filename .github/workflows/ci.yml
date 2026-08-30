@@ -20,3 +20,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.115.0
+      - run: supabase db start
+      - run: supabase db lint --local --level error
+      - run: supabase test db

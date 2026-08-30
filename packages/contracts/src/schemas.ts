@@ -14,7 +14,7 @@ export const remoteConfigSchema = z
     impactPercentage: z.number().min(0).max(100),
     platformPercentage: z.number().min(0).max(100),
     estimatedMinutesPerAvoidedOpen: z.number().min(0).max(60),
-    rewardProvider: z.enum(["admob", "house", "disabled"]),
+    rewardProvider: z.enum(["admob", "disabled"]),
     votingEnabled: z.boolean(),
     iosRestrictionEnabled: z.boolean(),
     androidRestrictionEnabled: z.boolean(),
@@ -75,13 +75,13 @@ export const walletSchema = z.object({
 export const rewardIntentSchema = z.object({
   id: uuidSchema,
   customData: z.string().min(16),
-  provider: z.enum(["admob", "house"]),
+  provider: z.literal("admob"),
   expiresAt: isoDateTimeSchema,
 });
 
 export const createRewardIntentRequestSchema = z.object({
   deviceId: uuidSchema,
-  provider: z.enum(["admob", "house"]).default("admob"),
+  provider: z.literal("admob").default("admob"),
 });
 
 export const claimRewardRequestSchema = z.object({
@@ -163,6 +163,21 @@ export const impactWeekSchema = z.object({
   donationProofUrl: z.string().url().nullable(),
 });
 
+export const impactWeekSummarySchema = impactWeekSchema.pick({
+  id: true,
+  weekStart: true,
+  weekEnd: true,
+  status: true,
+  currency: true,
+  grossRevenueMinor: true,
+  impactFundMinor: true,
+  impactPercentage: true,
+  isEstimated: true,
+  donationProofUrl: true,
+});
+
+export const impactHistorySchema = z.array(impactWeekSummarySchema);
+
 export const castVoteRequestSchema = z.object({
   charityId: uuidSchema,
 });
@@ -178,7 +193,9 @@ export const apiErrorSchema = z.object({
 
 export type DevicePlatform = z.infer<typeof devicePlatformSchema>;
 export type RegisterDeviceRequest = z.infer<typeof registerDeviceRequestSchema>;
-export type RegisterDeviceResponse = z.infer<typeof registerDeviceResponseSchema>;
+export type RegisterDeviceResponse = z.infer<
+  typeof registerDeviceResponseSchema
+>;
 export type Wallet = z.infer<typeof walletSchema>;
 export type RewardIntent = z.infer<typeof rewardIntentSchema>;
 export type CreateRewardIntentRequest = z.infer<
@@ -192,4 +209,5 @@ export type CreateUnlockSessionRequest = z.infer<
 export type WellbeingDaily = z.infer<typeof wellbeingDailySchema>;
 export type Charity = z.infer<typeof charitySchema>;
 export type ImpactWeek = z.infer<typeof impactWeekSchema>;
+export type ImpactWeekSummary = z.infer<typeof impactWeekSummarySchema>;
 export type CastVoteRequest = z.infer<typeof castVoteRequestSchema>;

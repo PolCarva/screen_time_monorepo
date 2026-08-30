@@ -1,21 +1,41 @@
-import { defaultRemoteConfig, remoteConfigSchema } from "@screen-time/contracts";
+import {
+  defaultRemoteConfig,
+  remoteConfigSchema,
+} from "@screen-time/contracts";
 
-import { routeError } from "@/lib/http";
+import { HttpError, routeError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   try {
     const client = createAdminClient();
-    let config = defaultRemoteConfig;
-    if (client) {
-      const { data } = await client
-        .from("remote_config_versions")
-        .select("payload")
-        .eq("is_active", true)
-        .maybeSingle();
-      const parsed = remoteConfigSchema.safeParse(data?.payload);
-      if (parsed.success) config = parsed.data;
-    }
+    if (!client)
+      throw new HttpError(
+        503,
+        "service_unconfigured",
+        "Configuration service is not configured",
+      );
+    const { data, error } = await client
+      .from("remote_config_versions")
+      .select("payload")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error)
+      throw new HttpError(
+        503,
+        "config_unavailable",
+        "Configuration is temporarily unavailable",
+      );
+    const parsed = remoteConfigSchema.safeParse(
+      data?.payload ?? defaultRemoteConfig,
+    );
+    if (!parsed.success || !data)
+      throw new HttpError(
+        503,
+        "config_unavailable",
+        "No active configuration is available",
+      );
+    const config = parsed.data;
 
     const etag = `W/\"config-${config.version}\"`;
     if (request.headers.get("if-none-match") === etag) {

@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@screen-time/contracts"],
   experimental: {
     typedEnv: true,
+    serverActions: { bodySizeLimit: "6mb" },
   },
 };
 

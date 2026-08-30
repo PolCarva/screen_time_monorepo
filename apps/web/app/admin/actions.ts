@@ -1,93 +1,199 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { requireAdminPage } from "@/lib/admin";
+import { validateDonationProof } from "@/lib/donation-proof";
 import { createAdminClient } from "@/lib/supabase";
 
-export async function closeVoting(formData: FormData) {
+const uuid = z.string().uuid();
+export type AdminActionState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+const actionError = (message: string): AdminActionState => ({
+  status: "error",
+  message,
+});
+const actionSuccess = (message: string): AdminActionState => ({
+  status: "success",
+  message,
+});
+
+export async function closeVoting(
+  _previous: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
   const admin = await requireAdminPage();
-  if (!admin.configured || !admin.user) return;
-  const weekId = String(formData.get("weekId") ?? "");
-  const client = createAdminClient()!;
-  const { error } = await client.rpc("admin_close_impact_voting", {
-    p_admin_user_id: admin.user.id,
-    p_week_id: weekId,
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin");
-  revalidatePath("/impact");
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
+  try {
+    const weekId = uuid.parse(String(formData.get("weekId") ?? ""));
+    const client = createAdminClient()!;
+    const { error } = await client.rpc("admin_close_impact_voting", {
+      p_admin_user_id: admin.user.id,
+      p_week_id: weekId,
+    });
+    if (error)
+      return actionError(
+        "No se pudo cerrar la votación. Revisa el estado de la semana.",
+      );
+    revalidatePath("/admin");
+    revalidatePath("/impact");
+    return actionSuccess("Votación cerrada.");
+  } catch {
+    return actionError("Los datos de la semana no son válidos.");
+  }
 }
 
-export async function confirmRevenue(formData: FormData) {
+export async function confirmRevenue(
+  _previous: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
   const admin = await requireAdminPage();
-  if (!admin.configured || !admin.user) return;
-  const weekId = String(formData.get("weekId") ?? "");
-  const grossRevenueMinor = Math.round(Number(formData.get("grossRevenue")) * 100);
-  if (!Number.isSafeInteger(grossRevenueMinor) || grossRevenueMinor < 0) throw new Error("Invalid revenue");
-  const client = createAdminClient()!;
-  const { error } = await client.rpc("admin_confirm_impact_revenue", {
-    p_admin_user_id: admin.user.id,
-    p_week_id: weekId,
-    p_gross_revenue_minor: grossRevenueMinor,
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin");
-  revalidatePath("/impact");
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
+  try {
+    const weekId = uuid.parse(String(formData.get("weekId") ?? ""));
+    const grossRevenueMinor = Math.round(
+      Number(formData.get("grossRevenue")) * 100,
+    );
+    if (!Number.isSafeInteger(grossRevenueMinor) || grossRevenueMinor < 0)
+      return actionError("Ingresa un monto válido.");
+    const client = createAdminClient()!;
+    const { error } = await client.rpc("admin_confirm_impact_revenue", {
+      p_admin_user_id: admin.user.id,
+      p_week_id: weekId,
+      p_gross_revenue_minor: grossRevenueMinor,
+    });
+    if (error)
+      return actionError(
+        "No se pudo confirmar el ingreso. Revisa el estado de la semana.",
+      );
+    revalidatePath("/admin");
+    revalidatePath("/impact");
+    return actionSuccess("Ingreso confirmado y distribución congelada.");
+  } catch {
+    return actionError("Los datos enviados no son válidos.");
+  }
 }
 
-export async function recordDonation(formData: FormData) {
+export async function recordDonation(
+  _previous: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
   const admin = await requireAdminPage();
-  if (!admin.configured || !admin.user) return;
-  const weekId = String(formData.get("weekId") ?? "");
-  const charityId = String(formData.get("charityId") ?? "");
-  const proofUrl = String(formData.get("proofUrl") ?? "");
-  const amountMinor = Math.round(Number(formData.get("amount")) * 100);
-  const client = createAdminClient()!;
-  const { error } = await client.rpc("admin_record_impact_donation", {
-    p_admin_user_id: admin.user.id,
-    p_week_id: weekId,
-    p_charity_id: charityId,
-    p_amount_minor: amountMinor,
-    p_proof_url: proofUrl,
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin");
-  revalidatePath("/impact");
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
+  try {
+    const weekId = uuid.parse(String(formData.get("weekId") ?? ""));
+    const charityId = uuid.parse(String(formData.get("charityId") ?? ""));
+    const amountMinor = Math.round(Number(formData.get("amount")) * 100);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor < 1)
+      return actionError("Ingresa un monto válido.");
+    const proofFile = formData.get("proofFile");
+    const proofType = await validateDonationProof(proofFile);
+    const client = createAdminClient()!;
+    const proofPath = `${weekId}/${crypto.randomUUID()}.${proofType.extension}`;
+    const { error: uploadError } = await client.storage
+      .from("donation-proofs")
+      .upload(proofPath, proofFile as File, {
+        contentType: proofType.contentType,
+        upsert: false,
+      });
+    if (uploadError) return actionError("No se pudo almacenar el comprobante.");
+    const { data: publicProof } = client.storage
+      .from("donation-proofs")
+      .getPublicUrl(proofPath);
+    const { error } = await client.rpc("admin_record_impact_donation", {
+      p_admin_user_id: admin.user.id,
+      p_week_id: weekId,
+      p_charity_id: charityId,
+      p_amount_minor: amountMinor,
+      p_proof_url: publicProof.publicUrl,
+    });
+    if (error) {
+      await client.storage.from("donation-proofs").remove([proofPath]);
+      return actionError(
+        "No se pudo registrar la donación. El comprobante no fue publicado.",
+      );
+    }
+    revalidatePath("/admin");
+    revalidatePath("/impact");
+    return actionSuccess("Donación y comprobante publicados.");
+  } catch (error) {
+    return actionError(
+      error instanceof Error
+        ? error.message
+        : "Los datos enviados no son válidos.",
+    );
+  }
 }
 
-export async function openNextWeek() {
+export async function openNextWeek(
+  _previous: AdminActionState,
+  _formData: FormData,
+): Promise<AdminActionState> {
+  void _previous;
+  void _formData;
   const admin = await requireAdminPage();
-  if (!admin.configured || !admin.user) return;
+  if (!admin.configured || !admin.user)
+    return actionError("Supabase no está configurado.");
   const client = createAdminClient()!;
-  const { data: active } = await client
+  const { data: active, error: activeError } = await client
     .from("impact_weeks")
     .select("id")
     .in("status", ["open", "voting_closed", "donation_pending"])
     .limit(1)
     .maybeSingle();
-  if (active) throw new Error("Finish the active impact week first");
+  if (activeError) return actionError("No se pudo revisar la semana activa.");
+  if (active)
+    return actionError("Completa la semana activa antes de abrir otra.");
 
-  const { data: latestWeek } = await client
+  const { data: latestWeek, error: latestWeekError } = await client
     .from("impact_weeks")
     .select("week_end")
     .order("week_start", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (latestWeekError)
+    return actionError("No se pudo revisar la última semana.");
   const now = new Date();
   const day = now.getUTCDay();
-  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - ((day + 6) % 7)));
+  const currentMonday = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - ((day + 6) % 7),
+    ),
+  );
   const afterLatest = latestWeek?.week_end
     ? new Date(`${latestWeek.week_end}T00:00:00.000Z`).getTime() + 86_400_000
     : 0;
   const monday = new Date(Math.max(currentMonday.getTime(), afterLatest));
   const sunday = new Date(monday.getTime() + 6 * 86_400_000);
   const dateOnly = (date: Date) => date.toISOString().slice(0, 10);
-  const [{ data: config }, { data: charities }] = await Promise.all([
-    client.from("remote_config_versions").select("payload").eq("is_active", true).maybeSingle(),
-    client.from("charities").select("id").eq("is_active", true).order("created_at").limit(3),
+  const [configResult, charitiesResult] = await Promise.all([
+    client
+      .from("remote_config_versions")
+      .select("payload")
+      .eq("is_active", true)
+      .maybeSingle(),
+    client
+      .from("charities")
+      .select("id")
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(3),
   ]);
-  if (!charities || charities.length === 0) throw new Error("At least one active charity is required");
+  if (configResult.error || charitiesResult.error)
+    return actionError("No se pudo cargar la configuración de impacto.");
+  const config = configResult.data;
+  const charities = charitiesResult.data;
+  if (!charities || charities.length === 0)
+    return actionError("Se necesita al menos una entidad activa.");
   const payload = config?.payload as Record<string, unknown> | undefined;
   const impactPercentage = Number(payload?.impactPercentage ?? 80);
   const platformPercentage = Number(payload?.platformPercentage ?? 20);
@@ -99,8 +205,9 @@ export async function openNextWeek() {
     p_platform_percentage: platformPercentage,
     p_charity_ids: charities.map((charity) => charity.id),
   });
-  if (error) throw new Error(error.message);
-  if (!weekId) throw new Error("Impact week was not created");
+  if (error || !weekId)
+    return actionError("No se pudo abrir la semana de impacto.");
   revalidatePath("/admin");
   revalidatePath("/impact");
+  return actionSuccess("Semana de impacto abierta.");
 }

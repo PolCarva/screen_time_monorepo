@@ -1,7 +1,7 @@
 import { createUnlockSessionRequestSchema } from "@screen-time/contracts";
 
 import { requireApiUser } from "@/lib/auth";
-import { HttpError, parseJson, routeError } from "@/lib/http";
+import { databaseHttpError, parseJson, routeError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function POST(request: Request) {
@@ -18,7 +18,47 @@ export async function POST(request: Request) {
       p_app_category: input.appCategory,
       p_started_at: input.startedAt,
     });
-    if (error) throw new HttpError(409, "unlock_failed", error.message);
+    if (error)
+      throw databaseHttpError(
+        error.message,
+        [
+          [
+            "device_not_found",
+            404,
+            "device_not_found",
+            "Device is not registered",
+          ],
+          [
+            "restrictions_disabled",
+            409,
+            "restrictions_disabled",
+            "Pauses are temporarily disabled for this platform",
+          ],
+          [
+            "insufficient_rewarded_balance",
+            409,
+            "insufficient_balance",
+            "No rewarded pass is available",
+          ],
+          [
+            "daily_emergency_limit_reached",
+            409,
+            "emergency_limit",
+            "Daily emergency limit reached",
+          ],
+          [
+            "invalid_unlock_source",
+            400,
+            "invalid_unlock_source",
+            "Unlock source is invalid",
+          ],
+        ],
+        {
+          status: 409,
+          code: "unlock_failed",
+          message: "Unlock could not be recorded",
+        },
+      );
     return Response.json(
       { id: data.id, endsAt: data.ends_at, source: data.source },
       { status: 201 },

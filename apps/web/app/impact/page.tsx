@@ -1,19 +1,42 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ImpactCard } from "@/components/impact-card";
+import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentImpactWeek } from "@/lib/impact";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Registro de impacto",
-  description: "Monto semanal, asignación, votación y comprobantes del fondo de impacto de Still.",
+  description:
+    "Monto semanal, asignación, votación y comprobantes del fondo de impacto de Still.",
 };
 
 export default async function ImpactPage() {
-  const week = await getCurrentImpactWeek();
+  const result = await getCurrentImpactWeek();
+  if (result.state !== "ready") {
+    return (
+      <main>
+        <SiteHeader />
+        <section className="impact-page-hero shell-wide">
+          <div className="impact-page-hero__copy">
+            <p className="mono-label">REGISTRO PÚBLICO / ESTADO REAL</p>
+            <h1>El fondo deja rastro.</h1>
+            <p>
+              Esta página nunca sustituye información ausente por cifras de
+              demostración.
+            </p>
+            <Link className="text-link" href="/">
+              Volver al inicio
+            </Link>
+          </div>
+          <ImpactUnavailable state={result.state} />
+        </section>
+      </main>
+    );
+  }
+  const week = result.week;
   const steps = [
     {
       index: "01",
@@ -43,11 +66,14 @@ export default async function ImpactPage() {
       <SiteHeader />
       <section className="impact-page-hero shell-wide">
         <div className="impact-page-hero__copy">
-          <p className="mono-label">REGISTRO PÚBLICO / {week.weekStart} — {week.weekEnd}</p>
+          <p className="mono-label">
+            REGISTRO PÚBLICO / {week.weekStart} — {week.weekEnd}
+          </p>
           <h1>El fondo deja rastro.</h1>
           <p>
-            Still asigna {week.impactPercentage}% del ingreso publicitario al fondo semanal.
-            Mientras la semana está abierta, el monto es estimado. Cada cambio de estado queda visible.
+            Still asigna {week.impactPercentage}% del ingreso publicitario al
+            fondo semanal. Mientras la semana está abierta, el monto es
+            estimado. Cada cambio de estado queda visible.
           </p>
         </div>
         <ImpactCard week={week} />
@@ -60,7 +86,10 @@ export default async function ImpactPage() {
         </header>
         <div className="fund-route__steps">
           {steps.map((step) => (
-            <article className={`fund-route__step${step.done ? " is-done" : ""}`} key={step.index}>
+            <article
+              className={`fund-route__step${step.done ? " is-done" : ""}`}
+              key={step.index}
+            >
               <span>{step.index}</span>
               <b>{step.state}</b>
               <h3>{step.title}</h3>
@@ -70,11 +99,17 @@ export default async function ImpactPage() {
         </div>
         <div className="fund-route__actions">
           {week.donationProofUrl ? (
-            <a className="button button--ink" href={week.donationProofUrl}>Ver comprobante</a>
+            <a className="button button--ink" href={week.donationProofUrl}>
+              Ver comprobante
+            </a>
           ) : (
-            <p className="proof-pending">El comprobante se publicará después de registrar la donación.</p>
+            <p className="proof-pending">
+              El comprobante se publicará después de registrar la donación.
+            </p>
           )}
-          <Link className="text-link" href="/">Volver al inicio</Link>
+          <Link className="text-link" href="/">
+            Volver al inicio
+          </Link>
         </div>
       </section>
     </main>

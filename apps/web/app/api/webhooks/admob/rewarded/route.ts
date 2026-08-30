@@ -8,18 +8,22 @@ export async function GET(request: Request) {
   try {
     const ssv = await verifyAdMobSsv(request.url);
     const claims = verifyRewardIntent(decodeURIComponent(ssv.customData));
-    if (new Date(claims.expiresAt).getTime() + 24 * 60 * 60 * 1_000 < Date.now()) {
+    if (
+      new Date(claims.expiresAt).getTime() + 24 * 60 * 60 * 1_000 <
+      Date.now()
+    ) {
       throw new Error("Reward intent is outside the verification window");
     }
 
     const client = createAdminClient();
     if (!client) return new Response("Backend unavailable", { status: 503 });
-    const { data: intent } = await client
+    const { data: intent, error: intentError } = await client
       .from("reward_intents")
       .select("id, user_id, state")
       .eq("id", claims.intentId)
       .eq("user_id", claims.userId)
       .maybeSingle();
+    if (intentError) throw new Error("Reward intent lookup failed");
     if (!intent) throw new Error("Reward intent not found");
 
     if (intent.state !== "provisional" && intent.state !== "verified") {
@@ -32,7 +36,7 @@ export async function GET(request: Request) {
       if (claimError) throw claimError;
     }
 
-    const { error } = await client
+    const { data: verifiedIntent, error } = await client
       .from("reward_intents")
       .update({
         state: "verified",
@@ -40,9 +44,18 @@ export async function GET(request: Request) {
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", claims.intentId);
+      .eq("id", claims.intentId)
+      .eq("user_id", claims.userId)
+      .select("id")
+      .maybeSingle();
 
-    if (error && error.code !== "23505") throw error;
+    if (error)
+      throw new Error(
+        error.code === "23505"
+          ? "AdMob transaction was already used"
+          : "Reward verification update failed",
+      );
+    if (!verifiedIntent) throw new Error("Reward intent was not verified");
     return new Response("OK", { status: 200 });
   } catch (error) {
     console.error("AdMob SSV rejected", error);

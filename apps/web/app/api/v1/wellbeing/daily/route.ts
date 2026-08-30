@@ -9,13 +9,20 @@ export async function POST(request: Request) {
     const user = await requireApiUser(request);
     const input = await parseJson(request, wellbeingDailySchema);
     const client = createAdminClient()!;
-    const { data: device } = await client
+    const { data: device, error: deviceError } = await client
       .from("devices")
       .select("id")
       .eq("id", input.deviceId)
       .eq("user_id", user.id)
       .maybeSingle();
-    if (!device) throw new HttpError(404, "device_not_found", "Device is not registered");
+    if (deviceError)
+      throw new HttpError(
+        503,
+        "wellbeing_sync_failed",
+        "Wellbeing data could not be synced",
+      );
+    if (!device)
+      throw new HttpError(404, "device_not_found", "Device is not registered");
 
     const { error } = await client.from("wellbeing_daily").upsert(
       {
@@ -33,7 +40,12 @@ export async function POST(request: Request) {
       },
       { onConflict: "device_id,date" },
     );
-    if (error) throw new HttpError(400, "wellbeing_sync_failed", error.message);
+    if (error)
+      throw new HttpError(
+        503,
+        "wellbeing_sync_failed",
+        "Wellbeing data could not be synced",
+      );
     return new Response(null, { status: 204 });
   } catch (error) {
     return routeError(error);

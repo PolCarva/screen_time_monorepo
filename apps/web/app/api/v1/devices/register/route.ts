@@ -18,7 +18,12 @@ export async function POST(request: Request) {
       p_locale: input.locale,
       p_timezone: input.timezone,
     });
-    if (error) throw new HttpError(400, "device_registration_failed", error.message);
+    if (error)
+      throw new HttpError(
+        503,
+        "device_registration_failed",
+        "Device could not be registered",
+      );
     return Response.json(
       { deviceId: data.id, registeredAt: data.created_at },
       { status: 201 },

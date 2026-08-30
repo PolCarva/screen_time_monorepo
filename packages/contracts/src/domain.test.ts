@@ -7,11 +7,13 @@ import {
   transitionRestriction,
   transitionReward,
 } from "./domain";
-import { defaultRemoteConfig } from "./schemas";
+import { defaultRemoteConfig, remoteConfigSchema } from "./schemas";
 
 describe("restriction state machine", () => {
   it("runs the intentional unlock path", () => {
-    let state = transitionRestriction("restricted", { type: "APP_OPEN_ATTEMPT" });
+    let state = transitionRestriction("restricted", {
+      type: "APP_OPEN_ATTEMPT",
+    });
     state = transitionRestriction(state, { type: "REQUEST_UNLOCK" });
     state = transitionRestriction(state, { type: "UNLOCK_GRANTED" });
     expect(transitionRestriction(state, { type: "SESSION_EXPIRED" })).toBe(
@@ -50,10 +52,7 @@ describe("wallet rules", () => {
 
   it("blocks a reward at the balance cap", () => {
     expect(
-      canRequestReward(
-        { ...wallet, rewardedBalance: 3 },
-        defaultRemoteConfig,
-      ),
+      canRequestReward({ ...wallet, rewardedBalance: 3 }, defaultRemoteConfig),
     ).toBe(false);
   });
 
@@ -64,6 +63,24 @@ describe("wallet rules", () => {
         defaultRemoteConfig,
       ),
     ).toBe(true);
+  });
+
+  it("honors the operational reward switch", () => {
+    expect(
+      canRequestReward(wallet, {
+        ...defaultRemoteConfig,
+        rewardProvider: "disabled",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects an unimplemented reward provider", () => {
+    expect(
+      remoteConfigSchema.safeParse({
+        ...defaultRemoteConfig,
+        rewardProvider: "house",
+      }).success,
+    ).toBe(false);
   });
 });
 

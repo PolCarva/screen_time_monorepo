@@ -6,7 +6,9 @@ import { createAdminClient } from "@/lib/supabase";
 
 function nextUtcDay(): string {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  ).toISOString();
 }
 
 export async function GET(request: Request) {
@@ -16,7 +18,13 @@ export async function GET(request: Request) {
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const [balanceResult, emergencyResult, claimsResult, configResult, earnedTodayResult] = await Promise.all([
+    const [
+      balanceResult,
+      emergencyResult,
+      claimsResult,
+      configResult,
+      earnedTodayResult,
+    ] = await Promise.all([
       client.rpc("rewarded_balance", { p_user_id: user.id }),
       client
         .from("token_ledger")
@@ -30,7 +38,11 @@ export async function GET(request: Request) {
         .eq("user_id", user.id)
         .eq("state", "provisional")
         .is("verified_at", null),
-      client.from("remote_config_versions").select("payload").eq("is_active", true).maybeSingle(),
+      client
+        .from("remote_config_versions")
+        .select("payload")
+        .eq("is_active", true)
+        .maybeSingle(),
       client
         .from("reward_intents")
         .select("id", { count: "exact", head: true })
@@ -38,15 +50,35 @@ export async function GET(request: Request) {
         .in("state", ["provisional", "verified"])
         .gte("created_at", startOfDay.toISOString()),
     ]);
-    if (balanceResult.error) throw new HttpError(500, "wallet_failed", balanceResult.error.message);
-    const config = { ...defaultRemoteConfig, ...(configResult.data?.payload ?? {}) };
+    const walletError =
+      balanceResult.error ??
+      emergencyResult.error ??
+      claimsResult.error ??
+      configResult.error ??
+      earnedTodayResult.error;
+    if (walletError)
+      throw new HttpError(
+        503,
+        "wallet_failed",
+        "Wallet is temporarily unavailable",
+      );
+    const config = {
+      ...defaultRemoteConfig,
+      ...(configResult.data?.payload ?? {}),
+    };
 
     return Response.json(
       {
         rewardedBalance: Math.max(Number(balanceResult.data ?? 0), 0),
-        emergencyRemaining: Math.max(config.dailyEmergencyUnlocks - (emergencyResult.count ?? 0), 0),
+        emergencyRemaining: Math.max(
+          config.dailyEmergencyUnlocks - (emergencyResult.count ?? 0),
+          0,
+        ),
         unresolvedRewardClaims: claimsResult.count ?? 0,
-        rewardAdsRemainingToday: Math.max(config.maxRewardedAdsPerUtcDay - (earnedTodayResult.count ?? 0), 0),
+        rewardAdsRemainingToday: Math.max(
+          config.maxRewardedAdsPerUtcDay - (earnedTodayResult.count ?? 0),
+          0,
+        ),
         resetAt: nextUtcDay(),
       },
       { headers: { "cache-control": "private, no-store" } },

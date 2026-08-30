@@ -1,7 +1,12 @@
 import { createRewardIntentRequestSchema } from "@screen-time/contracts";
 
 import { requireApiUser } from "@/lib/auth";
-import { HttpError, parseJson, requireIdempotencyKey, routeError } from "@/lib/http";
+import {
+  databaseHttpError,
+  parseJson,
+  requireIdempotencyKey,
+  routeError,
+} from "@/lib/http";
 import { signRewardIntent } from "@/lib/reward-intent";
 import { createAdminClient } from "@/lib/supabase";
 
@@ -14,7 +19,11 @@ export async function POST(request: Request) {
 
     const intentId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1_000).toISOString();
-    const customData = signRewardIntent({ intentId, userId: user.id, expiresAt });
+    const customData = signRewardIntent({
+      intentId,
+      userId: user.id,
+      expiresAt,
+    });
     const { data, error } = await client.rpc("create_reward_intent", {
       p_id: intentId,
       p_user_id: user.id,
@@ -25,8 +34,46 @@ export async function POST(request: Request) {
       p_idempotency_key: idempotencyKey,
     });
     if (error) {
-      const notFound = error.message.includes("device_not_found");
-      throw new HttpError(notFound ? 404 : 409, "reward_intent_failed", error.message);
+      throw databaseHttpError(
+        error.message,
+        [
+          [
+            "device_not_found",
+            404,
+            "device_not_found",
+            "Device is not registered",
+          ],
+          [
+            "rewards_disabled",
+            503,
+            "rewards_disabled",
+            "Rewards are currently unavailable",
+          ],
+          [
+            "unsupported_reward_provider",
+            400,
+            "unsupported_reward_provider",
+            "Reward provider is not supported",
+          ],
+          [
+            "wallet_balance_cap_reached",
+            409,
+            "wallet_full",
+            "Pass limit reached",
+          ],
+          [
+            "daily_reward_limit_reached",
+            409,
+            "daily_reward_limit",
+            "Daily reward limit reached",
+          ],
+        ],
+        {
+          status: 409,
+          code: "reward_intent_failed",
+          message: "Reward intent could not be created",
+        },
+      );
     }
     return Response.json(
       {
