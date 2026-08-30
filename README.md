@@ -70,4 +70,4 @@ Detailed migration, job, credential, rollback, and release instructions are in [
 
 ## Known external gates
 
-No repository change can grant Apple Family Controls distribution entitlements, approve Play Accessibility use, create OAuth/AdMob/Sentry/PostHog/EAS accounts, or validate OEM behavior on physical devices. Those are explicit release gates, not mocked functionality. Until they pass, keep distribution on closed internal tracks.
+Supabase, Vercel, AdMob inventory, EAS, production data, cron authentication, and an Android store AAB are configured. Account-owner action is still required to accept Google Auth Platform's data policy and to sign in to Apple Developer; those steps gate Google/AdMob OAuth, Sign in with Apple, and Family Controls distribution. Play Accessibility review and signed physical-device/OEM validation also remain external release gates. PostHog and Sentry are optional and currently disabled rather than mocked. Until the platform gates pass, keep distribution on closed internal tracks.
