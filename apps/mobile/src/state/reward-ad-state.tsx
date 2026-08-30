@@ -1,4 +1,4 @@
-import { rewardIntentSchema } from "@screen-time/contracts";
+import { canRequestReward, rewardIntentSchema } from "@screen-time/contracts";
 import * as Crypto from "expo-crypto";
 import {
   createContext,
@@ -40,8 +40,8 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
   const eligible =
     onboarded &&
     Boolean(deviceId) &&
-    wallet.rewardedBalance < config.maxRewardTokenBalance &&
-    wallet.rewardAdsRemainingToday > 0;
+    canRequestReward(wallet, config) &&
+    config.rewardProvider === "admob";
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;

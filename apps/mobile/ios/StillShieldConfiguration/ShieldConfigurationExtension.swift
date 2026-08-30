@@ -19,6 +19,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let walletKey = "localWallet"
   private let productMetricsPrefix = "productMetrics:"
   private let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
+  private let unlockDurationSecondsKey = "unlockDurationSeconds"
   private let graphite = UIColor(red: 36/255, green: 40/255, blue: 38/255, alpha: 1)
   private let graphiteSoft = UIColor(red: 78/255, green: 84/255, blue: 81/255, alpha: 1)
   private let chalk = UIColor(red: 241/255, green: 239/255, blue: 232/255, alpha: 1)
@@ -27,6 +28,11 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let peach = UIColor(red: 211/255, green: 154/255, blue: 131/255, alpha: 1)
   private var isSpanish: Bool { Locale.preferredLanguages.first?.hasPrefix("es") == true }
   private func copy(_ english: String, _ spanish: String) -> String { isSpanish ? spanish : english }
+  private var unlockDurationMinutes: Int {
+    guard let defaults = UserDefaults(suiteName: appGroup) else { return 10 }
+    let seconds = defaults.integer(forKey: unlockDurationSecondsKey)
+    return max(1, Int(round(Double(seconds > 0 ? seconds : 600) / 60)))
+  }
 
   private var todayKey: String {
     let formatter = DateFormatter()
@@ -118,10 +124,10 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     switch unlock {
     case .rewarded:
       canUnlock = true
-      secondaryButtonText = copy("Use 1 pass · 10 min", "Usar 1 pase · 10 min")
+      secondaryButtonText = copy("Use 1 pass · \(unlockDurationMinutes) min", "Usar 1 pase · \(unlockDurationMinutes) min")
     case .emergency:
       canUnlock = true
-      secondaryButtonText = copy("Emergency access · 10 min", "Acceso de emergencia · 10 min")
+      secondaryButtonText = copy("Emergency access · \(unlockDurationMinutes) min", "Acceso de emergencia · \(unlockDurationMinutes) min")
     case .none:
       canUnlock = false
       secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")
@@ -138,7 +144,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       icon: fieldIcon(),
       title: .init(text: "00:01 · " + observedFact, color: chalk),
       subtitle: .init(
-        text: copy("What do you want from the next 10 minutes?", "¿Qué quieres de los próximos 10 minutos?") + "\n\n" + impactSummary,
+        text: copy("What do you want from the next \(unlockDurationMinutes) minutes?", "¿Qué quieres de los próximos \(unlockDurationMinutes) minutos?") + "\n\n" + impactSummary,
         color: mineralLight
       ),
       primaryButtonLabel: .init(text: copy("Go back", "Volver"), color: graphite),

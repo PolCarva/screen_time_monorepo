@@ -40,7 +40,13 @@ class InterventionActivity : Activity() {
     } ?: if (spanish) "App seleccionada" else "Selected app"
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, true)) {
+      startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      finish()
+      return
+    }
     val attempts = preferences.getInt("open_attempts:$day", 1).coerceAtLeast(1)
+    val durationMinutes = (preferences.getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600).coerceIn(60, 3600) / 60.0).toInt().coerceAtLeast(1)
 
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
@@ -77,7 +83,7 @@ class InterventionActivity : Activity() {
       setTextColor(chalk)
     }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     root.addView(TextView(this).apply {
-      text = if (spanish) "¿Qué quieres de los próximos 10 minutos?" else "What do you want from the next 10 minutes?"
+      text = if (spanish) "¿Qué quieres de los próximos $durationMinutes minutos?" else "What do you want from the next $durationMinutes minutes?"
       textSize = 14f
       typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
       setTextColor(mineralLight)
@@ -94,7 +100,7 @@ class InterventionActivity : Activity() {
       setOnClickListener { goHome() }
     }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
     root.addView(Button(this).apply {
-      text = if (spanish) "Usar 1 pase · 10 min  →" else "Use 1 pass · 10 min  →"
+      text = if (spanish) "Usar 1 pase · $durationMinutes min  →" else "Use 1 pass · $durationMinutes min  →"
       isAllCaps = false
       textSize = 15f
       gravity = Gravity.CENTER_VERTICAL or Gravity.START

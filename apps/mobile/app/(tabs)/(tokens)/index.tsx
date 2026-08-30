@@ -39,50 +39,63 @@ export default function TokensScreen() {
   );
   const handledRecharge = useRef<string | null>(null);
   const autoUnlockInFlight = useRef(false);
-  const earn = useCallback(async (rechargeRequest?: string) => {
-    if (!deviceId || busy) return false;
-    setBusy(true);
-    capture("reward_intent_started", {
-      platform: process.env.EXPO_OS ?? "unknown",
-    });
-    try {
-      const prepared = await showPrepared();
-      if (!prepared) throw new Error("unavailable");
-      const { intent, result } = prepared;
-      if (result.status !== "earned") return false;
-      await addProvisionalToken();
-      await apiFetch(
-        `/api/v1/rewards/intents/${intent.id}/claim`,
-        claimSchema,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            clientEventId: result.clientEventId,
-            earnedAt: new Date().toISOString(),
-          }),
-          headers: { "idempotency-key": result.clientEventId },
-        },
-      );
-      capture("reward_earned", { provisional: true });
-      await refresh();
-      if (rechargeRequest) setEarnedForRecharge(rechargeRequest);
-      return true;
-    } catch {
-      Alert.alert(
-        localize("Reward unavailable", "Recompensa no disponible"),
-        localize(
-          "You can always use an Emergency Unlock.",
-          "Siempre puedes usar un desbloqueo de emergencia.",
-        ),
-      );
-      return false;
-    } finally {
-      setBusy(false);
-      retry();
-    }
-  }, [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared]);
-  const balanceCapped =
-    wallet.rewardedBalance >= config.maxRewardTokenBalance;
+  const earn = useCallback(
+    async (rechargeRequest?: string) => {
+      if (!deviceId || busy) return false;
+      setBusy(true);
+      capture("reward_intent_started", {
+        platform: process.env.EXPO_OS ?? "unknown",
+      });
+      try {
+        const prepared = await showPrepared();
+        if (!prepared) throw new Error("unavailable");
+        const { intent, result } = prepared;
+        if (result.status !== "earned") return false;
+        const claim = await apiFetch(
+          `/api/v1/rewards/intents/${intent.id}/claim`,
+          claimSchema,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              clientEventId: result.clientEventId,
+              earnedAt: new Date().toISOString(),
+            }),
+            headers: { "idempotency-key": result.clientEventId },
+          },
+        );
+        // The server must accept the claim before a pass reaches the local
+        // wallet. Otherwise a failed request would create a phantom pass that
+        // the native restriction extension could spend.
+        await addProvisionalToken();
+        capture("reward_earned", {
+          provisional: claim.status === "provisional",
+        });
+        await refresh();
+        if (rechargeRequest) setEarnedForRecharge(rechargeRequest);
+        return true;
+      } catch {
+        Alert.alert(
+          localize("Reward unavailable", "Recompensa no disponible"),
+          localize(
+            "You can always use an Emergency Unlock.",
+            "Siempre puedes usar un desbloqueo de emergencia.",
+          ),
+        );
+        return false;
+      } finally {
+        setBusy(false);
+        retry();
+      }
+    },
+    [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared],
+  );
+  const balanceCapped = wallet.rewardedBalance >= config.maxRewardTokenBalance;
+  const durationMinutes = Math.max(
+    1,
+    Math.round(config.unlockDurationSeconds / 60),
+  );
+  const rewardsEnabled = config.rewardProvider === "admob";
+  const dailyCapped = wallet.rewardAdsRemainingToday <= 0;
   const capped = balanceCapped;
   const adReady = adStatus === "ready";
   useEffect(() => {
@@ -143,43 +156,73 @@ export default function TokensScreen() {
   ]);
   const buttonLabel = busy
     ? localize("Preparing the ad…", "Preparando el anuncio…")
-    : balanceCapped
-      ? localize("Pass limit reached", "Límite de pases alcanzado")
-      : adReady
-        ? localize("Get 1 pass", "Conseguir 1 pase")
-        : adStatus === "unavailable"
-          ? localize("Ad unavailable · retrying", "Anuncio no disponible · reintentando")
-          : localize(
-              "Preparing the ad…",
-              "Preparando el anuncio…",
-            );
+    : !rewardsEnabled
+      ? localize("Rewards paused", "Recompensas en pausa")
+      : balanceCapped
+        ? localize("Pass limit reached", "Límite de pases alcanzado")
+        : dailyCapped
+          ? localize("Daily limit reached", "Límite diario alcanzado")
+          : adReady
+            ? localize("Get 1 pass", "Conseguir 1 pase")
+            : adStatus === "unavailable"
+              ? localize(
+                  "Ad unavailable · retrying",
+                  "Anuncio no disponible · reintentando",
+                )
+              : localize("Preparing the ad…", "Preparando el anuncio…");
   return (
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>{localize("PASSES / 10 MIN", "PASES / 10 MIN")}</Eyebrow>
+        <Eyebrow>
+          {localize(
+            `PASSES / ${durationMinutes} MIN`,
+            `PASES / ${durationMinutes} MIN`,
+          )}
+        </Eyebrow>
       </View>
 
       <View style={styles.balancePanel}>
         <View style={styles.balanceHeader}>
           <Eyebrow>{localize("AVAILABLE NOW", "DISPONIBLES AHORA")}</Eyebrow>
-          <Mono>{wallet.rewardedBalance} / {config.maxRewardTokenBalance}</Mono>
+          <Mono>
+            {wallet.rewardedBalance} / {config.maxRewardTokenBalance}
+          </Mono>
         </View>
         <View style={styles.balanceRow}>
           <Data style={styles.balance}>{wallet.rewardedBalance}</Data>
           <View style={styles.balanceCopy}>
-            <Heading>{wallet.rewardedBalance === 1 ? localize("pass available", "pase disponible") : localize("passes available", "pases disponibles")}</Heading>
-            <Body style={styles.note}>{localize("Each one opens one selected app for 10 minutes.", "Cada uno abre una app seleccionada durante 10 minutos.")}</Body>
+            <Heading>
+              {wallet.rewardedBalance === 1
+                ? localize("pass available", "pase disponible")
+                : localize("passes available", "pases disponibles")}
+            </Heading>
+            <Body style={styles.note}>
+              {localize(
+                `Each one opens one selected app for ${durationMinutes} minutes.`,
+                `Cada uno abre una app seleccionada durante ${durationMinutes} minutos.`,
+              )}
+            </Body>
           </View>
         </View>
         <AttentionField
-          accessibilityLabel={localize(`${wallet.rewardedBalance} passes available out of ${config.maxRewardTokenBalance}.`, `${wallet.rewardedBalance} pases disponibles de ${config.maxRewardTokenBalance}.`)}
+          accessibilityLabel={localize(
+            `${wallet.rewardedBalance} passes available out of ${config.maxRewardTokenBalance}.`,
+            `${wallet.rewardedBalance} pases disponibles de ${config.maxRewardTokenBalance}.`,
+          )}
           values={[0, 0, 0, 0, 0, 0, wallet.rewardedBalance]}
           passes={wallet.rewardedBalance}
         />
         <PrimaryButton
           onPress={() => void earn()}
-          disabled={capped || busy || !deviceId || !adReady}
+          disabled={
+            !rewardsEnabled ||
+            dailyCapped ||
+            capped ||
+            busy ||
+            !deviceId ||
+            !adReady
+          }
           variant="signal"
         >
           {buttonLabel}
@@ -211,7 +254,12 @@ export default function TokensScreen() {
       <View style={styles.policy}>
         <View style={styles.sectionTop}>
           <Eyebrow>{localize("OPTIONAL ADS", "ANUNCIOS OPCIONALES")}</Eyebrow>
-          <Mono>{localize("MAX 10 / DAY", "MÁX 10 / DÍA")}</Mono>
+          <Mono>
+            {localize(
+              `MAX ${config.maxRewardedAdsPerUtcDay} / DAY`,
+              `MÁX ${config.maxRewardedAdsPerUtcDay} / DÍA`,
+            )}
+          </Mono>
         </View>
         <Body style={styles.policyBody}>
           {localize(
@@ -225,7 +273,12 @@ export default function TokensScreen() {
 }
 const styles = StyleSheet.create({
   screen: { gap: 0 },
-  topline: { minHeight: 58, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  topline: {
+    minHeight: 58,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   balancePanel: {
     paddingVertical: spacing.xl,
     gap: spacing.lg,
@@ -233,15 +286,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
   },
-  balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  balanceRow: { minHeight: 104, flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
+  balanceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  balanceRow: {
+    minHeight: 104,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.lg,
+  },
   balance: {
     fontSize: 84,
     lineHeight: 84,
     letterSpacing: -4,
   },
   balanceCopy: { paddingBottom: spacing.sm, gap: spacing.xs },
-  note: { maxWidth: 240, fontSize: 12, lineHeight: 18, color: colors.graphiteSoft },
+  note: {
+    maxWidth: 240,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.graphiteSoft,
+  },
   limitNote: {
     padding: spacing.md,
     borderLeftWidth: 3,
@@ -256,7 +323,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
   },
-  sectionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  sectionTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   emergencyCount: { fontSize: 34, lineHeight: 36 },
   policy: {
     paddingVertical: spacing.xl,

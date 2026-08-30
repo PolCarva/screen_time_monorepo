@@ -131,12 +131,16 @@ final class StillRestrictionEngine: RCTEventEmitter {
     @unknown default: status = "unavailable"
     }
     let count = selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count
-    resolve([
+    var health: [String: Any] = [
       "authorization": status,
-      "engineActive": status == "authorized" && count > 0,
-      "selectedCount": count,
-      "lastRestoredAt": SharedRestrictionState.defaults.string(forKey: "lastRestoredAt") as Any
-    ])
+      "engineActive": SharedRestrictionState.restrictionsEnabled && status == "authorized" && count > 0,
+      "selectedCount": count
+    ]
+    if let lastRestoredAt = SharedRestrictionState.defaults.string(forKey: "lastRestoredAt") {
+      health["lastRestoredAt"] = lastRestoredAt
+    }
+    if !SharedRestrictionState.restrictionsEnabled { health["issue"] = "restrictions_disabled" }
+    resolve(health)
   }
 
   @objc func syncWallet(
@@ -144,6 +148,8 @@ final class StillRestrictionEngine: RCTEventEmitter {
     emergency: NSNumber,
     resetAt: String,
     estimatedMinutesPerAvoidedOpen: NSNumber,
+    unlockDurationSeconds: NSNumber,
+    restrictionsEnabled: NSNumber,
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
@@ -152,7 +158,9 @@ final class StillRestrictionEngine: RCTEventEmitter {
       rewarded: rewarded.intValue,
       emergency: emergency.intValue,
       resetAt: date,
-      estimatedMinutesPerAvoidedOpen: estimatedMinutesPerAvoidedOpen.doubleValue
+      estimatedMinutesPerAvoidedOpen: estimatedMinutesPerAvoidedOpen.doubleValue,
+      unlockDurationSeconds: unlockDurationSeconds.intValue,
+      restrictionsEnabled: restrictionsEnabled.boolValue
     )
     resolve(nil)
   }
@@ -206,6 +214,14 @@ final class StillRestrictionEngine: RCTEventEmitter {
       "unlocks": metrics.unlocks,
       "weeklyScreenTimeSeconds": []
     ])
+  }
+
+  @objc func resetLocalData(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    SharedRestrictionState.resetLocalData()
+    resolve(nil)
   }
 }
 

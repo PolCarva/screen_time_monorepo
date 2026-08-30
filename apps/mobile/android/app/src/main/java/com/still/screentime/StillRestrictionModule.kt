@@ -78,6 +78,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun startUnlock(target: ReadableMap, durationSeconds: Int, promise: Promise) {
+    if (!preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, true)) {
+      promise.reject("restrictions_disabled", "Restrictions are temporarily disabled")
+      return
+    }
     val requested = target.getString("opaqueId")
     val packageName = if (requested == "current") preferences.getString(KEY_CURRENT_PACKAGE, null) else requested
     if (packageName.isNullOrBlank()) {
@@ -85,8 +89,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       return
     }
 
+    val duration = durationSeconds.coerceIn(60, 3600)
     val now = SystemClock.elapsedRealtime()
-    val endsElapsed = now + durationSeconds.coerceIn(60, 3600) * 1_000L
+    val endsElapsed = now + duration * 1_000L
     val sessionId = UUID.randomUUID().toString()
     preferences.edit()
       .putLong("unlocked:$packageName", endsElapsed)
@@ -98,7 +103,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val unlocksKey = "unlocks:$day"
     preferences.edit().putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1).apply()
 
-    Handler(Looper.getMainLooper()).postDelayed({ restoreSession(sessionId) }, durationSeconds * 1_000L)
+    Handler(Looper.getMainLooper()).postDelayed({ restoreSession(sessionId) }, duration * 1_000L)
     context.packageManager.getLaunchIntentForPackage(packageName)?.let {
       it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
       context.startActivity(it)
@@ -106,7 +111,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
     val result = Arguments.createMap().apply {
       putString("id", sessionId)
-      putString("endsAt", java.time.Instant.now().plusSeconds(durationSeconds.toLong()).toString())
+      putString("endsAt", java.time.Instant.now().plusSeconds(duration.toLong()).toString())
     }
     promise.resolve(result)
   }
@@ -120,12 +125,17 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun getHealth(promise: Promise) {
     val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet())?.size ?: 0
+    val accessibilityEnabled = isAccessibilityEnabled()
+    val usageAccessEnabled = hasUsageAccess()
+    val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, true)
     promise.resolve(Arguments.createMap().apply {
-      putString("authorization", if (isAccessibilityEnabled()) "authorized" else "denied")
-      putBoolean("engineActive", isAccessibilityEnabled() && selected > 0)
+      putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
+      putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }
-      if (!isAccessibilityEnabled()) putString("issue", "accessibility_disabled")
+      if (!restrictionsEnabled) putString("issue", "restrictions_disabled")
+      else if (!accessibilityEnabled) putString("issue", "accessibility_disabled")
+      else if (!usageAccessEnabled) putString("issue", "usage_access_disabled")
     })
   }
 
@@ -135,6 +145,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     emergency: Int,
     resetAt: String,
     estimatedMinutesPerAvoidedOpen: Double,
+    unlockDurationSeconds: Int,
+    restrictionsEnabled: Boolean,
     promise: Promise,
   ) {
     preferences.edit()
@@ -142,6 +154,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       .putInt(KEY_EMERGENCY_REMAINING, emergency.coerceAtLeast(0))
       .putString(KEY_WALLET_RESET_AT, resetAt)
       .putFloat(KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, estimatedMinutesPerAvoidedOpen.coerceIn(0.0, 60.0).toFloat())
+      .putInt(KEY_UNLOCK_DURATION_SECONDS, unlockDurationSeconds.coerceIn(60, 3600))
+      .putBoolean(KEY_RESTRICTIONS_ENABLED, restrictionsEnabled)
       .apply()
     promise.resolve(null)
   }
@@ -189,6 +203,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
         weeklyMillis.forEach { pushDouble(it / 1_000.0) }
       })
     })
+  }
+
+  @ReactMethod
+  fun resetLocalData(promise: Promise) {
+    preferences.edit().clear().apply()
+    promise.resolve(null)
   }
 
   @ReactMethod fun addListener(eventName: String) = Unit
@@ -242,6 +262,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_EMERGENCY_REMAINING = "emergency_remaining"
     const val KEY_WALLET_RESET_AT = "wallet_reset_at"
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
+    const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"
+    const val KEY_RESTRICTIONS_ENABLED = "restrictions_enabled"
     private const val PICKER_REQUEST = 4270
   }
 }

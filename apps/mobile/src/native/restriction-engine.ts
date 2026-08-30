@@ -1,10 +1,23 @@
 import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
-export type PermissionStatus = "notDetermined" | "authorized" | "denied" | "unavailable";
-export type LocalAppHandle = { readonly opaqueId: string; readonly platform: "ios" | "android" };
-export type RestrictedSelection = { readonly count: number; readonly localReference: string };
+export type PermissionStatus =
+  "notDetermined" | "authorized" | "denied" | "unavailable";
+export type LocalAppHandle = {
+  readonly opaqueId: string;
+  readonly platform: "ios" | "android";
+};
+export type RestrictedSelection = {
+  readonly count: number;
+  readonly localReference: string;
+};
 export type UnlockSession = { id: string; endsAt: string };
-export type RestrictionHealth = { authorization: PermissionStatus; engineActive: boolean; selectedCount: number; lastRestoredAt?: string; issue?: string };
+export type RestrictionHealth = {
+  authorization: PermissionStatus;
+  engineActive: boolean;
+  selectedCount: number;
+  lastRestoredAt?: string;
+  issue?: string;
+};
 export type PendingUnlockEvent = {
   clientSessionId: string;
   source: "rewarded" | "emergency";
@@ -24,32 +37,61 @@ export interface RestrictionEngine {
   requestWellbeingAuthorization(): Promise<PermissionStatus>;
   presentAppPicker(): Promise<RestrictedSelection>;
   applyRestrictions(selection: RestrictedSelection): Promise<void>;
-  startUnlock(target: LocalAppHandle, durationSeconds: number): Promise<UnlockSession>;
+  startUnlock(
+    target: LocalAppHandle,
+    durationSeconds: number,
+  ): Promise<UnlockSession>;
   restoreRestriction(sessionId: string): Promise<void>;
   getHealth(): Promise<RestrictionHealth>;
-  syncWallet(rewarded: number, emergency: number, resetAt: string, estimatedMinutesPerAvoidedOpen: number): Promise<void>;
+  syncWallet(
+    rewarded: number,
+    emergency: number,
+    resetAt: string,
+    estimatedMinutesPerAvoidedOpen: number,
+    unlockDurationSeconds: number,
+    restrictionsEnabled: boolean,
+  ): Promise<void>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
   getLocalWellbeing(): Promise<LocalWellbeingStats>;
+  resetLocalData(): Promise<void>;
 }
 
-type NativeRestrictionModule = RestrictionEngine & { addListener(eventName: string): void; removeListeners(count: number): void };
-const bridge = NativeModules.StillRestrictionEngine as NativeRestrictionModule | undefined;
+type NativeRestrictionModule = RestrictionEngine & {
+  addListener(eventName: string): void;
+  removeListeners(count: number): void;
+};
+const bridge = NativeModules.StillRestrictionEngine as
+  NativeRestrictionModule | undefined;
 
 const unavailable: RestrictionEngine = {
   requestAuthorization: async () => "unavailable",
   requestWellbeingAuthorization: async () => "unavailable",
   presentAppPicker: async () => ({ count: 0, localReference: "unavailable" }),
   applyRestrictions: async () => undefined,
-  startUnlock: async () => { throw new Error("Restriction engine is unavailable in this build"); },
+  startUnlock: async () => {
+    throw new Error("Restriction engine is unavailable in this build");
+  },
   restoreRestriction: async () => undefined,
-  getHealth: async () => ({ authorization: "unavailable", engineActive: false, selectedCount: 0, issue: "native_module_missing" }),
+  getHealth: async () => ({
+    authorization: "unavailable",
+    engineActive: false,
+    selectedCount: 0,
+    issue: "native_module_missing",
+  }),
   syncWallet: async () => undefined,
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,
-  getLocalWellbeing: async () => ({ controlledScreenTimeSeconds: 0, openAttempts: 0, avoidedOpens: 0, unlocks: 0, weeklyScreenTimeSeconds: [] }),
+  getLocalWellbeing: async () => ({
+    controlledScreenTimeSeconds: 0,
+    openAttempts: 0,
+    avoidedOpens: 0,
+    unlocks: 0,
+    weeklyScreenTimeSeconds: [],
+  }),
+  resetLocalData: async () => undefined,
 };
 
 export const restrictionEngine: RestrictionEngine = bridge ?? unavailable;

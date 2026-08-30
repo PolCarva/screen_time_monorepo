@@ -16,11 +16,12 @@ final class ShieldActionExtension: ShieldActionDelegate {
     for application: ApplicationToken,
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
+    let duration = SharedRestrictionState.unlockDurationSeconds
     handle(action: action, beginUnlock: {
-      try SharedRestrictionState.beginUnlock(application: application, durationSeconds: 600, scheduleMonitoring: shouldScheduleMonitoring)
+      try SharedRestrictionState.beginUnlock(application: application, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(application)
-    }, completionHandler: completionHandler)
+    }, durationSeconds: duration, completionHandler: completionHandler)
   }
 
   override func handle(
@@ -28,11 +29,12 @@ final class ShieldActionExtension: ShieldActionDelegate {
     for category: ActivityCategoryToken,
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
+    let duration = SharedRestrictionState.unlockDurationSeconds
     handle(action: action, beginUnlock: {
-      try SharedRestrictionState.beginUnlock(category: category, durationSeconds: 600, scheduleMonitoring: shouldScheduleMonitoring)
+      try SharedRestrictionState.beginUnlock(category: category, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(category)
-    }, completionHandler: completionHandler)
+    }, durationSeconds: duration, completionHandler: completionHandler)
   }
 
   override func handle(
@@ -40,19 +42,27 @@ final class ShieldActionExtension: ShieldActionDelegate {
     for webDomain: WebDomainToken,
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
+    let duration = SharedRestrictionState.unlockDurationSeconds
     handle(action: action, beginUnlock: {
-      try SharedRestrictionState.beginUnlock(webDomain: webDomain, durationSeconds: 600, scheduleMonitoring: shouldScheduleMonitoring)
+      try SharedRestrictionState.beginUnlock(webDomain: webDomain, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(webDomain)
-    }, completionHandler: completionHandler)
+    }, durationSeconds: duration, completionHandler: completionHandler)
   }
 
   private func handle(
     action: ShieldAction,
     beginUnlock: () throws -> (String, Date),
     onUnavailable: () -> Void = {},
+    durationSeconds: Int,
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
+    guard SharedRestrictionState.restrictionsEnabled else {
+      SharedRestrictionState.applyShields()
+      SharedRestrictionState.flush()
+      completionHandler(.close)
+      return
+    }
     guard action == .secondaryButtonPressed else {
       SharedRestrictionState.recordIntervention(avoided: true, unlocked: false)
       SharedRestrictionState.flush()
@@ -74,7 +84,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
     SharedRestrictionState.enqueueUnlock(.init(
       clientSessionId: clientSessionId,
       source: source,
-      durationSeconds: 600,
+      durationSeconds: durationSeconds,
       startedAt: startedAt
     ))
     SharedRestrictionState.recordIntervention(avoided: false, unlocked: true)

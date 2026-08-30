@@ -2,6 +2,7 @@ import DeviceActivity
 import FamilyControls
 import Foundation
 import ManagedSettings
+import UserNotifications
 
 enum SharedRestrictionState {
   static let appGroup = "group.com.still.screentime"
@@ -15,6 +16,18 @@ enum SharedRestrictionState {
   private static let walletKey = "localWallet"
   private static let unlockOutboxKey = "nativeUnlockOutbox"
   private static let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
+  private static let unlockDurationSecondsKey = "unlockDurationSeconds"
+  private static let restrictionsEnabledKey = "restrictionsEnabled"
+
+  static var restrictionsEnabled: Bool {
+    guard defaults.object(forKey: restrictionsEnabledKey) != nil else { return true }
+    return defaults.bool(forKey: restrictionsEnabledKey)
+  }
+
+  static var unlockDurationSeconds: Int {
+    let stored = defaults.integer(forKey: unlockDurationSecondsKey)
+    return max(60, min(stored > 0 ? stored : 600, 3_600))
+  }
 
   struct UnlockRecord: Codable {
     let tokenKey: String
@@ -62,6 +75,10 @@ enum SharedRestrictionState {
   }
 
   static func applyShields() {
+    guard restrictionsEnabled else {
+      store.clearAllSettings()
+      return
+    }
     pruneExpiredSessions()
     let sessions = loadSessions().values
     let activeApplications = Set(sessions.filter { $0.targetKind == nil || $0.targetKind == "application" }.map(\.tokenKey))
@@ -87,6 +104,9 @@ enum SharedRestrictionState {
   }
 
   private static func beginUnlock(targetKind: String, tokenKey: String, durationSeconds: Int, scheduleMonitoring: Bool) throws -> (String, Date) {
+    guard restrictionsEnabled else {
+      throw NSError(domain: "StillRestrictionEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restrictions are temporarily disabled"])
+    }
     let duration = max(60, min(durationSeconds, 3_600))
     let id = UUID().uuidString
     let deadline = ProcessInfo.processInfo.systemUptime + TimeInterval(duration)
@@ -121,6 +141,15 @@ enum SharedRestrictionState {
   static func restoreExpired() {
     pruneExpiredSessions()
     applyShields()
+  }
+
+  static func resetLocalData() {
+    DeviceActivityCenter().stopMonitoring()
+    store.clearAllSettings()
+    UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    defaults.removePersistentDomain(forName: appGroup)
+    defaults.synchronize()
   }
 
   static func savePendingTarget(_ token: ApplicationToken) {
@@ -182,11 +211,16 @@ enum SharedRestrictionState {
     rewarded: Int,
     emergency: Int,
     resetAt: Date,
-    estimatedMinutesPerAvoidedOpen: Double
+    estimatedMinutesPerAvoidedOpen: Double,
+    unlockDurationSeconds: Int,
+    restrictionsEnabled: Bool
   ) {
     let wallet = LocalWallet(rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
     defaults.set(max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
+    defaults.set(max(60, min(unlockDurationSeconds, 3_600)), forKey: unlockDurationSecondsKey)
+    defaults.set(restrictionsEnabled, forKey: restrictionsEnabledKey)
+    applyShields()
   }
 
   /// Spends the normal balance first, preserving Emergency Unlocks whenever a
@@ -194,6 +228,7 @@ enum SharedRestrictionState {
   /// than two actions, so this keeps the fallback usable from the native
   /// shield even while a reward verification is pending.
   static func consumeAvailableUnlock() -> String? {
+    guard restrictionsEnabled else { return nil }
     var wallet = loadWallet()
     let source: String
     if wallet.rewarded > 0 {
