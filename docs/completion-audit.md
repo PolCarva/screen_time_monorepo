@@ -1,6 +1,6 @@
 # Completion audit
 
-This is the production-readiness audit completed on 2026-08-30. It distinguishes repository-complete work from account/store/device gates that cannot be satisfied by source code alone.
+This is the production-readiness audit completed on 2026-08-31. It distinguishes repository-complete work from account/store/device gates that cannot be satisfied by source code alone.
 
 ## Findings and disposition
 
@@ -23,6 +23,13 @@ This is the production-readiness audit completed on 2026-08-30. It distinguishes
 | API errors               | Unexpected database/upstream details could be returned to clients; several parallel query errors were ignored.                                             | Unexpected details are logged server-side behind request IDs; known rules map to stable safe codes and all critical query branches are checked.                                                           |
 | OAuth callback           | `next` could accept unsafe redirect forms.                                                                                                                 | Only normalized same-origin absolute paths are accepted; protocol-relative, backslash, and external destinations fall back safely.                                                                        |
 | Production mobile config | Missing values could silently ship localhost or Google's sample ads; release signing intent was implicit.                                                  | Production config fails closed on core missing/HTTP/sample values. The EAS production profile explicitly uses remote credentials.                                                                         |
+| Identity                 | The mobile UI exposed an unconfigured Apple option and the voting API accepted any non-anonymous identity.                                                 | Apple identity was removed. Google is the sole social provider in UI/config/Supabase/EAS, and voting verifies a linked Google identity server-side.                                                        |
+| Impact empty/error state | A missing current week could be rendered as a generic network failure.                                                                                       | Stable API error classification now renders the intended no-current-week state.                                                                                                                            |
+| Native wallet fallback   | Corrupt or missing iOS shared state could restore emergency passes instead of failing closed.                                                               | The iOS restriction extension now falls back to zero rewarded and zero emergency passes.                                                                                                                   |
+| Android intervention     | The intervention screen always offered pass use without reflecting whether a pass existed.                                                                  | Native intervention copy now uses the real wallet balance and directs empty-wallet users to obtain a pass.                                                                                                |
+| Analytics consent        | Analytics initialization could occur before the persisted opt-in preference was loaded.                                                                      | PostHog initializes only after consent hydration; capture and opt-out fail closed.                                                                                                                          |
+| Web hardening            | Public responses lacked a consistent production security-header policy.                                                                                      | CSP, framing, MIME, referrer, opener/resource isolation, and permissions headers are centralized and regression-tested.                                                                                    |
+| Beta abuse protection    | Waitlist submissions had validation but no server-side request-rate boundary.                                                                                | A transactional Supabase RPC enforces an HMAC-bucketed per-address limit without retaining raw IPs; production migration `202608310001` is applied.                                                       |
 
 ## Intentionally local or illustrative
 
@@ -35,10 +42,11 @@ This is the production-readiness audit completed on 2026-08-30. It distinguishes
 
 Supabase, Vercel, the production database, public data, cron authentication, EAS, and an Android store AAB are configured and smoke-tested. The approved AdMob account has real Android/iOS inventory, rewarded units, production SSV callbacks, and published European and US-state consent messages. Public store release remains gated on:
 
-1. Account-owner completion of Google Auth Platform's API user-data policy, then issuing the Google login and AdMob Reporting OAuth credentials.
-2. Account-owner Apple Developer login/2FA, Sign in with Apple setup, and Family Controls distribution entitlements for the app and all extensions.
+1. A signed-device Google identity-link test and separate AdMob Reporting OAuth credentials. Google identity is already enabled in Supabase and EAS.
+2. Account-owner Apple Developer login/2FA and Family Controls distribution entitlements for the app and all extensions. Apple identity is intentionally excluded.
 3. Google Play approval of the Accessibility use/disclosure.
 4. AdMob Reporting OAuth, store-listing association, and a real AdMob/UMP/SSV signed-device run; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
-5. The signed physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
+5. App Review acceptance of the Google-only optional linking model under guideline 4.8.
+6. The signed physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
 
 These gates have no honest local mock substitute; production config and public data paths fail explicitly until their required services are configured.

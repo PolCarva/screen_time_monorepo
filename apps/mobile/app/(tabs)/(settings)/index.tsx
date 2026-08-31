@@ -17,7 +17,7 @@ import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
-import { analytics } from "@/lib/analytics";
+import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import {
   getLinkedIdentityProviders,
@@ -25,7 +25,7 @@ import {
   linkIdentity,
   type IdentityProvider,
 } from "@/lib/identity";
-import { getJson, setJson } from "@/lib/storage";
+import { getJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import {
   restrictionEngine,
@@ -58,9 +58,12 @@ export default function SettingsScreen() {
   const { clearLocalData, config, health, lastSyncedAt, refresh, syncStatus } =
     useAppState();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
-  const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>([]);
-  const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(null);
-  const appleEnabled = isIdentityProviderEnabled("apple");
+  const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
+    [],
+  );
+  const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(
+    null,
+  );
   const googleEnabled = isIdentityProviderEnabled("google");
 
   useEffect(() => {
@@ -71,7 +74,10 @@ export default function SettingsScreen() {
   }, []);
 
   async function link(provider: IdentityProvider) {
-    if (!isIdentityProviderEnabled(provider) || linkedIdentities.includes(provider))
+    if (
+      !isIdentityProviderEnabled(provider) ||
+      linkedIdentities.includes(provider)
+    )
       return;
     setIdentityBusy(provider);
     try {
@@ -166,9 +172,7 @@ export default function SettingsScreen() {
 
   async function toggleAnalytics(value: boolean) {
     setAnalyticsEnabled(value);
-    await setJson("analyticsEnabled", value);
-    if (value) analytics?.optIn();
-    else analytics?.optOut();
+    await setAnalyticsCollectionEnabled(value);
   }
 
   async function exportData() {
@@ -370,41 +374,10 @@ export default function SettingsScreen() {
         </Heading>
         <Body style={styles.muted}>
           {localize(
-            "Your anonymous session keeps the app private. Link Apple or Google only to vote and recover access.",
-            "Tu sesión anónima mantiene la app privada. Vincula Apple o Google solo para votar y recuperar acceso.",
+            "Your anonymous session keeps the app private. Link Google only to vote and recover access.",
+            "Tu sesión anónima mantiene la app privada. Vincula Google solo para votar y recuperar acceso.",
           )}
         </Body>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled:
-              !appleEnabled ||
-              identityBusy !== null ||
-              linkedIdentities.includes("apple"),
-          }}
-          disabled={
-            !appleEnabled ||
-            identityBusy !== null ||
-            linkedIdentities.includes("apple")
-          }
-          style={({ pressed }) => [
-            styles.identity,
-            pressed && styles.pressed,
-            (!appleEnabled || linkedIdentities.includes("apple")) && styles.disabled,
-          ]}
-          onPress={() => link("apple")}
-        >
-          <Text style={styles.identityText}>
-            {" "}
-            {linkedIdentities.includes("apple")
-              ? localize("Apple linked", "Apple vinculado")
-              : !appleEnabled
-                ? localize("Apple setup pending", "Configuración de Apple pendiente")
-                : identityBusy === "apple"
-                  ? localize("Opening Apple…", "Abriendo Apple…")
-                  : localize("Continue with Apple", "Continuar con Apple")}
-          </Text>
-        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{
@@ -421,7 +394,8 @@ export default function SettingsScreen() {
           style={({ pressed }) => [
             styles.identity,
             pressed && styles.pressed,
-            (!googleEnabled || linkedIdentities.includes("google")) && styles.disabled,
+            (!googleEnabled || linkedIdentities.includes("google")) &&
+              styles.disabled,
           ]}
           onPress={() => link("google")}
         >
@@ -430,7 +404,10 @@ export default function SettingsScreen() {
             {linkedIdentities.includes("google")
               ? localize("Google linked", "Google vinculado")
               : !googleEnabled
-                ? localize("Google setup pending", "Configuración de Google pendiente")
+                ? localize(
+                    "Google setup pending",
+                    "Configuración de Google pendiente",
+                  )
                 : identityBusy === "google"
                   ? localize("Opening Google…", "Abriendo Google…")
                   : localize("Continue with Google", "Continuar con Google")}

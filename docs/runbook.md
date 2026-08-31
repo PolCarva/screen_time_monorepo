@@ -25,17 +25,18 @@ Public values are bundled into clients and must never contain secrets.
 | `REWARD_INTENT_SECRET`                                                                     | web          | yes                    | signs expiring AdMob custom data                    |
 | `INTERNAL_JOB_SECRET`                                                                      | web          | yes                    | AdMob revenue import bearer token                   |
 | `CRON_SECRET`                                                                              | web          | yes on Vercel          | stale reward reconciliation bearer token            |
+| `WAITLIST_RATE_LIMIT_SECRET`                                                               | web          | recommended            | HMAC key for beta abuse protection                  |
 | `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API                                 |
 | `EXPO_PUBLIC_API_URL`                                                                      | mobile       | yes                    | public HTTPS web/API base URL                       |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                         | mobile       | yes                    | mobile Auth only                                    |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`                                                               | mobile       | yes                    | EAS project binding                                 |
-| `EXPO_PUBLIC_APPLE_AUTH_ENABLED`, `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED`                        | mobile       | yes                    | display social linking only after provider setup    |
+| `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED`                                                         | mobile       | yes; must be `true`    | enable the sole social identity provider            |
 | `ADMOB_IOS_APP_ID`, `ADMOB_ANDROID_APP_ID`                                                 | mobile build | yes                    | native Mobile Ads initialization                    |
 | `EXPO_PUBLIC_ADMOB_REWARDED_IOS`, `EXPO_PUBLIC_ADMOB_REWARDED_ANDROID`                     | mobile       | yes                    | rewarded ad units                                   |
 | `EXPO_PUBLIC_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`                                      | mobile       | recommended            | privacy-scrubbed product analytics                  |
 | `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`                                                     | mobile/web   | recommended            | crash/error telemetry                               |
 
-Use different high-entropy values for `REWARD_INTENT_SECRET`, `INTERNAL_JOB_SECRET`, and `CRON_SECRET`. Vercel automatically sends `Authorization: Bearer $CRON_SECRET` to cron routes. The reconciliation route falls back to `INTERNAL_JOB_SECRET` only for non-Vercel deployments.
+Use different high-entropy values for `REWARD_INTENT_SECRET`, `INTERNAL_JOB_SECRET`, `CRON_SECRET`, and preferably `WAITLIST_RATE_LIMIT_SECRET`. Vercel automatically sends `Authorization: Bearer $CRON_SECRET` to cron routes. The reconciliation route falls back to `INTERNAL_JOB_SECRET` only for non-Vercel deployments; the waitlist uses a domain-separated HMAC with `INTERNAL_JOB_SECRET` when no dedicated key exists.
 
 `APP_VARIANT=production` is set by `eas.json`. Production config evaluation rejects HTTP endpoints, missing core values, and Google's sample AdMob identifiers. Sample IDs in `.env.example` are development-only.
 
@@ -49,7 +50,7 @@ supabase db push --dry-run
 supabase db push
 ```
 
-Review the dry run before applying. The migrations create RLS policies, server-only RPC grants, the public-read `donation-proofs` bucket, reward reconciliation, runtime-switch enforcement, and deletion rollback support. Never expose the service-role key to the mobile or browser bundles.
+Review the dry run before applying. The migrations create RLS policies, server-only RPC grants, the public-read `donation-proofs` bucket, transactional waitlist rate limiting, reward reconciliation, runtime-switch enforcement, and deletion rollback support. Never expose the service-role key to the mobile or browser bundles.
 
 The seed is intentionally empty. Use `/admin` to publish operational policy and add verified charities. The cleanup migration removes only the prototype fixture IDs and installs a fail-closed policy if no real active policy exists.
 
@@ -77,11 +78,13 @@ In the current production inventory, both rewarded units use `https://screen-tim
 
 ## Mobile release
 
-1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`).
+1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`). Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true`; Apple identity is not part of the product.
 2. Run `eas credentials:configure-build -p android -e production` and the iOS equivalent. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
 3. Obtain Family Controls distribution entitlements for the app and all iOS extensions.
 4. Run `eas build --platform all --profile production`, then `eas submit --platform android --profile production` / iOS when the closed-beta gates pass.
 5. Enable Google Play App Signing and retain the upload credential according to the account recovery policy.
+
+Google identity uses the web OAuth client callback `https://YOUR_PROJECT.supabase.co/auth/v1/callback`. Supabase must allow the mobile return URL `still://auth/callback`. The API requires a real linked Google identity before accepting an Impact vote.
 
 ## Verification
 

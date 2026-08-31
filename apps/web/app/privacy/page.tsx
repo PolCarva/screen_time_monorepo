@@ -15,7 +15,7 @@ const sections = [
   },
   {
     title: "2. Datos que procesamos",
-    body: "Still puede procesar un identificador anónimo, datos de una cuenta Apple o Google si decides vincularla, dispositivos y push tokens registrados, plataforma y país, confirmación de mayoría de edad, eventos del ledger de pases, sesiones, votos y conteos diarios agregados. No solicitamos tu fecha de nacimiento.",
+    body: "Still puede procesar un identificador anónimo, datos de una cuenta Google si decides vincularla, dispositivos y push tokens registrados, plataforma y país, confirmación de mayoría de edad, eventos del ledger de pases, sesiones, votos y conteos diarios agregados. Para proteger el formulario de beta contra abuso, la dirección de red se transforma inmediatamente en una clave HMAC de corta duración; no se guarda la IP en claro. No solicitamos tu fecha de nacimiento.",
   },
   {
     title: "3. Publicidad opcional",

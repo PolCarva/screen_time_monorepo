@@ -311,7 +311,9 @@ enum SharedRestrictionState {
 
   private static func loadWallet() -> LocalWallet {
     guard let data = defaults.data(forKey: walletKey), let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
-    else { return LocalWallet(rewarded: 0, emergency: 3, resetAt: Date().addingTimeInterval(86_400)) }
+    // Corrupt or missing shared state must never mint access. The JS layer
+    // synchronizes the server-owned emergency allowance before enabling shields.
+    else { return LocalWallet(rewarded: 0, emergency: 0, resetAt: Date().addingTimeInterval(86_400)) }
     return wallet
   }
 

@@ -38,12 +38,18 @@ const rewardedIos = buildValue(
   "EXPO_PUBLIC_ADMOB_REWARDED_IOS",
   "ca-app-pub-3940256099942544/1712485313",
 );
+const googleAuthEnabled =
+  process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
 
 if (production) {
   if (!apiUrl?.startsWith("https://"))
     throw new Error("EXPO_PUBLIC_API_URL must use HTTPS in production");
   if (!supabaseUrl?.startsWith("https://"))
     throw new Error("EXPO_PUBLIC_SUPABASE_URL must use HTTPS in production");
+  if (!googleAuthEnabled)
+    throw new Error(
+      "EXPO_PUBLIC_GOOGLE_AUTH_ENABLED must be true in production",
+    );
   for (const [name, value] of [
     ["ADMOB_ANDROID_APP_ID", androidAppId],
     ["ADMOB_IOS_APP_ID", iosAppId],

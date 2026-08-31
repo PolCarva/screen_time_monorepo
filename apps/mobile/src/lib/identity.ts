@@ -5,12 +5,10 @@ import { supabase } from "@/lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type IdentityProvider = "apple" | "google";
+export type IdentityProvider = "google";
 
-export function isIdentityProviderEnabled(provider: IdentityProvider) {
-  return provider === "apple"
-    ? process.env.EXPO_PUBLIC_APPLE_AUTH_ENABLED === "true"
-    : process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+export function isIdentityProviderEnabled(_provider: IdentityProvider) {
+  return process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
 }
 
 export async function getLinkedIdentityProviders(): Promise<IdentityProvider[]> {
@@ -18,9 +16,7 @@ export async function getLinkedIdentityProviders(): Promise<IdentityProvider[]> 
   const { data, error } = await supabase.auth.getUserIdentities();
   if (error) throw error;
   return (data?.identities ?? []).flatMap((identity) =>
-    identity.provider === "apple" || identity.provider === "google"
-      ? [identity.provider]
-      : [],
+    identity.provider === "google" ? [identity.provider] : [],
   );
 }
 

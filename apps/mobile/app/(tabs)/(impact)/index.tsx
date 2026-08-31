@@ -19,6 +19,7 @@ import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
+import { isMissingImpactWeekError } from "@/lib/impact-errors";
 import { ensureAnonymousSession } from "@/lib/supabase";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
@@ -102,8 +103,8 @@ export default function ImpactScreen() {
           : localize("Could not vote", "No se pudo votar"),
         accountRequired
           ? localize(
-              "Link Apple or Google in Settings to participate.",
-              "Vincula Apple o Google desde Ajustes para participar.",
+              "Link Google in Settings to participate.",
+              "Vincula Google desde Ajustes para participar.",
             )
           : localize(
               "Check your connection and try again.",
@@ -123,8 +124,7 @@ export default function ImpactScreen() {
   const stage = week?.isEstimated
     ? localize("ESTIMATED", "ESTIMADO")
     : localize("RECONCILED", "CONCILIADO");
-  const noPublishedWeek =
-    query.error instanceof ApiError && query.error.code === "no_published_week";
+  const noPublishedWeek = isMissingImpactWeekError(query.error);
   const votingOpen = week?.status === "open" && config.votingEnabled;
 
   async function openExternal(url: string) {
@@ -375,8 +375,8 @@ export default function ImpactScreen() {
           </PrimaryButton>
           <Body style={styles.footnote}>
             {localize(
-              "Link Apple or Google in Settings to vote. Your choice can change until the weekly close.",
-              "Vincula Apple o Google en Ajustes para votar. Puedes cambiar tu elección hasta el cierre semanal.",
+              "Link Google in Settings to vote. Your choice can change until the weekly close.",
+              "Vincula Google en Ajustes para votar. Puedes cambiar tu elección hasta el cierre semanal.",
             )}
           </Body>
         </>

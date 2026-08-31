@@ -13,7 +13,3 @@ export async function requireApiUser(request: Request): Promise<User> {
   }
   return user;
 }
-
-export function isAnonymousUser(user: User): boolean {
-  return Boolean(user.is_anonymous || user.app_metadata?.provider === "anonymous");
-}

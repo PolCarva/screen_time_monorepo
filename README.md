@@ -11,12 +11,12 @@ This repository contains the complete v1 system:
 
 ## What is real
 
-- Anonymous Supabase sessions, provider-gated Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Social buttons remain disabled until their real provider is enabled; no placeholder login is exposed.
+- Anonymous Supabase sessions, Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Google is the only social identity provider and the voting API verifies that identity server-side; no placeholder login is exposed.
 - iOS uses Family Controls, Managed Settings shields, Device Activity monitor/report extensions, an App Group wallet/outbox, and monotonic unlock deadlines.
 - Android uses a disclosed Accessibility service, a local app picker, Usage Access aggregates, and monotonic unlock deadlines tied to the current boot.
 - Impact pages use only persisted Supabase data. Missing or unavailable data is shown explicitly; production UI never substitutes demo totals.
 - Operations can publish runtime policy, add verified charities, open/close weeks, reconcile revenue, upload validated donation proof files, and publish the donation through server-only transactional functions.
-- The website beta form persists consented requests in `beta_waitlist`; it does not send mail to an unverified placeholder address.
+- The website beta form persists consented requests in `beta_waitlist`, enforces a transactional per-address rate limit without storing raw IPs, and does not send mail to an unverified placeholder address.
 
 See [the completion audit](docs/completion-audit.md) for the original gaps and their disposition.
 
@@ -60,7 +60,7 @@ The simulator/emulator builds prove compilation, not platform enforcement. The s
 
 ## Production deployment
 
-1. Create a Supabase project, apply every migration in lexical order, then create real charities and publish policy through `/admin`; the repository does not seed public demo data. Configure Apple/Google Auth redirect URLs only after their real credentials exist.
+1. Create a Supabase project, apply every migration in lexical order, then create real charities and publish policy through `/admin`; the repository does not seed public demo data. Configure Google Auth with the Supabase callback and allow `still://auth/callback` in the Supabase redirect allow-list.
 2. Create a Vercel project rooted at `apps/web`, add the variables documented in [the runbook](docs/runbook.md), deploy, and verify the reward-reconciliation cron.
 3. Configure the AdMob SSV callback to `/api/webhooks/admob/rewarded` and the Reporting API credentials for the revenue import job.
 4. Configure EAS remote credentials, Apple Family Controls entitlements for the app and extensions, the EAS environment variables, then run `eas build --platform all --profile production` from `apps/mobile`.
@@ -70,4 +70,4 @@ Detailed migration, job, credential, rollback, and release instructions are in [
 
 ## Known external gates
 
-Supabase, Vercel, approved AdMob inventory, real rewarded units and SSV callbacks, European/US-state consent messages, EAS, production data, cron authentication, and an Android store AAB are configured. Account-owner action is still required to accept Google Auth Platform's data policy and to sign in to Apple Developer; those steps gate Google/AdMob OAuth, Sign in with Apple, and Family Controls distribution. AdMob store association, Play Accessibility review, and signed physical-device/OEM validation also remain external release gates. PostHog and Sentry are optional and currently disabled rather than mocked. Until the platform gates pass, keep distribution on closed internal tracks.
+Supabase, Google identity, Vercel, approved AdMob inventory, real rewarded units and SSV callbacks, European/US-state consent messages, EAS, production data, cron authentication, and an Android store AAB are configured. Apple Developer login/approval is still required only for Family Controls distribution; Apple login is intentionally not implemented. AdMob Reporting OAuth, store association, Play Accessibility review, and signed physical-device/OEM validation remain external release gates. A Google-only login on iOS also carries App Review guideline 4.8 risk, even though Still operates with an anonymous primary session and uses linking only for voting/recovery. PostHog and Sentry are optional and currently disabled rather than mocked. Until the platform gates pass, keep distribution on closed internal tracks.

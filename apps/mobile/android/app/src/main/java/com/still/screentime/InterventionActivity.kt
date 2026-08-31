@@ -47,6 +47,9 @@ class InterventionActivity : Activity() {
     }
     val attempts = preferences.getInt("open_attempts:$day", 1).coerceAtLeast(1)
     val durationMinutes = (preferences.getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600).coerceIn(60, 3600) / 60.0).toInt().coerceAtLeast(1)
+    val hasAvailablePass =
+      preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0 ||
+        preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) > 0
 
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
@@ -93,7 +96,12 @@ class InterventionActivity : Activity() {
       setOnClickListener { goHome() }
     }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
     root.addView(Button(this).apply {
-      text = if (spanish) "Usar 1 pase · $durationMinutes min  →" else "Use 1 pass · $durationMinutes min  →"
+      text = when {
+        hasAvailablePass && spanish -> "Usar 1 pase · $durationMinutes min  →"
+        hasAvailablePass -> "Use 1 pass · $durationMinutes min  →"
+        spanish -> "Conseguir un pase  →"
+        else -> "Get a pass  →"
+      }
       isAllCaps = false
       textSize = 15f
       gravity = Gravity.CENTER_VERTICAL or Gravity.START
