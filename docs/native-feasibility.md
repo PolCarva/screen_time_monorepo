@@ -1,8 +1,8 @@
 # Native feasibility gate
 
-The repository implements both spike candidates, but the go/no-go decision still requires signed physical-device runs and store-account review.
+The current release is Android-only. The go/no-go decision requires signed Android physical-device runs and Google Play review. The iOS matrix below is retained only as a future reference and does not gate v1.
 
-## iOS test matrix
+## Future iOS test matrix — out of v1 scope
 
 Run on the minimum supported iOS 16.4 device and a current iOS 26 device after Apple approves Family Controls distribution for all five bundle IDs.
 
@@ -32,13 +32,11 @@ Run on Android 10, 12, 14, 15, and 16, including Pixel, Samsung, and Xiaomi.
 
 The implementation deliberately excludes overlays, Device Owner, `QUERY_ALL_PACKAGES`, and permanent foreground services. If recent Android/OEM behavior prevents `InterventionActivity` from appearing and a Play-incompatible permission is the only workaround, Android is a no-go.
 
-## What compilation cannot prove
+## What compilation cannot prove for Android v1
 
-- Apple must grant Family Controls distribution entitlements to the main app and each extension bundle.
 - Play must accept the Accessibility disclosure and evidence; individual OEMs may still suppress the intervention activity.
-- AdMob SSV timing, notification-to-recharge handoff, background extension lifetime, reboot restoration, and real store signing require account-backed physical-device tests.
-- iOS does not expose app names/tokens to React Native by design. Returning to the just-unlocked app from Shield is best-effort on older iOS versions, so the safe fallback tells the user to use the previous-app shortcut/app switcher.
+- AdMob SSV timing, reboot restoration, and real store signing require account-backed Android physical-device tests.
 
 ## Gate record
 
-Record device, OS build, detection latency, reblock result, evidence video, and reviewer notes for every row. External beta remains closed until all rows pass and both platform declarations are accepted.
+Record device, OS build, detection latency, reblock result, evidence video, and reviewer notes for every Android row. External beta remains closed until the Android rows pass and the Play declaration is accepted. Apple membership and iOS distribution are not required for v1.

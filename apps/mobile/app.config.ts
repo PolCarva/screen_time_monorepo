@@ -26,18 +26,18 @@ const androidAppId = buildValue(
   "ADMOB_ANDROID_APP_ID",
   "ca-app-pub-3940256099942544~3347511713",
 );
-const iosAppId = buildValue(
-  "ADMOB_IOS_APP_ID",
-  "ca-app-pub-3940256099942544~1458002511",
-);
+// iOS is a dormant future target, not part of the current production release.
+// Keep Expo's cross-platform plugin config valid without making Android builds
+// depend on paid Apple distribution or production iOS inventory.
+const iosAppId =
+  process.env.ADMOB_IOS_APP_ID || "ca-app-pub-3940256099942544~1458002511";
 const rewardedAndroid = buildValue(
   "EXPO_PUBLIC_ADMOB_REWARDED_ANDROID",
   "ca-app-pub-3940256099942544/5224354917",
 );
-const rewardedIos = buildValue(
-  "EXPO_PUBLIC_ADMOB_REWARDED_IOS",
-  "ca-app-pub-3940256099942544/1712485313",
-);
+const rewardedIos =
+  process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS ||
+  "ca-app-pub-3940256099942544/1712485313";
 const googleAuthEnabled =
   process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
 
@@ -52,9 +52,7 @@ if (production) {
     );
   for (const [name, value] of [
     ["ADMOB_ANDROID_APP_ID", androidAppId],
-    ["ADMOB_IOS_APP_ID", iosAppId],
     ["EXPO_PUBLIC_ADMOB_REWARDED_ANDROID", rewardedAndroid],
-    ["EXPO_PUBLIC_ADMOB_REWARDED_IOS", rewardedIos],
   ] as const) {
     if (value?.includes("3940256099942544"))
       throw new Error(

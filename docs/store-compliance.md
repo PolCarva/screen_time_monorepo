@@ -1,8 +1,9 @@
 # Store and privacy checklist
 
-## Apple
+## Apple — future, outside v1
 
-- Request Family Controls distribution independently for the app, Shield Action, Shield Configuration, Device Activity Monitor, and Device Activity Report bundle IDs.
+- Do not submit or configure Apple distribution for the Android-only v1 release.
+- If iOS is revived later, Apple Developer Program membership and Family Controls distribution approval will be required for the app and each extension bundle ID.
 - Keep ads and promotion out of every extension.
 - Explain the individual-authorization use case and the manual-return fallback in review notes.
 - Verify App Group and Family Controls entitlements in Release archives, not only Debug builds.
@@ -31,5 +32,4 @@ Suggested disclosure: “Still uses Accessibility to detect when you open only t
 - Deletion removes auth/profile/devices/wellbeing/push data and pseudonymizes the financial ledger first.
 - The age gate stores only the 18+ confirmation.
 
-A qualified legal review is still required before a global production launch.
-
+A qualified legal review is still required before a global Android production launch.

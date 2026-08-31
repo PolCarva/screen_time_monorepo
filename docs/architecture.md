@@ -1,5 +1,7 @@
 # Architecture
 
+The current release target is Android only. The committed Swift/Family Controls spike is dormant future source and does not participate in v1 deployment or release gating.
+
 Still is a pnpm monorepo with three deployable surfaces:
 
 - `apps/mobile`: Expo Router UI plus committed Swift/Kotlin projects. It requires a development or store build; Expo Go cannot load the restriction engines.
@@ -51,4 +53,4 @@ Account deletion pseudonymizes the financial ledger before deleting the Auth use
 
 - Web/API/jobs: Vercel, with Node runtime for AdMob SSV/reporting and `vercel.json` for both daily schedules.
 - Database/Auth/Storage: Supabase migrations in lexical order; the donation-proof bucket is public-read and server-write.
-- iOS/Android: EAS development/preview/production profiles. Production uses EAS remote signing credentials and fails config evaluation when required endpoints or real AdMob identifiers are missing.
+- Android: EAS development/preview/production profiles. Production uses EAS remote signing credentials and fails config evaluation when required endpoints or real Android AdMob identifiers are missing.
