@@ -67,6 +67,12 @@ export async function POST(request: Request) {
             "daily_reward_limit",
             "Daily reward limit reached",
           ],
+          [
+            "pending_reward_intent_limit_reached",
+            429,
+            "too_many_pending_rewards",
+            "Wait before starting another rewarded ad",
+          ],
         ],
         {
           status: 409,

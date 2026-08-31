@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(15);
+select plan(16);
 
 select ok(
   not has_function_privilege('authenticated', 'public.reconcile_stale_reward_intents(integer)', 'EXECUTE'),
@@ -121,6 +121,44 @@ select throws_ok(
   )$$,
   'P0001', 'unsupported_reward_provider',
   'unimplemented reward providers fail closed'
+);
+
+insert into public.reward_intents (
+  id, user_id, device_id, provider, state, custom_data, expires_at,
+  idempotency_key
+) values
+  (
+    '90000000-0000-4000-8000-000000000010',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'intent', 'active-intent-one', now() + interval '15 minutes',
+    'active-intent-one'
+  ),
+  (
+    '90000000-0000-4000-8000-000000000011',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'intent', 'active-intent-two', now() + interval '15 minutes',
+    'active-intent-two'
+  ),
+  (
+    '90000000-0000-4000-8000-000000000012',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'intent', 'active-intent-three', now() + interval '15 minutes',
+    'active-intent-three'
+  );
+
+select throws_ok(
+  $$select public.create_reward_intent(
+    '90000000-0000-4000-8000-000000000013',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'active-intent-four', now() + interval '15 minutes',
+    'active-intent-four'
+  )$$,
+  'P0001', 'pending_reward_intent_limit_reached',
+  'abandoned active reward intents are bounded independently of SSV'
 );
 
 insert into public.reward_intents (
