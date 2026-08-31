@@ -22,7 +22,7 @@ Run date: 2026-08-30.
 | Production data/API                 | Real charities and policy v2 published; the open week reports $0 revenue, 0 participants, 0 rewarded actions, and 0 votes without demo fallbacks.                                                       |
 | Production Vercel cron              | Authenticated reward reconciliation returned HTTP 200 with `{ "reconciled": 0 }`.                                                                                                                   |
 | Production AdMob configuration      | Approved account; real Android/iOS app and rewarded-unit IDs; SSV points to the production webhook for both units; European and US-state UMP messages are published.                                 |
-| Production Android AAB              | EAS build `f6251fde-375f-43a1-887d-a09952086935` finished with store distribution signing, package `com.still.screentime`, and version code 4.                                                          |
+| Production Android AAB              | EAS build [`d829692a-233c-47de-9629-ae9f87c8a7b1`](https://expo.dev/accounts/goshops/projects/still-screen-time/builds/d829692a-233c-47de-9629-ae9f87c8a7b1) finished from commit `0769426` with store signing, package `com.still.screentime`, version code 5, and a downloadable [AAB artifact](https://expo.dev/artifacts/eas/3I1jVWA1QQiyhK4vv5p23ZTdgqW6-3mRQQwjBLkJm2E.aab). |
 
 Unit coverage targets contract/domain transitions, offline wallet projection, stable mobile API errors, AdMob SSV signature transport, reward-intent signing, HTTP error secrecy/mapping, OAuth redirect safety, donation-proof signature validation, asynchronous persisted beta signup behavior, and committed native identity/entitlement configuration.
 
