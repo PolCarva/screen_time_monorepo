@@ -6,7 +6,9 @@ Run date: 2026-08-30.
 
 | Check                               | Result                                                                                                                                                                                                 |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm check`                        | Passed: ESLint, TypeScript, and 36 unit tests (contracts 11, mobile 7, web 18).                                                                                                                        |
+| `pnpm check`                        | Passed: ESLint, TypeScript, and 39 unit tests (contracts 11, mobile 9, web 19).                                                                                                                        |
+| Expo Doctor                         | Passed all 20 applicable checks after aligning Expo SDK 57 patch releases and React Native 0.86.3. Native configuration is covered by committed Android/iOS regression assertions.                    |
+| Production dependency audit         | `pnpm audit --prod --audit-level=moderate` passed with no known vulnerabilities.                                                                                                                      |
 | Clean Supabase migration + seed     | Passed on the local PostgreSQL 17 Supabase image through migration `202608300002`.                                                                                                                     |
 | `supabase test db`                  | Passed 15 pgTAP database invariants covering RPC grants, operational switches, reconciliation/debt behavior, and deletion recovery.                                                                    |
 | `supabase db lint`                  | No errors; only intentional unused wire-compatibility parameters were reported at warning level.                                                                                                       |
@@ -19,9 +21,10 @@ Run date: 2026-08-30.
 | Production Supabase                 | All migrations through `202608300002` applied to `unyhkgmdqbtrmkoxlqnk`; prelaunch accounts/telemetry purged, leaving one admin profile and zero product metrics.                                      |
 | Production data/API                 | Real charities and policy v2 published; the open week reports $0 revenue, 0 participants, 0 rewarded actions, and 0 votes without demo fallbacks.                                                       |
 | Production Vercel cron              | Authenticated reward reconciliation returned HTTP 200 with `{ "reconciled": 0 }`.                                                                                                                   |
+| Production AdMob configuration      | Approved account; real Android/iOS app and rewarded-unit IDs; SSV points to the production webhook for both units; European and US-state UMP messages are published.                                 |
 | Production Android AAB              | EAS build `f6251fde-375f-43a1-887d-a09952086935` finished with store distribution signing, package `com.still.screentime`, and version code 4.                                                          |
 
-Unit coverage targets the contract/domain transitions, offline wallet projection, stable mobile API errors, AdMob SSV signature transport, reward-intent signing, HTTP error secrecy/mapping, OAuth redirect safety, and donation-proof signature validation.
+Unit coverage targets contract/domain transitions, offline wallet projection, stable mobile API errors, AdMob SSV signature transport, reward-intent signing, HTTP error secrecy/mapping, OAuth redirect safety, donation-proof signature validation, asynchronous persisted beta signup behavior, and committed native identity/entitlement configuration.
 
 ## Remaining external state
 
@@ -29,6 +32,6 @@ Unit coverage targets the contract/domain transitions, offline wallet projection
 - Apple Developer still requires account-owner login/2FA, followed by Sign in with Apple and Family Controls distribution configuration.
 - Family Controls/Managed Settings cannot be validated on the simulator and require approved signed entitlements.
 - Android Accessibility timing and OEM background behavior require real devices and Play review.
-- A real AdMob test-device impression, SSV callback, Reporting API import, UMP flow, and provider-link flow require the pending OAuth/store state and signed physical-device runs.
+- A real AdMob test-device impression, SSV callback, Reporting API import, UMP presentation, and provider-link flow require the pending OAuth/store state and signed physical-device runs. Both AdMob apps also remain pending store-listing association.
 
 Use the acceptance matrix in `native-feasibility.md` before promoting beyond a closed beta.

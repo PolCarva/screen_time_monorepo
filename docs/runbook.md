@@ -10,7 +10,7 @@
 
 Do not run `expo prebuild --clean`: it removes the committed restriction-engine sources and extension targets. If native regeneration is unavoidable, preserve those directories, reapply the config plugin, run `ruby apps/mobile/scripts/configure-ios-targets.rb`, and then `pod install`.
 
-The workspace is pinned to Expo SDK 57 / React Native 0.86.2. Xcode 26 needs `patches/expo-modules-jsi@57.0.5.patch`; pnpm applies it automatically. Re-evaluate the patch after any Expo, React Native, or Xcode upgrade and repeat both native builds.
+The workspace is pinned to Expo SDK 57 / React Native 0.86.3. Xcode 26 needs `patches/expo-modules-jsi@57.0.6.patch`; pnpm applies it automatically. Re-evaluate the patch after any Expo, React Native, or Xcode upgrade and repeat both native builds. Expo Doctor's app-config synchronization check is disabled because the native projects are intentionally committed; `src/native/native-config.test.ts` verifies the corresponding Android/iOS values directly.
 
 ## Environment inventory
 
@@ -73,6 +73,8 @@ Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable whi
 4. Call the reconciliation route once with the cron bearer token and confirm a JSON `{ "reconciled": number }` response.
 5. Configure AdMob SSV to `https://YOUR_HOST/api/webhooks/admob/rewarded` and verify a real test-device callback before enabling rewards.
 
+In the current production inventory, both rewarded units use `https://screen-time-monorepo-web.vercel.app/api/webhooks/admob/rewarded`. European and US-state UMP messages are published. Keep the reward switch disabled until the apps are associated with their store listings and the signed-device SSV/consent run passes.
+
 ## Mobile release
 
 1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`).
@@ -85,6 +87,8 @@ Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable whi
 
 ```sh
 pnpm check
+pnpm audit --prod --audit-level=moderate
+npx expo-doctor@latest
 supabase test db
 pnpm --filter web build
 cd apps/mobile/android && ./gradlew :app:compileDebugKotlin

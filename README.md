@@ -11,7 +11,7 @@ This repository contains the complete v1 system:
 
 ## What is real
 
-- Anonymous Supabase sessions, provider-gated Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Social buttons remain disabled until their real provider is enabled.
+- Anonymous Supabase sessions, provider-gated Apple/Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Social buttons remain disabled until their real provider is enabled; no placeholder login is exposed.
 - iOS uses Family Controls, Managed Settings shields, Device Activity monitor/report extensions, an App Group wallet/outbox, and monotonic unlock deadlines.
 - Android uses a disclosed Accessibility service, a local app picker, Usage Access aggregates, and monotonic unlock deadlines tied to the current boot.
 - Impact pages use only persisted Supabase data. Missing or unavailable data is shown explicitly; production UI never substitutes demo totals.
@@ -70,4 +70,4 @@ Detailed migration, job, credential, rollback, and release instructions are in [
 
 ## Known external gates
 
-Supabase, Vercel, AdMob inventory, EAS, production data, cron authentication, and an Android store AAB are configured. Account-owner action is still required to accept Google Auth Platform's data policy and to sign in to Apple Developer; those steps gate Google/AdMob OAuth, Sign in with Apple, and Family Controls distribution. Play Accessibility review and signed physical-device/OEM validation also remain external release gates. PostHog and Sentry are optional and currently disabled rather than mocked. Until the platform gates pass, keep distribution on closed internal tracks.
+Supabase, Vercel, approved AdMob inventory, real rewarded units and SSV callbacks, European/US-state consent messages, EAS, production data, cron authentication, and an Android store AAB are configured. Account-owner action is still required to accept Google Auth Platform's data policy and to sign in to Apple Developer; those steps gate Google/AdMob OAuth, Sign in with Apple, and Family Controls distribution. AdMob store association, Play Accessibility review, and signed physical-device/OEM validation also remain external release gates. PostHog and Sentry are optional and currently disabled rather than mocked. Until the platform gates pass, keep distribution on closed internal tracks.

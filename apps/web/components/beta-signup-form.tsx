@@ -10,7 +10,8 @@ export function BetaSignupForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setState("submitting");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const response = await fetch("/api/v1/beta/waitlist", {
         method: "POST",
@@ -24,7 +25,7 @@ export function BetaSignupForm() {
         }),
       });
       if (!response.ok) throw new Error("waitlist_failed");
-      event.currentTarget.reset();
+      formElement.reset();
       setState("success");
     } catch {
       setState("error");

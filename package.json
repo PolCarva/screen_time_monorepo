@@ -25,5 +25,10 @@
   "optionalDependencies": {
     "@rolldown/binding-darwin-arm64": "1.2.5",
     "@turbo/darwin-arm64": "2.10.11"
+  },
+  "pnpm": {
+    "overrides": {
+      "xcode>uuid": "11.1.1"
+    }
   }
 }

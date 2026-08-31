@@ -33,12 +33,12 @@ This is the production-readiness audit completed on 2026-08-30. It distinguishes
 
 ## External release gates
 
-Supabase, Vercel, AdMob inventory, EAS, the production database, public data, cron authentication, and an Android store AAB are configured and smoke-tested. Public store release remains gated on:
+Supabase, Vercel, the production database, public data, cron authentication, EAS, and an Android store AAB are configured and smoke-tested. The approved AdMob account has real Android/iOS inventory, rewarded units, production SSV callbacks, and published European and US-state consent messages. Public store release remains gated on:
 
 1. Account-owner completion of Google Auth Platform's API user-data policy, then issuing the Google login and AdMob Reporting OAuth credentials.
 2. Account-owner Apple Developer login/2FA, Sign in with Apple setup, and Family Controls distribution entitlements for the app and all extensions.
 3. Google Play approval of the Accessibility use/disclosure.
-4. A real AdMob/UMP/SSV device run after OAuth is active; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
+4. AdMob Reporting OAuth, store-listing association, and a real AdMob/UMP/SSV signed-device run; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
 5. The signed physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
 
 These gates have no honest local mock substitute; production config and public data paths fail explicitly until their required services are configured.

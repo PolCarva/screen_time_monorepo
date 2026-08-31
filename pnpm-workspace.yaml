@@ -11,4 +11,4 @@ onlyBuiltDependencies:
   - esbuild
 
 patchedDependencies:
-  expo-modules-jsi@57.0.5: patches/expo-modules-jsi@57.0.5.patch
+  expo-modules-jsi@57.0.6: patches/expo-modules-jsi@57.0.6.patch

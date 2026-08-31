@@ -1,3 +1,4 @@
+# Xcode 26 / Swift 6 compatibility fixes retained for Expo SDK 57.
 diff --git a/apple/Sources/ExpoModulesJSI/Contexts/HostFunctionContext.swift b/apple/Sources/ExpoModulesJSI/Contexts/HostFunctionContext.swift
 index 4e39ce1bab9461d6c33a421eb5822446723b22fd..7eefea27ea3f09886ee1775797742acfd7b555be 100644
 --- a/apple/Sources/ExpoModulesJSI/Contexts/HostFunctionContext.swift
