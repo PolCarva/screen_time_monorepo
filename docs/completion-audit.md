@@ -50,5 +50,6 @@ Supabase, Vercel, the production database, public data, cron authentication, EAS
 2. Google Play approval of the Accessibility use/disclosure.
 3. Play-listing association and a real Android AdMob/UMP/SSV signed-device run; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
 4. The signed Android physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
+5. Google's external OAuth brand review. The canonical homepage is verified in Search Console under the project account, the ownership tag is live in production, and the appeal is submitted; no sensitive or restricted-scope review is required.
 
-These remaining gates require Google Play review or signed physical-device evidence and have no honest local mock substitute. iOS and Apple Developer enrollment are outside v1 and do not block Android.
+These remaining gates require Google/Google Play review or signed physical-device evidence and have no honest local mock substitute. iOS and Apple Developer enrollment are outside v1 and do not block Android.

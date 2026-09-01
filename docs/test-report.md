@@ -1,6 +1,6 @@
 # Verification report
 
-Run date: 2026-08-31.
+Run date: 2026-08-31 through 2026-09-01.
 
 ## Automated checks
 
@@ -15,7 +15,7 @@ Run date: 2026-08-31.
 | `pnpm --filter web build`           | Passed production compilation and route generation.                                                                                                                                                                                                                                                                                                                                |
 | Android `:app:compileDebugKotlin`   | Passed with min SDK 29, compile/target SDK 36. Only platform/dependency deprecation warnings remain.                                                                                                                                                                                                                                                                               |
 | Dormant iOS spike compile           | Previously passed for Still and its four extension targets with signing disabled. It is retained as future source evidence and is not part of the Android v1 release gate.                                                                                                                                                                                                         |
-| Production web smoke                | Playwright verified `/`, `/impact`, and `/privacy` with no browser console, page, or real network errors; `/terms` separately returned HTTP 200 with its expected production heading.                                                                                                                                                                                              |
+| Production web smoke                | Playwright verified `/`, `/impact`, and `/privacy` with no browser console, page, or real network errors. After deployment `b52521a`, `/`, `/impact`, `/privacy`, `/terms`, `/api/v1/config`, and `/api/v1/impact/current` all returned HTTP 200; the homepage served its Google ownership tag.                                                                                          |
 | Production config fail-closed check | `APP_VARIANT=production` correctly rejects a build with a missing EAS project ID or without Google identity explicitly enabled.                                                                                                                                                                                                                                                    |
 | `git diff --check`                  | Passed.                                                                                                                                                                                                                                                                                                                                                                            |
 | Production Supabase                 | All migrations through `202608310002` applied to `unyhkgmdqbtrmkoxlqnk`; Google Auth is enabled, Apple Auth is disabled, and public product metrics remain real rather than seeded.                                                                                                                                                                                                |
@@ -30,7 +30,7 @@ Unit coverage targets contract/domain transitions, offline wallet projection, Go
 
 ## Remaining external state
 
-- Google identity is configured in Supabase and EAS, Google Auth Platform is published for external users, and AdMob Reporting is connected; a signed-device identity link/return test remains.
+- Google identity is configured in Supabase and EAS, Google Auth Platform is published for external users, Search Console ownership is verified, and AdMob Reporting is connected. Google's brand-review appeal is submitted; its external decision and a signed-device identity link/return test remain.
 - Android Accessibility timing and OEM background behavior require real devices and Play review.
 - A real Android AdMob test-device impression, SSV callback, UMP presentation, and provider-link flow require a signed physical-device run. The Reporting API import is verified; the Android AdMob app remains pending Play-listing association.
 - iOS and Apple Developer enrollment are outside the current release scope and do not gate Android v1.

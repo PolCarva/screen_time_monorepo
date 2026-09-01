@@ -29,7 +29,7 @@ The current v1 release scope is Android-only. The existing iOS native spike is r
 - The dormant iOS workspace previously compiled with signing disabled; this is historical source evidence, not a current release requirement.
 - Every migration through `202608310002` applies cleanly and is deployed to production Supabase. The empty seed introduces no public fixtures. Database lint reports only the intentional wire-compatibility parameters documented in the functions.
 - A disposable authenticated production flow passed device registration, wallet, wellbeing, reward intent, Emergency Unlock, complete export, deletion, cascade cleanup, and retained-ledger pseudonymization.
-- Google Auth Platform is published for external users with real homepage/privacy/terms URLs. The canonical web property includes its Google Search Console ownership token so brand verification can remain valid. AdMob OAuth refresh, account access, report generation, the production Vercel job, and persistence of its 14-day `admob_api` window all passed.
+- Google Auth Platform is published for external users with real homepage/privacy/terms URLs. Google Search Console verified the canonical web property under the project account, the ownership token is live in production, and Google's brand-review appeal is submitted. AdMob OAuth refresh, account access, report generation, the production Vercel job, and persistence of its 14-day `admob_api` window all passed.
 - Expo Router's transitive `decode-uri-component` CVE-2026-45822 is mitigated with a CommonJS-compatible backport of the official 0.5.0 linear decoder. The production audit accepts only that reviewed CVE exception, and a bounded-time regression test covers the patch.
 
 ## External release gates
@@ -41,5 +41,6 @@ The implementation is not a validated store beta until these account/device-depe
 3. A signed Android-device flow validates the configured Google identity link and return URL.
 4. A signed Android AdMob test-device run validates UMP, reward delivery, and SSV; the AdMob app must then be linked to its Play listing. PostHog and Sentry remain optional and deliberately disabled until accounts are selected.
 5. Seven-day soak, crash-free, reblock, duplicate-grant, and no-fill fallback acceptance thresholds pass.
+6. Google completes the submitted OAuth brand review; the verification center confirms that no sensitive or restricted-scope review is required.
 
 Keep the Android beta closed until these gates pass, as specified in `native-feasibility.md`. Apple enrollment and iOS distribution are outside v1.
