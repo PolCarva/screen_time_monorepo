@@ -20,15 +20,17 @@ The current v1 release scope is Android-only. The existing iOS native spike is r
 
 ## Verified locally
 
-- `pnpm lint`, `pnpm typecheck`, and `pnpm test`: 51 unit tests pass across contracts, mobile, and web, including Google identity enforcement, analytics consent, security headers, waitlist rate limiting, native wallet fail-closed behavior, AdMob, deep-link, permission, extension, entitlement, and persisted beta-signup assertions.
+- `pnpm lint`, `pnpm typecheck`, and `pnpm test`: 53 unit tests pass across contracts, mobile, and web, including Google identity enforcement, analytics consent, security headers, waitlist rate limiting, native wallet fail-closed behavior, AdMob, deep-link, permission, extension, entitlement, and persisted beta-signup assertions.
 - Expo Doctor passes all 20 applicable checks. The committed-native-project synchronization warning is disabled explicitly after the same fields are verified by the native-config regression suite.
-- `pnpm audit --prod --audit-level=moderate` reports no known production dependency vulnerabilities. The transitive Expo `xcode` UUID dependency is constrained to the patched release.
+- `pnpm audit --prod --audit-level=moderate` exits successfully. Expo Router's CommonJS-only transitive `decode-uri-component` dependency carries a reviewed exception for CVE-2026-45822 only after the official 0.5.0 linear decoder was backported and covered by a bounded-time regression test. The transitive Expo `xcode` UUID dependency is constrained to the patched release.
 - Clean local Supabase startup applies every migration plus seed; 16 pgTAP database invariants pass for RPC grants, runtime switches, bounded active reward intents, reward reconciliation, hidden-debt prevention, and privacy-deletion recovery.
 - Next.js production build and Playwright production smoke: public pages and configured config/current/history APIs respond successfully with no browser console or failed-response errors.
 - Android Kotlin compile: succeeds with min SDK 29, compile SDK 36, and target SDK 36.
 - The dormant iOS workspace previously compiled with signing disabled; this is historical source evidence, not a current release requirement.
 - Every migration through `202608310002` applies cleanly and is deployed to production Supabase. The empty seed introduces no public fixtures. Database lint reports only the intentional wire-compatibility parameters documented in the functions.
 - A disposable authenticated production flow passed device registration, wallet, wellbeing, reward intent, Emergency Unlock, complete export, deletion, cascade cleanup, and retained-ledger pseudonymization.
+- Google Auth Platform is published for external users with real homepage/privacy/terms URLs. The canonical web property includes its Google Search Console ownership token so brand verification can remain valid. AdMob OAuth refresh, account access, report generation, the production Vercel job, and persistence of its 14-day `admob_api` window all passed.
+- Expo Router's transitive `decode-uri-component` CVE-2026-45822 is mitigated with a CommonJS-compatible backport of the official 0.5.0 linear decoder. The production audit accepts only that reviewed CVE exception, and a bounded-time regression test covers the patch.
 
 ## External release gates
 
@@ -36,7 +38,7 @@ The implementation is not a validated store beta until these account/device-depe
 
 1. The Android 10–16 Pixel/Samsung/Xiaomi matrix proves intervention latency and OEM behavior.
 2. Play accepts the Accessibility declaration/disclosure and evidence video.
-3. A signed Android-device flow validates the configured Google identity link and return URL; AdMob Reporting OAuth credentials still need to be issued and connected.
+3. A signed Android-device flow validates the configured Google identity link and return URL.
 4. A signed Android AdMob test-device run validates UMP, reward delivery, and SSV; the AdMob app must then be linked to its Play listing. PostHog and Sentry remain optional and deliberately disabled until accounts are selected.
 5. Seven-day soak, crash-free, reblock, duplicate-grant, and no-fill fallback acceptance thresholds pass.
 

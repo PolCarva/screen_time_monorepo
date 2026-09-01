@@ -57,7 +57,7 @@ The emulator build proves compilation, not Android platform enforcement. The sig
 
 1. Create a Supabase project, apply every migration in lexical order, then create real charities and publish policy through `/admin`; the repository does not seed public demo data. Configure Google Auth with the Supabase callback and allow `still://auth/callback` in the Supabase redirect allow-list.
 2. Create a Vercel project rooted at `apps/web`, add the variables documented in [the runbook](docs/runbook.md), deploy, and verify the reward-reconciliation cron.
-3. Configure the AdMob SSV callback to `/api/webhooks/admob/rewarded` and the Reporting API credentials for the revenue import job.
+3. Configure the AdMob SSV callback to `/api/webhooks/admob/rewarded` and the Reporting API credentials for the revenue import job. Publish OAuth with public homepage, privacy, and terms URLs so operator refresh tokens are not limited to testing mode.
 4. Configure EAS Android remote credentials and the production environment variables, then run `eas build --platform android --profile production` from `apps/mobile`.
 5. Complete the signed-device matrix and the seven-day closed-beta soak before store rollout.
 
@@ -65,4 +65,4 @@ Detailed migration, job, credential, rollback, and release instructions are in [
 
 ## Known external gates
 
-Supabase, Google identity, Vercel, approved Android AdMob inventory, the real rewarded unit and SSV callback, European/US-state consent messages, EAS, production policy v3, cron authentication, and an Android store AAB are configured. AdMob Reporting OAuth, Play store association, Accessibility review, and signed physical-device/OEM validation remain external release gates. iOS and Apple Developer enrollment are explicitly outside v1, so the Android release does not require the USD 99/year membership. PostHog and Sentry are optional and currently disabled rather than mocked. Until the remaining Android gates pass, keep distribution on closed internal tracks.
+Supabase, Google identity, Google Auth Platform production publishing, Vercel, AdMob Reporting OAuth, approved Android AdMob inventory, the real rewarded unit and SSV callback, European/US-state consent messages, EAS, production policy v3, cron authentication, and an Android store AAB are configured. The production Reporting job imported and persisted a real 14-day `admob_api` window; its zero revenue/impression totals are the truthful pre-traffic state. Play store association, Accessibility review, and signed physical-device/OEM validation remain external release gates. iOS and Apple Developer enrollment are explicitly outside v1, so the Android release does not require the USD 99/year membership. PostHog and Sentry are optional and currently disabled rather than mocked. Until the remaining Android gates pass, keep distribution on closed internal tracks.

@@ -8,6 +8,9 @@ overrides:
   xcode>uuid: 11.1.1
 
 patchedDependencies:
+  decode-uri-component@0.2.2:
+    hash: 220b7a722d49c27c08aaf94d02427f8a274ca27a35e2e5b2334f720d3497e123
+    path: patches/decode-uri-component@0.2.2.patch
   expo-modules-jsi@57.0.6:
     hash: eb900f22b6f4647a604fa16644fe02907d766dbf5718b3ba1667337adf79a093
     path: patches/expo-modules-jsi@57.0.6.patch
@@ -168,6 +171,9 @@ importers:
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.18
+      decode-uri-component:
+        specifier: 0.2.2
+        version: 0.2.2(patch_hash=220b7a722d49c27c08aaf94d02427f8a274ca27a35e2e5b2334f720d3497e123)
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -7779,7 +7785,7 @@ snapshots:
 
   decimal.js@10.6.0: {}
 
-  decode-uri-component@0.2.2: {}
+  decode-uri-component@0.2.2(patch_hash=220b7a722d49c27c08aaf94d02427f8a274ca27a35e2e5b2334f720d3497e123): {}
 
   deep-is@0.1.4: {}
 
@@ -9634,7 +9640,7 @@ snapshots:
 
   query-string@7.1.3:
     dependencies:
-      decode-uri-component: 0.2.2
+      decode-uri-component: 0.2.2(patch_hash=220b7a722d49c27c08aaf94d02427f8a274ca27a35e2e5b2334f720d3497e123)
       filter-obj: 1.1.0
       split-on-first: 1.1.0
       strict-uri-encode: 2.0.0

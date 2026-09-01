@@ -44,11 +44,11 @@ This is the production-readiness audit completed on 2026-08-31. It distinguishes
 
 ## External release gates
 
-Supabase, Vercel, the production database, public data, cron authentication, EAS, production policy v3, and an Android store AAB are configured and tested. An authenticated disposable-account E2E passed registration, wallet, wellbeing, reward intent, Emergency Unlock, export, deletion, cascade cleanup, and financial-ledger pseudonymization. The approved AdMob account has real Android inventory, a rewarded unit, a production SSV callback, and published European and US-state consent messages. Public Play release remains gated on:
+Supabase, Vercel, the production database, public data, cron authentication, EAS, production policy v3, Google Auth Platform production publishing, AdMob Reporting OAuth, and an Android store AAB are configured and tested. An authenticated disposable-account E2E passed registration, wallet, wellbeing, reward intent, Emergency Unlock, export, deletion, cascade cleanup, and financial-ledger pseudonymization. The approved AdMob account has real Android inventory, a rewarded unit, a production SSV callback, published European and US-state consent messages, and a production Reporting job that persisted a real 14-day provider window. Public Play release remains gated on:
 
-1. A signed-device Google identity-link test and separate AdMob Reporting OAuth credentials. Google identity is already enabled in Supabase and EAS.
+1. A signed-device Google identity-link and return-URL test. Google identity is already enabled in Supabase and EAS, and the OAuth app is published.
 2. Google Play approval of the Accessibility use/disclosure.
-3. AdMob Reporting OAuth, Play-listing association, and a real Android AdMob/UMP/SSV signed-device run; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
+3. Play-listing association and a real Android AdMob/UMP/SSV signed-device run; PostHog and Sentry remain optional, explicitly disabled integrations until accounts are chosen.
 4. The signed Android physical-device/OEM matrix and seven-day closed-beta soak in `native-feasibility.md`.
 
-These gates have no honest local mock substitute; production config and public data paths fail explicitly until their required services are configured. iOS and Apple Developer enrollment are outside v1 and do not block Android.
+These remaining gates require Google Play review or signed physical-device evidence and have no honest local mock substitute. iOS and Apple Developer enrollment are outside v1 and do not block Android.

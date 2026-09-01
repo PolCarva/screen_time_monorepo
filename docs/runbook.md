@@ -71,11 +71,13 @@ Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable whi
 
 1. Create a Vercel project with root directory `apps/web` and add the web variables above.
 2. Set `NEXT_PUBLIC_APP_URL` to the final canonical URL before configuring OAuth redirects.
-3. Deploy and verify `/`, `/impact`, `/privacy`, `/api/v1/config`, and `/api/v1/impact/current`.
+3. Deploy and verify `/`, `/impact`, `/privacy`, `/terms`, `/api/v1/config`, and `/api/v1/impact/current`.
 4. Call the reconciliation route once with the cron bearer token and confirm a JSON `{ "reconciled": number }` response.
 5. Configure AdMob SSV to `https://YOUR_HOST/api/webhooks/admob/rewarded` and verify a real test-device callback before enabling rewards.
 
-In the current production inventory, the Android rewarded unit uses `https://screen-time-monorepo-web.vercel.app/api/webhooks/admob/rewarded`. European and US-state UMP messages are published. Policy v3 enables the reward path for the closed Android beta; do not promote beyond the closed track until the Play association and signed-device SSV/consent run pass.
+In the current production inventory, the Android rewarded unit uses `https://screen-time-monorepo-web.vercel.app/api/webhooks/admob/rewarded`. European and US-state UMP messages are published. Google Auth Platform is in production mode with the public homepage, privacy, and terms URLs. The AdMob Reporting OAuth client and Vercel secrets are configured; an authenticated production run imported a real 14-day window as `admob_api`. Policy v3 enables the reward path for the closed Android beta; do not promote beyond the closed track until the Play association and signed-device SSV/consent run pass.
+
+The workspace patches `decode-uri-component@0.2.2` because Expo Router's CommonJS dependency chain cannot consume the ESM-only 0.5.0 release. The patch backports the official 0.5.0 linear decoder for CVE-2026-45822; keep the matching audit exception and regression test together, and remove both once Expo Router ships a compatible fixed dependency.
 
 ## Mobile release
 
