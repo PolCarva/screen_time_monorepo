@@ -31,7 +31,7 @@ const sections = [
   },
   {
     title: "6. Fondo de impacto",
-    body: "Still asigna al fondo el porcentaje del ingreso publicitario que muestra la configuración activa. Las cifras recientes pueden ser estimadas hasta la conciliación del proveedor. Un anuncio individual no equivale a una donación individual. Los importes finalizados, organizaciones elegidas y comprobantes se publican cuando el proceso operativo correspondiente queda confirmado.",
+    body: "Still asigna al fondo el porcentaje del ingreso publicitario que muestra la configuración activa. La web distingue las cifras estimadas importadas del proveedor de los importes finalizados después de la conciliación. Un anuncio individual no equivale a una donación individual. Los importes finalizados, organizaciones elegidas y comprobantes se publican cuando el proceso operativo correspondiente queda confirmado.",
   },
   {
     title: "7. Uso aceptable",
