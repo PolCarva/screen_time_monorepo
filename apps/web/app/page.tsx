@@ -22,7 +22,7 @@ export default async function HomePage() {
       <section className="hero-v3 shell-wide">
         <div className="hero-v3__meta mono-label">
           <span>QUIET TECHNOLOGY / BETA PRIVADA</span>
-          <span>IOS + ANDROID</span>
+          <span>ANDROID</span>
         </div>
         <div className="hero-v3__grid">
           <div className="hero-v3__copy">
@@ -346,7 +346,7 @@ export default async function HomePage() {
 
       <section className="closing-v3" id="beta-status">
         <div className="shell-wide closing-v3__inner">
-          <p className="mono-label">BETA PRIVADA / IOS + ANDROID</p>
+          <p className="mono-label">BETA PRIVADA / ANDROID</p>
           <h2>El momento antes de entrar también puede ser tuyo.</h2>
           <div>
             <BetaSignupForm />
@@ -364,6 +364,7 @@ export default async function HomePage() {
         <nav aria-label="Pie">
           <Link href="/impact">Impacto</Link>
           <Link href="/privacy">Privacidad</Link>
+          <Link href="/terms">Términos</Link>
         </nav>
       </footer>
     </main>

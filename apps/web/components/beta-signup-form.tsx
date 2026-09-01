@@ -18,7 +18,7 @@ export function BetaSignupForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           email: form.get("email"),
-          platform: form.get("platform"),
+          platform: "android",
           consent: form.get("consent") === "on",
           company: form.get("company"),
           locale: navigator.language,
@@ -38,14 +38,10 @@ export function BetaSignupForm() {
         <span>Email</span>
         <input autoComplete="email" name="email" required type="email" />
       </label>
-      <label>
+      <div className="beta-form__platform">
         <span>Plataforma</span>
-        <select defaultValue="both" name="platform">
-          <option value="ios">iOS</option>
-          <option value="android">Android</option>
-          <option value="both">Ambas</option>
-        </select>
-      </label>
+        <strong>Android</strong>
+      </div>
       <label className="beta-form__consent">
         <input name="consent" required type="checkbox" />
         <span>Acepto recibir novedades sobre la beta privada.</span>

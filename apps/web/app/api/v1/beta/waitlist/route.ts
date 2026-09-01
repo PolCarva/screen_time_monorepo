@@ -6,7 +6,7 @@ import { createWaitlistRateLimitKey } from "@/lib/waitlist-rate-limit";
 
 const waitlistSchema = z.object({
   email: z.string().trim().email().max(254),
-  platform: z.enum(["ios", "android", "both"]),
+  platform: z.literal("android"),
   locale: z.string().trim().max(16).optional(),
   consent: z.literal(true),
   company: z.string().max(0).optional(),

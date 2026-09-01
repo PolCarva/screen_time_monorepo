@@ -311,6 +311,20 @@ img {
   gap: 6px;
   font-size: 12px;
 }
+.beta-form__platform {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.beta-form__platform strong {
+  min-height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--chalk) 24%, transparent);
+  border-radius: 3px;
+  font-weight: 500;
+}
 .beta-form input,
 .beta-form select {
   min-height: 44px;

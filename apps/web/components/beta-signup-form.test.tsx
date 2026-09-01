@@ -19,13 +19,12 @@ describe("BetaSignupForm", () => {
     render(<BetaSignupForm />);
 
     const email = screen.getByLabelText("Email");
-    const platform = screen.getByLabelText("Plataforma");
+    expect(screen.getByText("Android")).toBeInTheDocument();
     const consent = screen.getByRole("checkbox", {
       name: "Acepto recibir novedades sobre la beta privada.",
     });
 
     fireEvent.change(email, { target: { value: "person@example.com" } });
-    fireEvent.change(platform, { target: { value: "ios" } });
     fireEvent.click(consent);
     fireEvent.submit(email.closest("form")!);
 
@@ -41,12 +40,11 @@ describe("BetaSignupForm", () => {
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       email: "person@example.com",
-      platform: "ios",
+      platform: "android",
       consent: true,
       company: "",
     });
     expect(email).toHaveValue("");
-    expect(platform).toHaveValue("both");
     expect(consent).not.toBeChecked();
   });
 });

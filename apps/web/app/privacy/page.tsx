@@ -82,7 +82,7 @@ export default function PrivacyPage() {
               Usa <strong>Ajustes → Privacidad</strong> en la app para exportar o eliminar datos.
               Hasta que abra la beta, las consultas también pueden enviarse al administrador del proyecto.
             </p>
-            <Link className="text-link" href="/">Volver a Still</Link>
+            <Link className="text-link" href="/terms">Leer los Términos de uso</Link>
           </div>
         </section>
       </article>
