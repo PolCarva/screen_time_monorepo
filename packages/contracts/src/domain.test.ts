@@ -4,6 +4,7 @@ import {
   calculateImpactFundMinor,
   canRequestReward,
   estimateMinutesAvoided,
+  formatUnlockDuration,
   transitionRestriction,
   transitionReward,
 } from "./domain";
@@ -55,6 +56,7 @@ describe("wallet rules", () => {
   };
   const wallet = {
     rewardedBalance: 2,
+    rewardedPassesRemainingToday: 2,
     emergencyRemaining: 3,
     unresolvedRewardClaims: 0,
     rewardAdsRemainingToday: 8,
@@ -100,6 +102,14 @@ describe("wallet rules", () => {
         rewardProvider: "house",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("unlock duration formatting", () => {
+  it("formats the supported minute, hour, and all-day choices", () => {
+    expect(formatUnlockDuration(600, "es")).toBe("10 min");
+    expect(formatUnlockDuration(3_600, "en")).toBe("1 hour");
+    expect(formatUnlockDuration(86_400, "es")).toBe("Todo el día");
   });
 });
 

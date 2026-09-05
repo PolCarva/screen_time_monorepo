@@ -1,6 +1,10 @@
 import { AdsConsent } from "react-native-google-mobile-ads";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import {
+  formatUnlockDuration,
+  type UpdateUserPreferencesRequest,
+} from "@screen-time/contracts";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -54,9 +58,75 @@ function authorizationLabel(
   }
 }
 
+const durationOptions = [600, 1_200, 1_800, 3_600, 86_400] as const;
+
+function Stepper({
+  label,
+  value,
+  minimum,
+  maximum,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  minimum: number;
+  maximum: number;
+  onChange(value: number): void;
+}) {
+  return (
+    <View style={styles.stepperRow}>
+      <Body style={styles.stepperLabel}>{label}</Body>
+      <View style={styles.stepper}>
+        <Pressable
+          accessibilityLabel={localize(`Reduce ${label}`, `Reducir ${label}`)}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: value <= minimum }}
+          disabled={value <= minimum}
+          onPress={() => onChange(Math.max(minimum, value - 1))}
+          style={({ pressed }) => [
+            styles.stepperButton,
+            pressed && styles.pressed,
+            value <= minimum && styles.disabled,
+          ]}
+        >
+          <Text style={styles.stepperButtonLabel}>−</Text>
+        </Pressable>
+        <Text accessibilityLiveRegion="polite" style={styles.stepperValue}>
+          {value}
+        </Text>
+        <Pressable
+          accessibilityLabel={localize(
+            `Increase ${label}`,
+            `Aumentar ${label}`,
+          )}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: value >= maximum }}
+          disabled={value >= maximum}
+          onPress={() => onChange(Math.min(maximum, value + 1))}
+          style={({ pressed }) => [
+            styles.stepperButton,
+            pressed && styles.pressed,
+            value >= maximum && styles.disabled,
+          ]}
+        >
+          <Text style={styles.stepperButtonLabel}>+</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
-  const { clearLocalData, config, health, lastSyncedAt, refresh, syncStatus } =
-    useAppState();
+  const {
+    clearLocalData,
+    config,
+    health,
+    lastSyncedAt,
+    preferences,
+    refresh,
+    savePreferences,
+    syncStatus,
+  } = useAppState();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
     [],
@@ -64,14 +134,64 @@ export default function SettingsScreen() {
   const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(
     null,
   );
+  const [preferencesBusy, setPreferencesBusy] = useState(false);
+  const [draftPreferences, setDraftPreferences] =
+    useState<UpdateUserPreferencesRequest>({
+      dailyPassLimit: preferences.dailyPassLimit,
+      unlockDurationSeconds: preferences.unlockDurationSeconds,
+      maxRewardedAdsPerUtcDay: preferences.maxRewardedAdsPerUtcDay,
+    });
   const googleEnabled = isIdentityProviderEnabled("google");
 
   useEffect(() => {
     void getJson("analyticsEnabled", true).then(setAnalyticsEnabled);
-    void getLinkedIdentityProviders()
-      .then(setLinkedIdentities)
-      .catch(() => setLinkedIdentities([]));
   }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void getLinkedIdentityProviders()
+        .then((providers) => {
+          if (active) setLinkedIdentities(providers);
+        })
+        .catch(() => {
+          if (active) setLinkedIdentities([]);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+  useEffect(() => {
+    setDraftPreferences({
+      dailyPassLimit: preferences.dailyPassLimit,
+      unlockDurationSeconds: preferences.unlockDurationSeconds,
+      maxRewardedAdsPerUtcDay: preferences.maxRewardedAdsPerUtcDay,
+    });
+  }, [preferences]);
+
+  async function persistPreferences() {
+    setPreferencesBusy(true);
+    try {
+      await savePreferences(draftPreferences);
+      Alert.alert(
+        localize("Limits saved", "Límites guardados"),
+        localize(
+          "New passes will use these limits on all your devices.",
+          "Los nuevos pases usarán estos límites en todos tus dispositivos.",
+        ),
+      );
+    } catch {
+      Alert.alert(
+        localize("Could not save limits", "No se pudieron guardar los límites"),
+        localize(
+          "Check your connection and try again.",
+          "Revisa tu conexión e inténtalo otra vez.",
+        ),
+      );
+    } finally {
+      setPreferencesBusy(false);
+    }
+  }
 
   async function link(provider: IdentityProvider) {
     if (
@@ -85,19 +205,36 @@ export default function SettingsScreen() {
       if (linked) {
         setLinkedIdentities(await getLinkedIdentityProviders());
         Alert.alert(
-          localize("Account linked", "Cuenta vinculada"),
+          localize("Google connected", "Google conectado"),
           localize(
-            "You can now participate in voting.",
-            "Ya puedes participar en las votaciones.",
+            "Your identity is ready for voting and account recovery.",
+            "Tu identidad está lista para votar y recuperar la cuenta.",
           ),
         );
       }
-    } catch {
+    } catch (error) {
+      try {
+        const providers = await getLinkedIdentityProviders();
+        if (providers.includes(provider)) {
+          setLinkedIdentities(providers);
+          Alert.alert(
+            localize("Google connected", "Google conectado"),
+            localize(
+              "Your identity is ready for voting and account recovery.",
+              "Tu identidad está lista para votar y recuperar la cuenta.",
+            ),
+          );
+          return;
+        }
+      } catch {
+        // Preserve the original OAuth error below when reconciliation fails.
+      }
+      if (__DEV__) console.warn("Google identity link failed", error);
       Alert.alert(
         localize("Could not link", "No se pudo vincular"),
         localize(
-          "Check the provider configuration and try again.",
-          "Revisa la configuración del proveedor e inténtalo otra vez.",
+          "Google sign-in could not be completed. Check your connection and try again.",
+          "No se pudo completar el acceso con Google. Revisa tu conexión e inténtalo otra vez.",
         ),
       );
     } finally {
@@ -363,7 +500,100 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>02 / {localize("IDENTITY", "IDENTIDAD")}</Eyebrow>
+          <Eyebrow>02 / {localize("PASS LIMITS", "LÍMITES DE PASES")}</Eyebrow>
+          <Mono>{localize("PER DAY", "POR DÍA")}</Mono>
+        </View>
+        <Heading style={styles.sectionTitle}>
+          {localize("Choose your guardrails.", "Elige tus límites.")}
+        </Heading>
+        <Body style={styles.muted}>
+          {localize(
+            "Passes reset at midnight UTC. Emergency access remains separate.",
+            "Los pases se reinician a medianoche UTC. Los accesos de emergencia se mantienen separados.",
+          )}
+        </Body>
+        <Stepper
+          label={localize("Daily passes", "Pases diarios")}
+          value={draftPreferences.dailyPassLimit}
+          minimum={1}
+          maximum={20}
+          onChange={(dailyPassLimit) =>
+            setDraftPreferences((current) => ({
+              ...current,
+              dailyPassLimit,
+            }))
+          }
+        />
+        <View style={styles.choiceGroup}>
+          <Body style={styles.choiceLabel}>
+            {localize(
+              "Time unlocked by each pass",
+              "Tiempo que desbloquea cada pase",
+            )}
+          </Body>
+          <View accessibilityRole="radiogroup" style={styles.durationChoices}>
+            {durationOptions.map((duration) => {
+              const selected =
+                draftPreferences.unlockDurationSeconds === duration;
+              return (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  key={duration}
+                  onPress={() =>
+                    setDraftPreferences((current) => ({
+                      ...current,
+                      unlockDurationSeconds: duration,
+                    }))
+                  }
+                  style={({ pressed }) => [
+                    styles.durationChoice,
+                    selected && styles.durationChoiceSelected,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.durationChoiceLabel,
+                      selected && styles.durationChoiceLabelSelected,
+                    ]}
+                  >
+                    {localize(
+                      formatUnlockDuration(duration, "en"),
+                      formatUnlockDuration(duration, "es"),
+                    )}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <Stepper
+          label={localize("Maximum ads", "Máximo de anuncios")}
+          value={draftPreferences.maxRewardedAdsPerUtcDay}
+          minimum={0}
+          maximum={config.maxRewardedAdsPerUtcDay}
+          onChange={(maxRewardedAdsPerUtcDay) =>
+            setDraftPreferences((current) => ({
+              ...current,
+              maxRewardedAdsPerUtcDay,
+            }))
+          }
+        />
+        <PrimaryButton
+          disabled={preferencesBusy || syncStatus === "offline"}
+          onPress={() => void persistPreferences()}
+          variant="secondary"
+        >
+          {preferencesBusy
+            ? localize("Saving…", "Guardando…")
+            : localize("Save pass limits", "Guardar límites de pases")}
+        </PrimaryButton>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeading}>
+          <Eyebrow>03 / {localize("IDENTITY", "IDENTIDAD")}</Eyebrow>
           <Mono>{localize("OPTIONAL", "OPCIONAL")}</Mono>
         </View>
         <Heading style={styles.sectionTitle}>
@@ -393,31 +623,41 @@ export default function SettingsScreen() {
           }
           style={({ pressed }) => [
             styles.identity,
+            linkedIdentities.includes("google") && styles.identityLinked,
             pressed && styles.pressed,
-            (!googleEnabled || linkedIdentities.includes("google")) &&
-              styles.disabled,
+            !googleEnabled && styles.disabled,
           ]}
           onPress={() => link("google")}
         >
           <Text style={styles.identityText}>
-            G{" "}
             {linkedIdentities.includes("google")
-              ? localize("Google linked", "Google vinculado")
+              ? localize("✓  Google connected", "✓  Google conectado")
               : !googleEnabled
                 ? localize(
-                    "Google setup pending",
-                    "Configuración de Google pendiente",
+                    "G  Google setup pending",
+                    "G  Configuración de Google pendiente",
                   )
                 : identityBusy === "google"
-                  ? localize("Opening Google…", "Abriendo Google…")
-                  : localize("Continue with Google", "Continuar con Google")}
+                  ? localize("G  Opening Google…", "G  Abriendo Google…")
+                  : localize(
+                      "G  Continue with Google",
+                      "G  Continuar con Google",
+                    )}
           </Text>
         </Pressable>
+        {linkedIdentities.includes("google") ? (
+          <Body style={styles.identityConfirmation}>
+            {localize(
+              "Voting is enabled. Open Impact to choose and see your vote.",
+              "Ya puedes votar. Abre Impacto para elegir y ver tu voto.",
+            )}
+          </Body>
+        ) : null}
       </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>03 / {localize("DATA", "DATOS")}</Eyebrow>
+          <Eyebrow>04 / {localize("DATA", "DATOS")}</Eyebrow>
           <Mono>
             {analyticsEnabled
               ? localize("ON", "ACTIVO")
@@ -462,7 +702,7 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <Eyebrow>
-          04 / {localize("PRIVACY BY DESIGN", "PRIVACIDAD POR DISEÑO")}
+          05 / {localize("PRIVACY BY DESIGN", "PRIVACIDAD POR DISEÑO")}
         </Eyebrow>
         <Heading style={styles.sectionTitle}>
           {localize("The names stay here.", "Los nombres se quedan aquí.")}
@@ -546,6 +786,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   identityText: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
+  identityLinked: {
+    borderColor: colors.success,
+    backgroundColor: colors.chalkRaised,
+  },
+  identityConfirmation: {
+    color: colors.success,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
   pressed: { opacity: 0.65 },
   disabled: { opacity: 0.42 },
   between: {
@@ -554,6 +804,78 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   switchCopy: { flex: 1, paddingRight: spacing.md, gap: spacing.xs },
+  choiceGroup: { gap: spacing.sm },
+  choiceLabel: {
+    color: colors.graphite,
+    fontFamily: fonts.brandSemiBold,
+    fontSize: 14,
+  },
+  stepperRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  stepperLabel: {
+    flex: 1,
+    color: colors.graphite,
+    fontFamily: fonts.brandSemiBold,
+    fontSize: 14,
+  },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.fog,
+    borderRadius: radius.control,
+    overflow: "hidden",
+  },
+  stepperButton: {
+    width: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.chalkRaised,
+  },
+  stepperButtonLabel: {
+    color: colors.graphite,
+    fontFamily: fonts.brandMedium,
+    fontSize: 22,
+  },
+  stepperValue: {
+    minWidth: 42,
+    color: colors.graphite,
+    fontFamily: fonts.mono,
+    fontSize: 15,
+    fontVariant: ["tabular-nums"],
+    textAlign: "center",
+  },
+  durationChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  durationChoice: {
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.fog,
+    borderRadius: radius.control,
+    backgroundColor: colors.chalkRaised,
+  },
+  durationChoiceSelected: {
+    borderColor: colors.graphite,
+    backgroundColor: colors.graphite,
+  },
+  durationChoiceLabel: {
+    color: colors.graphite,
+    fontFamily: fonts.brandSemiBold,
+    fontSize: 13,
+  },
+  durationChoiceLabelSelected: { color: colors.chalk },
   privacyBody: { fontSize: 14, lineHeight: 22 },
   textAction: {
     minHeight: 48,

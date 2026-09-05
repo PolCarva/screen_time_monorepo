@@ -26,7 +26,7 @@ enum SharedRestrictionState {
 
   static var unlockDurationSeconds: Int {
     let stored = defaults.integer(forKey: unlockDurationSecondsKey)
-    return max(60, min(stored > 0 ? stored : 600, 3_600))
+    return max(60, min(stored > 0 ? stored : 600, 86_400))
   }
 
   struct UnlockRecord: Codable {
@@ -107,16 +107,20 @@ enum SharedRestrictionState {
     guard restrictionsEnabled else {
       throw NSError(domain: "StillRestrictionEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restrictions are temporarily disabled"])
     }
-    let duration = max(60, min(durationSeconds, 3_600))
+    let duration = max(60, min(durationSeconds, 86_400))
     let id = UUID().uuidString
     let deadline = ProcessInfo.processInfo.systemUptime + TimeInterval(duration)
     let now = Date()
     let end = now.addingTimeInterval(TimeInterval(duration))
     if scheduleMonitoring {
       let calendar = Calendar.current
+      // A 24-hour interval has identical clock components at both ends, which
+      // DeviceActivity rejects. Ending its monitor one second earlier keeps
+      // the all-day choice effectively intact while preserving auto-restore.
+      let monitorEnd = duration >= 86_400 ? end.addingTimeInterval(-1) : end
       let schedule = DeviceActivitySchedule(
         intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
-        intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: end),
+        intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: monitorEnd),
         repeats: false
       )
       try DeviceActivityCenter().startMonitoring(.init("still.unlock.\(id)"), during: schedule)
@@ -218,7 +222,7 @@ enum SharedRestrictionState {
     let wallet = LocalWallet(rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
     defaults.set(max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
-    defaults.set(max(60, min(unlockDurationSeconds, 3_600)), forKey: unlockDurationSecondsKey)
+    defaults.set(max(60, min(unlockDurationSeconds, 86_400)), forKey: unlockDurationSecondsKey)
     defaults.set(restrictionsEnabled, forKey: restrictionsEnabledKey)
     applyShields()
   }

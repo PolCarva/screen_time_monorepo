@@ -101,7 +101,9 @@ export const admobRewardProvider: RewardProvider = {
         return "unavailable";
       }
     })();
-    return initialization;
+    const result = await initialization;
+    if (result !== "ready") initialization = null;
+    return result;
   },
   async preload(intent) {
     if ((await this.prepare()) !== "ready") return "unavailable";

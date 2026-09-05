@@ -2,9 +2,13 @@ package com.still.screentime
 
 import android.app.Activity
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -12,6 +16,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -23,12 +28,17 @@ import java.time.ZoneOffset
 import java.util.Calendar
 
 class StillRestrictionModule(private val context: ReactApplicationContext) :
-  ReactContextBaseJavaModule(context), ActivityEventListener {
+  ReactContextBaseJavaModule(context), ActivityEventListener, LifecycleEventListener {
 
   private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+  private var authorizationPromise: Promise? = null
+  private var wellbeingAuthorizationPromise: Promise? = null
   private var pickerPromise: Promise? = null
 
-  init { context.addActivityEventListener(this) }
+  init {
+    context.addActivityEventListener(this)
+    context.addLifecycleEventListener(this)
+  }
 
   override fun getName() = "StillRestrictionEngine"
 
@@ -38,11 +48,16 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       promise.resolve("authorized")
       return
     }
-    runCatching {
+    authorizationPromise?.reject("authorization_replaced", "A newer authorization request replaced this one")
+    authorizationPromise = promise
+    val opened = runCatching {
       context.currentActivity?.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         ?: context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { promise.resolve("unavailable"); return }
-    promise.resolve("notDetermined")
+    }.isSuccess
+    if (!opened) {
+      authorizationPromise = null
+      promise.resolve("unavailable")
+    }
   }
 
   @ReactMethod
@@ -51,11 +66,16 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       promise.resolve("authorized")
       return
     }
-    runCatching {
+    wellbeingAuthorizationPromise?.reject("authorization_replaced", "A newer authorization request replaced this one")
+    wellbeingAuthorizationPromise = promise
+    val opened = runCatching {
       context.currentActivity?.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         ?: context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { promise.resolve("unavailable"); return }
-    promise.resolve("notDetermined")
+    }.isSuccess
+    if (!opened) {
+      wellbeingAuthorizationPromise = null
+      promise.resolve("unavailable")
+    }
   }
 
   @ReactMethod
@@ -68,6 +88,27 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     pickerPromise?.reject("picker_replaced", "A newer picker request replaced this one")
     pickerPromise = promise
     activity.startActivityForResult(Intent(activity, AppPickerActivity::class.java), PICKER_REQUEST)
+  }
+
+  @ReactMethod
+  fun beginExternalAuthSession(promise: Promise) {
+    val browserPackages = browserPackages()
+    if (browserPackages.isEmpty()) {
+      promise.reject("browser_unavailable", "No browser is available for authentication")
+      return
+    }
+    preferences.edit()
+      .putStringSet(KEY_EXTERNAL_AUTH_BYPASS_PACKAGES, browserPackages)
+      .putLong(KEY_EXTERNAL_AUTH_BYPASS_UNTIL, SystemClock.elapsedRealtime() + EXTERNAL_AUTH_BYPASS_TIMEOUT_MS)
+      .putInt(KEY_EXTERNAL_AUTH_BYPASS_BOOT, currentBootCount())
+      .apply()
+    promise.resolve(null)
+  }
+
+  @ReactMethod
+  fun endExternalAuthSession(promise: Promise) {
+    clearExternalAuthBypass()
+    promise.resolve(null)
   }
 
   @ReactMethod
@@ -89,7 +130,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       return
     }
 
-    val duration = durationSeconds.coerceIn(60, 3600)
+    val duration = durationSeconds.coerceIn(60, 86400)
     val now = SystemClock.elapsedRealtime()
     val endsElapsed = now + duration * 1_000L
     val sessionId = UUID.randomUUID().toString()
@@ -154,7 +195,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       .putInt(KEY_EMERGENCY_REMAINING, emergency.coerceAtLeast(0))
       .putString(KEY_WALLET_RESET_AT, resetAt)
       .putFloat(KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, estimatedMinutesPerAvoidedOpen.coerceIn(0.0, 60.0).toFloat())
-      .putInt(KEY_UNLOCK_DURATION_SECONDS, unlockDurationSeconds.coerceIn(60, 3600))
+      .putInt(KEY_UNLOCK_DURATION_SECONDS, unlockDurationSeconds.coerceIn(60, 86400))
       .putBoolean(KEY_RESTRICTIONS_ENABLED, restrictionsEnabled)
       .apply()
     promise.resolve(null)
@@ -176,6 +217,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     val usageAllowed = hasUsageAccess()
     var foregroundMillis = 0L
+    var pickups = 0
     val weeklyMillis = LongArray(7)
     if (usageAllowed) {
       val calendar = Calendar.getInstance().apply {
@@ -185,6 +227,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
         set(Calendar.MILLISECOND, 0)
       }
       val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+      val events = manager.queryEvents(calendar.timeInMillis, System.currentTimeMillis())
+      val event = UsageEvents.Event()
+      while (events.hasNextEvent()) {
+        events.getNextEvent(event)
+        if (event.eventType == UsageEvents.Event.SCREEN_INTERACTIVE) pickups += 1
+      }
       val aggregate = manager.queryAndAggregateUsageStats(calendar.timeInMillis, System.currentTimeMillis())
       foregroundMillis = selected.sumOf { aggregate[it]?.totalTimeInForeground ?: 0L }
       for (index in 0 until 7) {
@@ -196,6 +244,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     }
     promise.resolve(Arguments.createMap().apply {
       putDouble("controlledScreenTimeSeconds", foregroundMillis / 1_000.0)
+      putInt("pickups", pickups)
       putInt("openAttempts", preferences.getInt("open_attempts:$day", 0))
       putInt("avoidedOpens", preferences.getInt("avoided_opens:$day", 0))
       putInt("unlocks", preferences.getInt("unlocks:$day", 0))
@@ -225,9 +274,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   }
 
   private fun isAccessibilityEnabled(): Boolean {
-    val component = "${context.packageName}/${StillAccessibilityService::class.java.name}"
+    val component = ComponentName(context, StillAccessibilityService::class.java)
     val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-    return enabled?.split(':')?.any { it.equals(component, ignoreCase = true) } == true
+    return enabled
+      ?.split(':')
+      ?.mapNotNull { ComponentName.unflattenFromString(it) }
+      ?.any { it == component } == true
   }
 
   private fun hasUsageAccess(): Boolean {
@@ -237,6 +289,31 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       Process.myUid(),
       context.packageName,
     ) == AppOpsManager.MODE_ALLOWED
+  }
+
+  private fun browserPackages(): Set<String> {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://accounts.google.com"))
+      .addCategory(Intent.CATEGORY_BROWSABLE)
+    val packages = context.packageManager
+      .queryIntentActivities(intent, PackageManager.MATCH_ALL)
+      .mapNotNull { it.activityInfo?.packageName }
+      .filterNot { it == context.packageName }
+      .toMutableSet()
+    context.packageManager
+      .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+      ?.activityInfo
+      ?.packageName
+      ?.takeIf { it != context.packageName }
+      ?.let(packages::add)
+    return packages
+  }
+
+  private fun clearExternalAuthBypass() {
+    preferences.edit()
+      .remove(KEY_EXTERNAL_AUTH_BYPASS_PACKAGES)
+      .remove(KEY_EXTERNAL_AUTH_BYPASS_UNTIL)
+      .remove(KEY_EXTERNAL_AUTH_BYPASS_BOOT)
+      .apply()
   }
 
   private fun currentBootCount(): Int = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0)
@@ -253,6 +330,25 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   override fun onNewIntent(intent: Intent) = Unit
 
+  override fun onHostResume() {
+    authorizationPromise?.let {
+      authorizationPromise = null
+      it.resolve(if (isAccessibilityEnabled()) "authorized" else "denied")
+    }
+    wellbeingAuthorizationPromise?.let {
+      wellbeingAuthorizationPromise = null
+      it.resolve(if (hasUsageAccess()) "authorized" else "denied")
+    }
+  }
+
+  override fun onHostPause() = Unit
+
+  override fun onHostDestroy() {
+    authorizationPromise = null
+    wellbeingAuthorizationPromise = null
+    pickerPromise = null
+  }
+
   companion object {
     const val PREFERENCES = "still_restrictions"
     const val KEY_SELECTED_PACKAGES = "selected_packages"
@@ -264,6 +360,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"
     const val KEY_RESTRICTIONS_ENABLED = "restrictions_enabled"
+    const val KEY_EXTERNAL_AUTH_BYPASS_PACKAGES = "external_auth_bypass_packages"
+    const val KEY_EXTERNAL_AUTH_BYPASS_UNTIL = "external_auth_bypass_until"
+    const val KEY_EXTERNAL_AUTH_BYPASS_BOOT = "external_auth_bypass_boot"
+    private const val EXTERNAL_AUTH_BYPASS_TIMEOUT_MS = 10 * 60 * 1_000L
     private const val PICKER_REQUEST = 4270
   }
 }

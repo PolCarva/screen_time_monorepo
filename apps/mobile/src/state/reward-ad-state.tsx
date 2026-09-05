@@ -36,6 +36,7 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<PreparationStatus>("idle");
   const [retryKey, setRetryKey] = useState(0);
   const prepared = useRef<RewardIntent | null>(null);
+  const pending = useRef<RewardIntent | null>(null);
   const generation = useRef(0);
   const eligible =
     onboarded &&
@@ -47,6 +48,7 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     if (!eligible || !deviceId) {
       prepared.current = null;
+      pending.current = null;
       setStatus("idle");
       generation.current += 1;
       return;
@@ -60,19 +62,34 @@ export function RewardAdProvider({ children }: PropsWithChildren) {
     setStatus("preparing");
     void (async () => {
       try {
-        const intent = await apiFetch(
-          "/api/v1/rewards/intents",
-          rewardIntentSchema,
-          {
-            method: "POST",
-            body: JSON.stringify({ deviceId, provider: "admob" }),
-            headers: { "idempotency-key": Crypto.randomUUID() },
-          },
-        );
-        const nativeIntent = { ...intent, userId: "anonymous" };
+        if ((await admobRewardProvider.prepare()) !== "ready")
+          throw new Error("admob_initialization_unavailable");
+
+        const existingIntent = pending.current;
+        const reusableIntent =
+          existingIntent &&
+          new Date(existingIntent.expiresAt).getTime() > Date.now() + 60_000
+            ? existingIntent
+            : null;
+        if (!reusableIntent) pending.current = null;
+        let nativeIntent = reusableIntent;
+        if (!nativeIntent) {
+          const intent = await apiFetch(
+            "/api/v1/rewards/intents",
+            rewardIntentSchema,
+            {
+              method: "POST",
+              body: JSON.stringify({ deviceId, provider: "admob" }),
+              headers: { "idempotency-key": Crypto.randomUUID() },
+            },
+          );
+          nativeIntent = { ...intent, userId: "anonymous" };
+        }
+        pending.current = nativeIntent;
         const result = await admobRewardProvider.preload(nativeIntent);
         if (generation.current !== currentGeneration) return;
         if (result !== "ready") throw new Error("unavailable");
+        pending.current = null;
         prepared.current = nativeIntent;
         setStatus("ready");
         const refreshIn = Math.max(

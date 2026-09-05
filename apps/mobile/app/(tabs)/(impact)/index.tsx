@@ -1,7 +1,8 @@
 import { impactWeekSchema } from "@screen-time/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Linking,
@@ -19,6 +20,7 @@ import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
+import { getLinkedIdentityProviders } from "@/lib/identity";
 import { isMissingImpactWeekError } from "@/lib/impact-errors";
 import { ensureAnonymousSession } from "@/lib/supabase";
 import { useAppState } from "@/state/app-state";
@@ -58,11 +60,31 @@ export default function ImpactScreen() {
   const queryClient = useQueryClient();
   const { config } = useAppState();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
   const query = useQuery({
     queryKey: ["impact-current"],
     queryFn: () => apiFetch("/api/v1/impact/current", impactWeekSchema),
   });
   const week = query.data;
+  const savedVote = week?.candidates.find(
+    (candidate) => candidate.selectedByCurrentUser,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void getLinkedIdentityProviders()
+        .then((providers) => {
+          if (active) setGoogleConnected(providers.includes("google"));
+        })
+        .catch(() => {
+          if (active) setGoogleConnected(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     const current = week?.candidates.find(
@@ -94,6 +116,7 @@ export default function ImpactScreen() {
       );
     },
     onError: (error) => {
+      if (__DEV__) console.warn("Impact vote failed", error);
       const accountRequired =
         (error instanceof ApiError && error.code === "account_required") ||
         (error instanceof Error && error.message === "account_required");
@@ -374,10 +397,20 @@ export default function ImpactScreen() {
                 : t("voteNow")}
           </PrimaryButton>
           <Body style={styles.footnote}>
-            {localize(
-              "Link Google in Settings to vote. Your choice can change until the weekly close.",
-              "Vincula Google en Ajustes para votar. Puedes cambiar tu elección hasta el cierre semanal.",
-            )}
+            {savedVote
+              ? localize(
+                  `Your vote for ${savedVote.charity.name} is saved. You can change it until the weekly close.`,
+                  `Tu voto por ${savedVote.charity.name} está guardado. Puedes cambiarlo hasta el cierre semanal.`,
+                )
+              : googleConnected
+                ? localize(
+                    "Google is connected. Choose an organization and tap Vote now.",
+                    "Google está conectado. Elige una organización y toca Votar ahora.",
+                  )
+                : localize(
+                    "Link Google in Settings to vote. Your choice can change until the weekly close.",
+                    "Vincula Google en Ajustes para votar. Puedes cambiar tu elección hasta el cierre semanal.",
+                  )}
           </Body>
         </>
       ) : null}

@@ -6,13 +6,23 @@ const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 const secureStorage = {
   getItem: (storageKey: string) => SecureStore.getItemAsync(storageKey),
-  setItem: (storageKey: string, value: string) => SecureStore.setItemAsync(storageKey, value),
+  setItem: (storageKey: string, value: string) =>
+    SecureStore.setItemAsync(storageKey, value),
   removeItem: (storageKey: string) => SecureStore.deleteItemAsync(storageKey),
 };
 
-export const supabase = url && key ? createClient(url, key, {
-  auth: { storage: secureStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
-}) : null;
+export const supabase =
+  url && key
+    ? createClient(url, key, {
+        auth: {
+          storage: secureStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          flowType: "pkce",
+        },
+      })
+    : null;
 
 export async function ensureAnonymousSession() {
   if (!supabase) return null;

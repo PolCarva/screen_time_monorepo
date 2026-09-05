@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { formatUnlockDuration } from "@screen-time/contracts";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { AttentionField } from "@/components/attention-field";
@@ -12,10 +13,10 @@ import { colors, spacing } from "@/theme/tokens";
 
 export default function UnlockReadyScreen() {
   const { endsAt } = useLocalSearchParams<{ endsAt?: string }>();
-  const { config } = useAppState();
-  const durationMinutes = Math.max(
-    1,
-    Math.round(config.unlockDurationSeconds / 60),
+  const { preferences } = useAppState();
+  const durationLabel = localize(
+    formatUnlockDuration(preferences.unlockDurationSeconds, "en"),
+    formatUnlockDuration(preferences.unlockDurationSeconds, "es"),
   );
   const endTime = endsAt
     ? new Date(endsAt).toLocaleTimeString([], {
@@ -33,7 +34,9 @@ export default function UnlockReadyScreen() {
 
       <View style={styles.hero}>
         <Eyebrow>{localize("OPEN UNTIL", "ABIERTO HASTA")}</Eyebrow>
-        <Data style={styles.time}>{endTime ?? `${durationMinutes} MIN`}</Data>
+        <Data style={styles.time}>
+          {endTime ?? durationLabel.toUpperCase()}
+        </Data>
         <AttentionField
           accessibilityLabel={localize(
             "One intentional pass is active.",
@@ -70,8 +73,7 @@ export default function UnlockReadyScreen() {
           <Mono>{localize("PAUSE RETURNS", "VUELVE LA PAUSA")}</Mono>
         </View>
         <Mono>
-          {endTime ??
-            localize(`IN ${durationMinutes} MIN`, `EN ${durationMinutes} MIN`)}
+          {endTime ?? localize(`IN ${durationLabel}`, `EN ${durationLabel}`)}
         </Mono>
       </View>
 

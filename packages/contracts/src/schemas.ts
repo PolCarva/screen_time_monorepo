@@ -7,7 +7,7 @@ export const isoDateTimeSchema = z.string().datetime({ offset: true });
 export const remoteConfigSchema = z
   .object({
     version: z.number().int().positive(),
-    unlockDurationSeconds: z.number().int().min(60).max(3_600),
+    unlockDurationSeconds: z.number().int().min(60).max(86_400),
     dailyEmergencyUnlocks: z.number().int().min(0).max(20),
     maxRewardedAdsPerUtcDay: z.number().int().min(0).max(30),
     maxRewardTokenBalance: z.number().int().min(0).max(20),
@@ -66,6 +66,7 @@ export const registerDeviceResponseSchema = z.object({
 
 export const walletSchema = z.object({
   rewardedBalance: z.number().int().nonnegative(),
+  rewardedPassesRemainingToday: z.number().int().nonnegative(),
   emergencyRemaining: z.number().int().nonnegative(),
   unresolvedRewardClaims: z.number().int().nonnegative(),
   rewardAdsRemainingToday: z.number().int().nonnegative(),
@@ -95,11 +96,30 @@ export const createUnlockSessionRequestSchema = z.object({
   clientSessionId: uuidSchema,
   deviceId: uuidSchema,
   source: unlockSourceSchema,
-  durationSeconds: z.number().int().min(60).max(3_600),
+  durationSeconds: z.number().int().min(60).max(86_400),
   appCategory: z
     .enum(["social", "video", "news", "games", "communication", "other"])
     .default("other"),
   startedAt: isoDateTimeSchema,
+});
+
+export const unlockDurationSecondsSchema = z.union([
+  z.literal(600),
+  z.literal(1_200),
+  z.literal(1_800),
+  z.literal(3_600),
+  z.literal(86_400),
+]);
+
+export const userPreferencesSchema = z.object({
+  dailyPassLimit: z.number().int().min(1).max(20),
+  unlockDurationSeconds: unlockDurationSecondsSchema,
+  maxRewardedAdsPerUtcDay: z.number().int().min(0).max(30),
+  updatedAt: isoDateTimeSchema.nullable(),
+});
+
+export const updateUserPreferencesRequestSchema = userPreferencesSchema.omit({
+  updatedAt: true,
 });
 
 export const wellbeingDailySchema = z.object({
@@ -203,6 +223,10 @@ export type CreateRewardIntentRequest = z.infer<
 >;
 export type ClaimRewardRequest = z.infer<typeof claimRewardRequestSchema>;
 export type UnlockSource = z.infer<typeof unlockSourceSchema>;
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+export type UpdateUserPreferencesRequest = z.infer<
+  typeof updateUserPreferencesRequestSchema
+>;
 export type CreateUnlockSessionRequest = z.infer<
   typeof createUnlockSessionRequestSchema
 >;

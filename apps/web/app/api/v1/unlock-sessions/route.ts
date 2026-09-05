@@ -47,6 +47,12 @@ export async function POST(request: Request) {
             "Daily emergency limit reached",
           ],
           [
+            "daily_pass_limit_reached",
+            409,
+            "daily_pass_limit",
+            "Daily pass limit reached",
+          ],
+          [
             "invalid_unlock_source",
             400,
             "invalid_unlock_source",

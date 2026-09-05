@@ -19,7 +19,7 @@ class StillAccessibilityService : AccessibilityService() {
     if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
     val target = event.packageName?.toString() ?: return
     val selected = preferences.getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()
-    if (target !in selected || isTemporarilyUnlocked(target)) return
+    if (target !in selected || isTemporarilyUnlocked(target) || isExternalAuthBrowser(target)) return
 
     val now = SystemClock.elapsedRealtime()
     if (lastInterventionPackage == target && now - lastInterventionAt < 1_200) return
@@ -45,6 +45,26 @@ class StillAccessibilityService : AccessibilityService() {
     if (expectedBoot == boot && SystemClock.elapsedRealtime() < deadline) return true
     preferences.edit().remove("unlocked:$packageName").remove("unlocked_boot:$packageName").apply()
     return false
+  }
+
+  private fun isExternalAuthBrowser(packageName: String): Boolean {
+    val expectedBoot = preferences.getInt(StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_BOOT, -1)
+    val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
+    val deadline = preferences.getLong(StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_UNTIL, 0)
+    val active = expectedBoot == boot && SystemClock.elapsedRealtime() < deadline
+    if (!active) {
+      preferences.edit()
+        .remove(StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_PACKAGES)
+        .remove(StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_UNTIL)
+        .remove(StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_BOOT)
+        .apply()
+      return false
+    }
+    val browsers = preferences.getStringSet(
+      StillRestrictionModule.KEY_EXTERNAL_AUTH_BYPASS_PACKAGES,
+      emptySet(),
+    ) ?: emptySet()
+    return packageName in browsers
   }
 
   override fun onInterrupt() = Unit

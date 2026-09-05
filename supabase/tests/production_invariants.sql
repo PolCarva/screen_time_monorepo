@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(16);
+select plan(21);
 
 select ok(
   not has_function_privilege('authenticated', 'public.reconcile_stale_reward_intents(integer)', 'EXECUTE'),
@@ -19,7 +19,9 @@ insert into auth.users (
   created_at, updated_at, is_anonymous
 ) values (
   '90000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated',
-  'invariants@example.test', '{"is_anonymous": false}', '{}', now(), now(), false
+  'invariants@example.test',
+  '{"provider":"email","providers":["email","google"]}',
+  '{}', now(), now(), false
 );
 
 insert into public.devices (
@@ -93,6 +95,15 @@ select throws_ok(
 update public.remote_config_versions
 set payload = jsonb_set(payload, '{votingEnabled}', 'true'::jsonb)
 where is_active;
+
+select lives_ok(
+  $$select public.cast_impact_vote(
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000003',
+    '90000000-0000-4000-8000-000000000009'
+  )$$,
+  'a non-anonymous OAuth user can vote without an is_anonymous metadata key'
+);
 
 update public.remote_config_versions
 set payload = jsonb_set(payload, '{iosRestrictionEnabled}', 'false'::jsonb)
@@ -217,6 +228,72 @@ select is(
 select is(
   (select count(*) from public.token_ledger where reference_id = '90000000-0000-4000-8000-000000000007' and entry_type = 'reward_reversal'),
   0::bigint, 'a consumed provisional pass is not reversed twice'
+);
+
+insert into auth.users (
+  id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
+  created_at, updated_at, is_anonymous
+) values (
+  '91000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated',
+  'preferences@example.test', '{"is_anonymous": false}', '{}', now(), now(), false
+);
+insert into public.devices (
+  id, user_id, installation_id_hash, platform, app_version, os_version, locale, timezone
+) values (
+  '91000000-0000-4000-8000-000000000002',
+  '91000000-0000-4000-8000-000000000001',
+  'preferences-installation-hash', 'ios', '1.0.0', '26.0', 'en', 'UTC'
+);
+insert into public.user_preferences (
+  user_id, daily_pass_limit, unlock_duration_seconds, max_rewarded_ads_per_utc_day
+) values (
+  '91000000-0000-4000-8000-000000000001', 1, 86400, 0
+);
+insert into public.token_ledger (
+  user_id, device_id, entry_type, amount, idempotency_key
+) values (
+  '91000000-0000-4000-8000-000000000001',
+  '91000000-0000-4000-8000-000000000002',
+  'admin_adjustment', 2, 'preference-test-balance'
+);
+
+select lives_ok(
+  $$select public.create_unlock_session(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000003',
+    '91000000-0000-4000-8000-000000000002',
+    'rewarded', 600, 'other', now()
+  )$$,
+  'a rewarded pass is allowed below the user daily limit'
+);
+select is(
+  (
+    select duration_seconds from public.unlock_sessions
+    where client_session_id = '91000000-0000-4000-8000-000000000003'
+  ),
+  86400,
+  'the server applies the user all-day duration instead of the client value'
+);
+select throws_ok(
+  $$select public.create_unlock_session(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000004',
+    '91000000-0000-4000-8000-000000000002',
+    'rewarded', 600, 'other', now()
+  )$$,
+  'P0001', 'daily_pass_limit_reached',
+  'the database enforces the user daily pass limit'
+);
+select throws_ok(
+  $$select public.create_reward_intent(
+    '91000000-0000-4000-8000-000000000005',
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000002',
+    'admob', 'preferences-ad-limit', now() + interval '15 minutes',
+    'preferences-ad-limit'
+  )$$,
+  'P0001', 'daily_reward_limit_reached',
+  'the database enforces the user ad limit'
 );
 
 select lives_ok(

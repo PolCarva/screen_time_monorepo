@@ -34,6 +34,14 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     return max(1, Int(round(Double(seconds > 0 ? seconds : 600) / 60)))
   }
 
+  private var unlockDurationLabel: String {
+    guard let defaults = UserDefaults(suiteName: appGroup) else { return "10 min" }
+    let seconds = defaults.integer(forKey: unlockDurationSecondsKey)
+    if seconds >= 86_400 { return copy("all day", "todo el día") }
+    if seconds >= 3_600 { return copy("1 hour", "1 hora") }
+    return "\(unlockDurationMinutes) min"
+  }
+
   private var todayKey: String {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .gregorian)
@@ -124,10 +132,10 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     switch unlock {
     case .rewarded:
       canUnlock = true
-      secondaryButtonText = copy("Use 1 pass · \(unlockDurationMinutes) min", "Usar 1 pase · \(unlockDurationMinutes) min")
+      secondaryButtonText = copy("Use 1 pass · \(unlockDurationLabel)", "Usar 1 pase · \(unlockDurationLabel)")
     case .emergency:
       canUnlock = true
-      secondaryButtonText = copy("Emergency access · \(unlockDurationMinutes) min", "Acceso de emergencia · \(unlockDurationMinutes) min")
+      secondaryButtonText = copy("Emergency access · \(unlockDurationLabel)", "Acceso de emergencia · \(unlockDurationLabel)")
     case .none:
       canUnlock = false
       secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")
@@ -144,7 +152,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       icon: fieldIcon(),
       title: .init(text: observedFact, color: chalk),
       subtitle: .init(
-        text: copy("What do you want from the next \(unlockDurationMinutes) minutes?", "¿Qué quieres de los próximos \(unlockDurationMinutes) minutos?") + "\n\n" + impactSummary,
+        text: (unlockDurationLabel == copy("all day", "todo el día")
+          ? copy("What do you want from the rest of the day?", "¿Qué quieres del resto del día?")
+          : copy("What do you want from the next \(unlockDurationLabel)?", "¿Qué quieres de los próximos \(unlockDurationLabel)?")) + "\n\n" + impactSummary,
         color: mineralLight
       ),
       primaryButtonLabel: .init(text: copy("Go back", "Volver"), color: graphite),

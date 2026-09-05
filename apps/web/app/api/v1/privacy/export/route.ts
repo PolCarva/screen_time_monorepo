@@ -6,9 +6,25 @@ export async function POST(request: Request) {
   try {
     const user = await requireApiUser(request);
     const client = createAdminClient()!;
-    const [profile, devices, rewardIntents, ledger, sessions, wellbeing, votes] =
+    const [
+      profile,
+      preferences,
+      devices,
+      rewardIntents,
+      ledger,
+      sessions,
+      wellbeing,
+      votes,
+    ] =
       await Promise.all([
         client.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        client
+          .from("user_preferences")
+          .select(
+            "daily_pass_limit, unlock_duration_seconds, max_rewarded_ads_per_utc_day, created_at, updated_at",
+          )
+          .eq("user_id", user.id)
+          .maybeSingle(),
         client
           .from("devices")
           .select(
@@ -37,6 +53,7 @@ export async function POST(request: Request) {
       ]);
     const queryError =
       profile.error ??
+      preferences.error ??
       devices.error ??
       rewardIntents.error ??
       ledger.error ??
@@ -82,6 +99,7 @@ export async function POST(request: Request) {
         })),
       },
       profile: profile.data,
+      preferences: preferences.data,
       devices: devices.data,
       pushDevices: pushDevices.data,
       rewardIntents: rewardIntents.data,

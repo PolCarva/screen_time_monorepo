@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { formatUnlockDuration } from "@screen-time/contracts";
 import { useState } from "react";
 import {
   Alert,
@@ -79,16 +80,12 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
-  const { config, setOnboarded } = useAppState();
+  const { config, preferences, setOnboarded } = useAppState();
   const current = steps[step]!;
   const restrictionsEnabled =
     Platform.OS === "ios"
       ? config.iosRestrictionEnabled
       : config.androidRestrictionEnabled;
-  const durationMinutes = Math.max(
-    1,
-    Math.round(config.unlockDurationSeconds / 60),
-  );
   const currentTitle =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize(
@@ -97,8 +94,12 @@ export default function OnboardingScreen() {
         )
       : step === 1
         ? localize(
-            `Go back, or enter\nfor ${durationMinutes} minutes.`,
-            `Vuelve, o entra\npor ${durationMinutes} minutos.`,
+            preferences.unlockDurationSeconds >= 86_400
+              ? "Go back, or enter\nfor the whole day."
+              : `Go back, or enter\nfor ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}.`,
+            preferences.unlockDurationSeconds >= 86_400
+              ? "Vuelve, o entra\ndurante todo el día."
+              : `Vuelve, o entra\ndurante ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}.`,
           )
         : current.title;
   const currentBody =

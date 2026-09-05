@@ -10,6 +10,7 @@ import {
 
 const wallet: Wallet = {
   rewardedBalance: 2,
+  rewardedPassesRemainingToday: 2,
   emergencyRemaining: 3,
   unresolvedRewardClaims: 0,
   rewardAdsRemainingToday: 8,
@@ -26,13 +27,25 @@ describe("offline wallet policy", () => {
 
   it("spends emergency and rewarded balances independently", () => {
     expect(spendLocalWallet(wallet, "rewarded").rewardedBalance).toBe(1);
+    expect(
+      spendLocalWallet(wallet, "rewarded").rewardedPassesRemainingToday,
+    ).toBe(1);
     expect(spendLocalWallet(wallet, "emergency").emergencyRemaining).toBe(2);
   });
 
+  it("does not permit an offline daily pass-limit overdraft", () => {
+    expect(() =>
+      spendLocalWallet(
+        { ...wallet, rewardedPassesRemainingToday: 0 },
+        "rewarded",
+      ),
+    ).toThrow("daily_pass_limit_reached");
+  });
+
   it("does not permit an offline emergency overdraft", () => {
-    expect(() => spendLocalWallet({ ...wallet, emergencyRemaining: 0 }, "emergency")).toThrow(
-      "daily_emergency_limit_reached",
-    );
+    expect(() =>
+      spendLocalWallet({ ...wallet, emergencyRemaining: 0 }, "emergency"),
+    ).toThrow("daily_emergency_limit_reached");
   });
 
   it("deduplicates native and JavaScript outboxes by session id", () => {

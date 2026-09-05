@@ -15,6 +15,12 @@ describe("committed native production configuration", () => {
     const intervention = nativeFile(
       "android/app/src/main/java/com/still/screentime/InterventionActivity.kt",
     );
+    const restrictionModule = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillRestrictionModule.kt",
+    );
+    const accessibilityService = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillAccessibilityService.kt",
+    );
 
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
@@ -31,7 +37,15 @@ describe("committed native production configuration", () => {
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
     expect(intervention).toContain("hasAvailablePass");
-    expect(intervention).toContain('else -> "Get a pass  →"');
+    expect(intervention).toContain('else -> "Open Still to get a pass"');
+    expect(restrictionModule).toContain("LifecycleEventListener");
+    expect(restrictionModule).toContain("override fun onHostResume()");
+    expect(restrictionModule).toContain("ComponentName.unflattenFromString");
+    expect(restrictionModule).not.toContain('promise.resolve("notDetermined")');
+    expect(restrictionModule).toContain("beginExternalAuthSession");
+    expect(restrictionModule).toContain("endExternalAuthSession");
+    expect(accessibilityService).toContain("isExternalAuthBrowser(target)");
+    expect(accessibilityService).toContain("KEY_EXTERNAL_AUTH_BYPASS_BOOT");
   });
 
   it("keeps iOS identity, deep linking, ads, and Screen Time entitlements in sync", () => {

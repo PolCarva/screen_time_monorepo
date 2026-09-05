@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { formatUnlockDuration } from "@screen-time/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
@@ -12,10 +13,14 @@ import { colors, fonts, spacing } from "@/theme/tokens";
 
 export default function InterventionScreen() {
   const { app } = useLocalSearchParams<{ app?: string }>();
-  const { wallet, config, stats, unlockCurrent } = useAppState();
+  const { wallet, preferences, stats, unlockCurrent } = useAppState();
   const [busy, setBusy] = useState(false);
-  const durationMinutes = Math.round(config.unlockDurationSeconds / 60);
-  const hasRewardedPass = wallet.rewardedBalance > 0;
+  const durationLabel = localize(
+    formatUnlockDuration(preferences.unlockDurationSeconds, "en"),
+    formatUnlockDuration(preferences.unlockDurationSeconds, "es"),
+  );
+  const hasRewardedPass =
+    wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0;
   const hasEmergencyAccess = wallet.emergencyRemaining > 0;
   const appLabel = app || localize("Selected app", "App seleccionada");
   const attempts = Math.max(
@@ -52,13 +57,13 @@ export default function InterventionScreen() {
     ? localize("Opening…", "Abriendo…")
     : hasRewardedPass
       ? localize(
-          `Use 1 pass · ${durationMinutes} min`,
-          `Usar 1 pase · ${durationMinutes} min`,
+          `Use 1 pass · ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}`,
+          `Usar 1 pase · ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}`,
         )
       : hasEmergencyAccess
         ? localize(
-            `Emergency access · ${durationMinutes} min`,
-            `Acceso de emergencia · ${durationMinutes} min`,
+            `Emergency access · ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}`,
+            `Acceso de emergencia · ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}`,
           )
         : localize("Get a pass", "Conseguir un pase");
 
@@ -87,8 +92,12 @@ export default function InterventionScreen() {
         </Display>
         <Body style={styles.question}>
           {localize(
-            `What do you want from the next ${durationMinutes} minutes?`,
-            `¿Qué quieres de los próximos ${durationMinutes} minutos?`,
+            preferences.unlockDurationSeconds >= 86_400
+              ? "What do you want from the rest of the day?"
+              : `What do you want from the next ${durationLabel}?`,
+            preferences.unlockDurationSeconds >= 86_400
+              ? "¿Qué quieres del resto del día?"
+              : `¿Qué quieres de los próximos ${durationLabel}?`,
           )}
         </Body>
       </View>
@@ -119,8 +128,8 @@ export default function InterventionScreen() {
         </Pressable>
         <Body style={styles.note}>
           {localize(
-            `The pause returns after ${durationMinutes} minutes. Continuing is a choice, not a failure.`,
-            `La pausa vuelve después de ${durationMinutes} minutos. Continuar es una elección, no un fracaso.`,
+            `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
+            `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
           )}
         </Body>
       </View>

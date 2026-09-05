@@ -1,7 +1,11 @@
 import {
   defaultRemoteConfig,
   remoteConfigSchema,
+  unlockDurationSecondsSchema,
+  userPreferencesSchema,
   type RemoteConfig,
+  type UpdateUserPreferencesRequest,
+  type UserPreferences,
   type Wallet,
 } from "@screen-time/contracts";
 import {
@@ -37,6 +41,7 @@ import {
 
 type LocalStats = {
   screenTimeMinutes: number;
+  pickups: number;
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
@@ -50,10 +55,14 @@ type AppStateValue = {
   deviceId: string | null;
   setOnboarded(value: boolean): Promise<void>;
   config: RemoteConfig;
+  preferences: UserPreferences;
   wallet: Wallet;
   stats: LocalStats;
   health: RestrictionHealth;
   refresh(): Promise<void>;
+  savePreferences(
+    preferences: UpdateUserPreferencesRequest,
+  ): Promise<UserPreferences>;
   spendEmergency(): Promise<boolean>;
   addProvisionalToken(): Promise<void>;
   unlockCurrent(): Promise<UnlockSession>;
@@ -64,13 +73,26 @@ type AppStateValue = {
 
 const defaultWallet: Wallet = {
   rewardedBalance: 0,
+  rewardedPassesRemainingToday: 0,
   emergencyRemaining: 0,
   unresolvedRewardClaims: 0,
   rewardAdsRemainingToday: 0,
   resetAt: "1970-01-01T00:00:00.000Z",
 };
+function preferencesFromConfig(config: RemoteConfig): UserPreferences {
+  const parsedDuration = unlockDurationSecondsSchema.safeParse(
+    config.unlockDurationSeconds,
+  );
+  return {
+    dailyPassLimit: Math.max(1, Math.min(config.maxRewardTokenBalance, 20)),
+    unlockDurationSeconds: parsedDuration.success ? parsedDuration.data : 600,
+    maxRewardedAdsPerUtcDay: config.maxRewardedAdsPerUtcDay,
+    updatedAt: null,
+  };
+}
 const defaultStats: LocalStats = {
   screenTimeMinutes: 0,
+  pickups: 0,
   openAttempts: 0,
   avoidedOpens: 0,
   unlocks: 0,
@@ -105,6 +127,9 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [ready, setReady] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [config, setConfig] = useState(defaultRemoteConfig);
+  const [preferences, setPreferences] = useState<UserPreferences>(() =>
+    preferencesFromConfig(defaultRemoteConfig),
+  );
   const [wallet, setWallet] = useState(defaultWallet);
   const [walletHydrated, setWalletHydrated] = useState(false);
   const [stats, setStats] = useState(defaultStats);
@@ -125,6 +150,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setSyncStatus("syncing");
     let registrationSynced = false;
     let configSynced = false;
+    let preferencesSynced = false;
     let walletSynced = false;
     setHealth(await restrictionEngine.getHealth().catch(() => defaultHealth));
     let pendingUnlocksAwaitingReport: PendingUnlockEvent[] = [];
@@ -169,6 +195,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     } catch {
       setConfig(activeConfig);
     }
+    let activePreferences = await getJson(
+      "userPreferences",
+      preferencesFromConfig(activeConfig),
+    );
+    try {
+      const nextPreferences = await apiFetch(
+        "/api/v1/preferences",
+        userPreferencesSchema,
+        { cache: "no-store" },
+      );
+      preferencesSynced = true;
+      activePreferences = nextPreferences;
+      setPreferences(nextPreferences);
+      await setJson("userPreferences", nextPreferences);
+    } catch {
+      setPreferences(activePreferences);
+    }
 
     const nativePending = await restrictionEngine
       .getPendingUnlockEvents()
@@ -201,6 +244,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       const local = await restrictionEngine.getLocalWellbeing();
       const nextStats = {
         screenTimeMinutes: Math.round(local.controlledScreenTimeSeconds / 60),
+        pickups: local.pickups ?? 0,
         openAttempts: local.openAttempts,
         avoidedOpens: local.avoidedOpens,
         unlocks: local.unlocks,
@@ -266,6 +310,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     const fullySynced =
       registrationSynced &&
       configSynced &&
+      preferencesSynced &&
       walletSynced &&
       pendingUnlocksAwaitingReport.length === 0;
     setSyncStatus(fullySynced ? "online" : "offline");
@@ -277,6 +322,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       setLastSyncedAt(await getJson<string | null>("lastSyncedAt", null));
     }
   }, []);
+  const savePreferences = useCallback(
+    async (input: UpdateUserPreferencesRequest) => {
+      const saved = await apiFetch(
+        "/api/v1/preferences",
+        userPreferencesSchema,
+        {
+          method: "PUT",
+          body: JSON.stringify(input),
+        },
+      );
+      setPreferences(saved);
+      await setJson("userPreferences", saved);
+      await refresh();
+      return saved;
+    },
+    [refresh],
+  );
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -294,11 +356,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         : config.androidRestrictionEnabled;
     void (async () => {
       await restrictionEngine.syncWallet(
-        wallet.rewardedBalance,
+        Math.min(wallet.rewardedBalance, wallet.rewardedPassesRemainingToday),
         wallet.emergencyRemaining,
         wallet.resetAt,
         config.estimatedMinutesPerAvoidedOpen,
-        config.unlockDurationSeconds,
+        preferences.unlockDurationSeconds,
         restrictionsEnabled,
       );
       setHealth(await restrictionEngine.getHealth());
@@ -307,10 +369,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     config.androidRestrictionEnabled,
     config.estimatedMinutesPerAvoidedOpen,
     config.iosRestrictionEnabled,
-    config.unlockDurationSeconds,
+    preferences.unlockDurationSeconds,
     wallet.emergencyRemaining,
     wallet.resetAt,
     wallet.rewardedBalance,
+    wallet.rewardedPassesRemainingToday,
     walletHydrated,
   ]);
   const spendEmergency = useCallback(async () => {
@@ -333,6 +396,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setOnboardedState(false);
     setDeviceId(null);
     setConfig(defaultRemoteConfig);
+    setPreferences(preferencesFromConfig(defaultRemoteConfig));
     setWallet(defaultWallet);
     setWalletHydrated(false);
     setStats(defaultStats);
@@ -348,7 +412,10 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         ? config.iosRestrictionEnabled
         : config.androidRestrictionEnabled;
     if (!restrictionsEnabled) throw new Error("restrictions_disabled");
-    const source = wallet.rewardedBalance > 0 ? "rewarded" : "emergency";
+    const source =
+      wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0
+        ? "rewarded"
+        : "emergency";
     if (source === "rewarded" && !deviceId) throw new Error("backend_required");
     if (source === "emergency" && wallet.emergencyRemaining <= 0)
       throw new Error("no_unlocks");
@@ -356,7 +423,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     const event: PendingUnlockEvent = {
       clientSessionId: Crypto.randomUUID(),
       source,
-      durationSeconds: config.unlockDurationSeconds,
+      durationSeconds: preferences.unlockDurationSeconds,
       startedAt: new Date().toISOString(),
     };
 
@@ -367,7 +434,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         opaqueId: "current",
         platform: Platform.OS === "ios" ? "ios" : "android",
       },
-      config.unlockDurationSeconds,
+      preferences.unlockDurationSeconds,
     );
 
     if (source === "rewarded") {
@@ -413,8 +480,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   }, [
     config.androidRestrictionEnabled,
     config.iosRestrictionEnabled,
-    config.unlockDurationSeconds,
     deviceId,
+    preferences.unlockDurationSeconds,
     wallet,
   ]);
   const value = useMemo(
@@ -425,10 +492,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       deviceId,
       setOnboarded,
       config,
+      preferences,
       wallet,
       stats,
       health,
       refresh,
+      savePreferences,
       spendEmergency,
       addProvisionalToken,
       unlockCurrent,
@@ -443,10 +512,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       deviceId,
       setOnboarded,
       config,
+      preferences,
       wallet,
       stats,
       health,
       refresh,
+      savePreferences,
       spendEmergency,
       addProvisionalToken,
       unlockCurrent,

@@ -26,6 +26,7 @@ export type PendingUnlockEvent = {
 };
 export type LocalWellbeingStats = {
   controlledScreenTimeSeconds: number;
+  pickups?: number;
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
@@ -33,6 +34,8 @@ export type LocalWellbeingStats = {
 };
 
 export interface RestrictionEngine {
+  beginExternalAuthSession?(): Promise<void>;
+  endExternalAuthSession?(): Promise<void>;
   requestAuthorization(): Promise<PermissionStatus>;
   requestWellbeingAuthorization(): Promise<PermissionStatus>;
   presentAppPicker(): Promise<RestrictedSelection>;
@@ -86,6 +89,7 @@ const unavailable: RestrictionEngine = {
   hasPendingIntervention: async () => null,
   getLocalWellbeing: async () => ({
     controlledScreenTimeSeconds: 0,
+    pickups: 0,
     openAttempts: 0,
     avoidedOpens: 0,
     unlocks: 0,

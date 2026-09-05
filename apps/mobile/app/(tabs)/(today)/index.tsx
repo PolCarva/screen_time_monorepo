@@ -1,9 +1,8 @@
 import { impactWeekSchema } from "@screen-time/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
@@ -12,8 +11,6 @@ import { apiFetch } from "@/lib/api";
 import { ActivityReport } from "@/native/activity-report";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, spacing } from "@/theme/tokens";
-
-const days = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function TodayScreen() {
   const { stats, config, health } = useAppState();
@@ -98,32 +95,15 @@ export default function TodayScreen() {
           </Eyebrow>
           <Mono>{localize("ON DEVICE", "EN DISPOSITIVO")}</Mono>
         </View>
-        {Platform.OS === "ios" ? (
-          <View style={styles.weeklyNativeReport}>
-            <ActivityReport context="still.weekly" />
-          </View>
-        ) : (
-          <>
-            <AttentionField
-              accessibilityLabel={localize(
-                `Selected-app time over seven days: ${weekly.join(", ")} minutes`,
-                `Tiempo en apps seleccionadas durante siete días: ${weekly.join(", ")} minutos`,
-              )}
-              values={weekly}
-              passes={stats.unlocks}
-            />
-            <View style={styles.days}>
-              {days.map((day, index) => (
-                <Text
-                  key={`${day}-${index}`}
-                  style={[styles.day, index === 6 && styles.dayToday]}
-                >
-                  {index === 6 ? localize("TODAY", "HOY") : day}
-                </Text>
-              ))}
-            </View>
-          </>
-        )}
+        <View
+          accessibilityLabel={localize(
+            `Selected-app time over seven days: ${weekly.join(", ")} minutes`,
+            `Tiempo en apps seleccionadas durante siete días: ${weekly.join(", ")} minutos`,
+          )}
+          style={styles.weeklyNativeReport}
+        >
+          <ActivityReport context="still.weekly" />
+        </View>
       </View>
 
       <Pressable
@@ -161,19 +141,17 @@ export default function TodayScreen() {
         <Text style={styles.arrow}>→</Text>
       </Pressable>
 
-      {Platform.OS === "ios" ? (
-        <View style={styles.nativeDetail}>
-          <View style={styles.sectionTop}>
-            <Eyebrow>
-              {localize("DEVICE DETAIL", "DETALLE DEL DISPOSITIVO")}
-            </Eyebrow>
-            <Mono>{localize("PRIVATE", "PRIVADO")}</Mono>
-          </View>
-          <View style={styles.nativeReport}>
-            <ActivityReport context="still.daily" />
-          </View>
+      <View style={styles.nativeDetail}>
+        <View style={styles.sectionTop}>
+          <Eyebrow>
+            {localize("DEVICE DETAIL", "DETALLE DEL DISPOSITIVO")}
+          </Eyebrow>
+          <Mono>{localize("PRIVATE", "PRIVADO")}</Mono>
         </View>
-      ) : null}
+        <View style={styles.nativeReport}>
+          <ActivityReport context="still.daily" />
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -223,18 +201,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-  },
-  days: { flexDirection: "row", gap: spacing.sm },
-  day: {
-    flex: 1,
-    color: colors.graphiteSoft,
-    fontFamily: fonts.brandMedium,
-    fontSize: 9,
-  },
-  dayToday: {
-    color: colors.graphite,
-    fontFamily: fonts.brandBold,
-    textAlign: "right",
   },
   impactRow: {
     minHeight: 118,

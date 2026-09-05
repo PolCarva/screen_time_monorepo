@@ -2,7 +2,10 @@ import type { Wallet } from "@screen-time/contracts";
 
 import type { PendingUnlockEvent } from "@/native/restriction-engine";
 
-export function addProvisionalReward(wallet: Wallet, maximumBalance: number): Wallet {
+export function addProvisionalReward(
+  wallet: Wallet,
+  maximumBalance: number,
+): Wallet {
   return {
     ...wallet,
     rewardedBalance: Math.min(maximumBalance, wallet.rewardedBalance + 1),
@@ -10,12 +13,23 @@ export function addProvisionalReward(wallet: Wallet, maximumBalance: number): Wa
   };
 }
 
-export function spendLocalWallet(wallet: Wallet, source: "rewarded" | "emergency"): Wallet {
+export function spendLocalWallet(
+  wallet: Wallet,
+  source: "rewarded" | "emergency",
+): Wallet {
   if (source === "rewarded") {
-    if (wallet.rewardedBalance < 1) throw new Error("insufficient_rewarded_balance");
-    return { ...wallet, rewardedBalance: wallet.rewardedBalance - 1 };
+    if (wallet.rewardedBalance < 1)
+      throw new Error("insufficient_rewarded_balance");
+    if (wallet.rewardedPassesRemainingToday < 1)
+      throw new Error("daily_pass_limit_reached");
+    return {
+      ...wallet,
+      rewardedBalance: wallet.rewardedBalance - 1,
+      rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday - 1,
+    };
   }
-  if (wallet.emergencyRemaining < 1) throw new Error("daily_emergency_limit_reached");
+  if (wallet.emergencyRemaining < 1)
+    throw new Error("daily_emergency_limit_reached");
   return { ...wallet, emergencyRemaining: wallet.emergencyRemaining - 1 };
 }
 
@@ -25,7 +39,9 @@ export function mergePendingUnlockEvents(
   const events = queues.flat();
   return events.filter(
     (event, index) =>
-      events.findIndex((candidate) => candidate.clientSessionId === event.clientSessionId) === index,
+      events.findIndex(
+        (candidate) => candidate.clientSessionId === event.clientSessionId,
+      ) === index,
   );
 }
 

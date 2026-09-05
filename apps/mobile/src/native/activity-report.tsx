@@ -1,8 +1,19 @@
-import { requireNativeComponent, StyleSheet, View, type ViewProps } from "react-native";
+import {
+  requireNativeComponent,
+  StyleSheet,
+  View,
+  type ViewProps,
+} from "react-native";
 
-const NativeActivityReport = requireNativeComponent<ViewProps & { reportContext: string }>("StillActivityReportView");
+const NativeActivityReport = requireNativeComponent<
+  ViewProps & { reportContext: string }
+>("StillActivityReportView");
 
-export function ActivityReport({ context = "still.daily" }: { context?: "still.daily" | "still.weekly" }) {
+export function ActivityReport({
+  context = "still.daily",
+}: {
+  context?: "still.daily" | "still.weekly";
+}) {
   return (
     <View style={styles.frame}>
       <NativeActivityReport reportContext={context} style={styles.report} />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatUnlockDuration } from "@screen-time/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { Alert, StyleSheet, View } from "react-native";
 import { z } from "zod";
@@ -27,6 +28,7 @@ export default function TokensScreen() {
   const {
     wallet,
     config,
+    preferences,
     deviceId,
     addProvisionalToken,
     refresh,
@@ -90,9 +92,9 @@ export default function TokensScreen() {
     [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared],
   );
   const balanceCapped = wallet.rewardedBalance >= config.maxRewardTokenBalance;
-  const durationMinutes = Math.max(
-    1,
-    Math.round(config.unlockDurationSeconds / 60),
+  const durationLabel = localize(
+    formatUnlockDuration(preferences.unlockDurationSeconds, "en"),
+    formatUnlockDuration(preferences.unlockDurationSeconds, "es"),
   );
   const rewardsEnabled = config.rewardProvider === "admob";
   const dailyCapped = wallet.rewardAdsRemainingToday <= 0;
@@ -176,8 +178,8 @@ export default function TokensScreen() {
         <FieldApertureMark size={34} />
         <Eyebrow>
           {localize(
-            `PASSES / ${durationMinutes} MIN`,
-            `PASES / ${durationMinutes} MIN`,
+            `PASSES / ${formatUnlockDuration(preferences.unlockDurationSeconds, "en").toUpperCase()}`,
+            `PASES / ${formatUnlockDuration(preferences.unlockDurationSeconds, "es").toUpperCase()}`,
           )}
         </Eyebrow>
       </View>
@@ -199,8 +201,12 @@ export default function TokensScreen() {
             </Heading>
             <Body style={styles.note}>
               {localize(
-                `Each one opens one selected app for ${durationMinutes} minutes.`,
-                `Cada uno abre una app seleccionada durante ${durationMinutes} minutos.`,
+                preferences.unlockDurationSeconds >= 86_400
+                  ? "Each one opens one selected app for the whole day."
+                  : `Each one opens one selected app for ${durationLabel}.`,
+                preferences.unlockDurationSeconds >= 86_400
+                  ? "Cada uno abre una app seleccionada durante todo el día."
+                  : `Cada uno abre una app seleccionada durante ${durationLabel}.`,
               )}
             </Body>
           </View>
@@ -236,6 +242,14 @@ export default function TokensScreen() {
           )}
         </Body>
       )}
+      {wallet.rewardedPassesRemainingToday <= 0 && (
+        <Body style={styles.limitNote}>
+          {localize(
+            "You reached your pass limit for today. Stored passes remain available tomorrow.",
+            "Alcanzaste tu límite de pases de hoy. Los pases guardados seguirán disponibles mañana.",
+          )}
+        </Body>
+      )}
 
       <View style={styles.emergency}>
         <View style={styles.sectionTop}>
@@ -256,8 +270,8 @@ export default function TokensScreen() {
           <Eyebrow>{localize("OPTIONAL ADS", "ANUNCIOS OPCIONALES")}</Eyebrow>
           <Mono>
             {localize(
-              `MAX ${config.maxRewardedAdsPerUtcDay} / DAY`,
-              `MÁX ${config.maxRewardedAdsPerUtcDay} / DÍA`,
+              `MAX ${preferences.maxRewardedAdsPerUtcDay} / DAY`,
+              `MÁX ${preferences.maxRewardedAdsPerUtcDay} / DÍA`,
             )}
           </Mono>
         </View>

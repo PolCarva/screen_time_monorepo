@@ -86,6 +86,22 @@ export function canRequestReward(wallet: Wallet, config: RemoteConfig): boolean 
   );
 }
 
+export function formatUnlockDuration(
+  durationSeconds: number,
+  locale: "en" | "es",
+): string {
+  if (durationSeconds >= 86_400) {
+    return locale === "es" ? "Todo el día" : "All day";
+  }
+  if (durationSeconds >= 3_600) {
+    const hours = Math.round(durationSeconds / 3_600);
+    return locale === "es"
+      ? `${hours} ${hours === 1 ? "hora" : "horas"}`
+      : `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  return `${Math.round(durationSeconds / 60)} min`;
+}
+
 export function calculateImpactFundMinor(
   grossRevenueMinor: number,
   impactPercentage: number,

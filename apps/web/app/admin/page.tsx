@@ -40,7 +40,7 @@ function OperationalSetup({
             Duración de un pase (minutos)
             <input
               defaultValue={(config?.unlockDurationSeconds ?? 600) / 60}
-              max="60"
+              max="1440"
               min="1"
               name="unlockDurationMinutes"
               required
