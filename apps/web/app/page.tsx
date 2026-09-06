@@ -352,8 +352,8 @@ export default async function HomePage() {
               Descargar Still para Android
             </AndroidDownloadLink>
             <span>
-              Versión 0.1.0 beta · Android 10 o posterior · teléfonos ARM64 ·
-              85 MB
+              Versión 0.1.0 beta · Android 10 o posterior · APK universal ·
+              147 MB
             </span>
             <a
               className="closing-v3__checksum"
