@@ -37,15 +37,34 @@ describe("committed native production configuration", () => {
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
     expect(intervention).toContain("hasAvailablePass");
-    expect(intervention).toContain('else -> "Open Still to get a pass"');
+    expect(intervention).toContain('else -> "Open Still · Watch ad"');
+    expect(intervention).toContain("override fun onNewIntent");
+    expect(intervention).toContain('appendQueryParameter("attempts"');
+    expect(intervention).toContain("METRIC_APP_AVOIDED_OPENS");
     expect(restrictionModule).toContain("LifecycleEventListener");
     expect(restrictionModule).toContain("override fun onHostResume()");
     expect(restrictionModule).toContain("ComponentName.unflattenFromString");
     expect(restrictionModule).not.toContain('promise.resolve("notDetermined")');
     expect(restrictionModule).toContain("beginExternalAuthSession");
     expect(restrictionModule).toContain("endExternalAuthSession");
+    expect(restrictionModule).toContain("cancelCurrentIntervention");
+    expect(restrictionModule).toContain("Intent.CATEGORY_HOME");
+    expect(restrictionModule).toContain(
+      'putString("wellbeingAuthorization"',
+    );
+    expect(restrictionModule).not.toContain(
+      'putString("issue", "usage_access_disabled")',
+    );
+    expect(restrictionModule).toContain(
+      "getLaunchIntentForPackage(packageName)",
+    );
+    expect(restrictionModule).toContain('"target_unavailable"');
+    expect(restrictionModule).toContain(".remove(KEY_CURRENT_PACKAGE)");
     expect(accessibilityService).toContain("isExternalAuthBrowser(target)");
     expect(accessibilityService).toContain("KEY_EXTERNAL_AUTH_BYPASS_BOOT");
+    expect(accessibilityService).toContain("METRIC_APP_OPEN_ATTEMPTS");
+    expect(accessibilityService).toContain("alreadyPending");
+    expect(accessibilityService).toContain("EXTRA_TARGET_ATTEMPTS");
   });
 
   it("keeps iOS identity, deep linking, ads, and Screen Time entitlements in sync", () => {
@@ -53,6 +72,21 @@ describe("committed native production configuration", () => {
     const project = nativeFile("ios/Still.xcodeproj/project.pbxproj");
     const sharedState = nativeFile(
       "ios/StillNative/SharedRestrictionState.swift",
+    );
+    const restrictionEngine = nativeFile(
+      "ios/StillNative/StillRestrictionEngine.swift",
+    );
+    const restrictionBridge = nativeFile(
+      "ios/StillNative/StillRestrictionEngine.m",
+    );
+    const shortcutIntent = nativeFile(
+      "ios/StillNative/StillShortcutIntent.swift",
+    );
+    const shieldAction = nativeFile(
+      "ios/StillShieldAction/ShieldActionExtension.swift",
+    );
+    const shieldConfiguration = nativeFile(
+      "ios/StillShieldConfiguration/ShieldConfigurationExtension.swift",
     );
     const entitlementPaths = [
       "ios/Still/Still.entitlements",
@@ -75,6 +109,37 @@ describe("committed native production configuration", () => {
     expect(sharedState).not.toContain(
       "LocalWallet(rewarded: 0, emergency: 3, resetAt:",
     );
+    expect(sharedState).toContain("beginExternalBrowserBypass");
+    expect(sharedState).toContain("externalBrowserBypassActive");
+    expect(sharedState).toContain("still.external-browser");
+    expect(sharedState).toContain("15 * 60");
+    expect(restrictionEngine).toContain("beginExternalAuthSession");
+    expect(restrictionEngine).toContain("endExternalAuthSession");
+    expect(restrictionBridge).toContain("beginExternalAuthSession");
+    expect(restrictionBridge).toContain("endExternalAuthSession");
+    expect(restrictionEngine).toContain("enableShortcutMode");
+    expect(restrictionEngine).toContain("completeShortcutIntervention");
+    expect(restrictionBridge).toContain("enableShortcutMode");
+    expect(restrictionBridge).toContain("completeShortcutIntervention");
+    expect(sharedState).toContain("targetProductMetrics:");
+    expect(sharedState).toContain(
+      "guard restrictionsEnabled, !shortcutModeEnabled",
+    );
+    expect(shortcutIntent).toContain(
+      "struct PauseBeforeOpeningIntent: AppIntent",
+    );
+    expect(shortcutIntent).toContain("requestToContinueInForeground");
+    expect(shortcutIntent).toContain('components.scheme = "shortcuts"');
+    expect(shortcutIntent).toContain("recordOpenAttempt");
+    expect(shortcutIntent).toContain(
+      "let targetKey = key(appName: cleanAppName)",
+    );
+    expect(shortcutIntent).not.toContain(
+      "key(appName: String, returnShortcutName:",
+    );
+    expect(project).toContain("StillShortcutIntent.swift in Sources");
+    expect(shieldAction).toContain("targetMetricScope:");
+    expect(shieldConfiguration).toContain("todayMetrics(for: application)");
 
     for (const identifier of [
       "com.still.screentime",

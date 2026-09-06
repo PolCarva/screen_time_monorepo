@@ -23,6 +23,8 @@ class InterventionActivity : Activity() {
   private val mineral = Color.rgb(105, 127, 140)
   private val mineralLight = Color.rgb(167, 181, 186)
   private val peach = Color.rgb(211, 154, 131)
+  private val currentTargetPackage: String?
+    get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -31,7 +33,7 @@ class InterventionActivity : Activity() {
     window.decorView.systemUiVisibility = 0
 
     val spanish = resources.configuration.locales[0].language == "es"
-    val targetPackage = intent.getStringExtra(EXTRA_TARGET_PACKAGE)
+    val targetPackage = currentTargetPackage
     val appLabel = targetPackage?.let {
       runCatching {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
@@ -44,7 +46,17 @@ class InterventionActivity : Activity() {
       return
     }
 
-    val attempts = preferences.getInt("open_attempts:$day", 1).coerceAtLeast(1)
+    val attempts = intent.getIntExtra(EXTRA_TARGET_ATTEMPTS, 0).takeIf { it > 0 }
+      ?: targetPackage?.let {
+        preferences.getInt(
+          StillRestrictionModule.appMetricKey(
+            StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS,
+            day,
+            it,
+          ),
+          1,
+        )
+      }?.coerceAtLeast(1) ?: 1
     val durationSeconds = preferences
       .getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600)
       .coerceIn(60, 86400)
@@ -75,8 +87,8 @@ class InterventionActivity : Activity() {
     val secondaryAction = when {
       hasAvailablePass && spanish -> "Usar 1 pase · $durationLabel"
       hasAvailablePass -> "Use 1 pass · $durationLabel"
-      spanish -> "Abrir Still para conseguir un pase"
-      else -> "Open Still to get a pass"
+      spanish -> "Abrir Still · Ver anuncio"
+      else -> "Open Still · Watch ad"
     }
 
     val root = LinearLayout(this).apply {
@@ -99,7 +111,7 @@ class InterventionActivity : Activity() {
       topMargin = dp(24)
     })
     root.addView(TextView(this).apply {
-      text = question + "\n\n" + impactSummary(spanish)
+      text = question + "\n\n" + impactSummary(spanish, targetPackage, appLabel)
       gravity = Gravity.CENTER
       textSize = 15f
       typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
@@ -140,6 +152,7 @@ class InterventionActivity : Activity() {
           .scheme("still")
           .authority("intervention")
           .appendQueryParameter("app", appLabel)
+          .appendQueryParameter("attempts", attempts.toString())
           .build()
         startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
         finish()
@@ -148,6 +161,14 @@ class InterventionActivity : Activity() {
       topMargin = dp(6)
     })
     setContentView(root)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    // This activity is singleTop. Recreate it so a new blocked app never
+    // inherits the previous app's label, count, or actions.
+    recreate()
   }
 
   private fun createFieldIcon(): View {
@@ -194,8 +215,20 @@ class InterventionActivity : Activity() {
   private fun goHome(recordAvoidedOpen: Boolean = true) {
     if (recordAvoidedOpen) {
       val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
-      val key = "avoided_opens:" + LocalDate.now(ZoneOffset.UTC)
-      preferences.edit().putInt(key, preferences.getInt(key, 0) + 1).apply()
+      val day = LocalDate.now(ZoneOffset.UTC).toString()
+      val totalKey = "avoided_opens:$day"
+      val editor = preferences.edit()
+        .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
+        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
+      currentTargetPackage?.let { packageName ->
+        val appKey = StillRestrictionModule.appMetricKey(
+          StillRestrictionModule.METRIC_APP_AVOIDED_OPENS,
+          day,
+          packageName,
+        )
+        editor.putInt(appKey, preferences.getInt(appKey, 0) + 1)
+      }
+      editor.apply()
     }
     startActivity(
       Intent(Intent.ACTION_MAIN)
@@ -205,18 +238,26 @@ class InterventionActivity : Activity() {
     finish()
   }
 
-  private fun impactSummary(spanish: Boolean): String {
+  private fun impactSummary(spanish: Boolean, targetPackage: String?, appLabel: String): String {
     val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
-    val avoidedOpens = preferences.all.entries.sumOf { (key, value) ->
-      if (key.startsWith("avoided_opens:")) (value as? Int)?.coerceAtLeast(0) ?: 0 else 0
-    }
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val avoidedOpens = targetPackage?.let {
+      preferences.getInt(
+        StillRestrictionModule.appMetricKey(
+          StillRestrictionModule.METRIC_APP_AVOIDED_OPENS,
+          day,
+          it,
+        ),
+        0,
+      )
+    }?.coerceAtLeast(0) ?: 0
     val minutesPerOpen =
       preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
     val duration = formatSavedTime(avoidedOpens * minutesPerOpen)
     return if (spanish) {
-      "$avoidedOpens aperturas automáticas evitadas · $duration recuperados (est.)"
+      "$avoidedOpens aperturas automáticas de $appLabel evitadas hoy · $duration recuperados (est.)"
     } else {
-      "$avoidedOpens automatic opens avoided · $duration returned (est.)"
+      "$avoidedOpens automatic $appLabel opens avoided today · $duration returned (est.)"
     }
   }
 
@@ -230,5 +271,8 @@ class InterventionActivity : Activity() {
 
   private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-  companion object { const val EXTRA_TARGET_PACKAGE = "target_package" }
+  companion object {
+    const val EXTRA_TARGET_PACKAGE = "target_package"
+    const val EXTRA_TARGET_ATTEMPTS = "target_attempts"
+  }
 }

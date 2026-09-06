@@ -11,10 +11,20 @@ export type RestrictedSelection = {
   readonly localReference: string;
 };
 export type UnlockSession = { id: string; endsAt: string };
+export type ShortcutIntervention = {
+  id: string;
+  appName: string;
+  returnShortcutName: string;
+  attemptsToday: number;
+  createdAt: string;
+};
+export type ShortcutUnlockSession = UnlockSession & { returnUrl: string };
 export type RestrictionHealth = {
   authorization: PermissionStatus;
+  wellbeingAuthorization?: PermissionStatus;
   engineActive: boolean;
   selectedCount: number;
+  mode?: "managed" | "shortcuts";
   lastRestoredAt?: string;
   issue?: string;
 };
@@ -40,6 +50,14 @@ export interface RestrictionEngine {
   requestWellbeingAuthorization(): Promise<PermissionStatus>;
   presentAppPicker(): Promise<RestrictedSelection>;
   applyRestrictions(selection: RestrictedSelection): Promise<void>;
+  enableShortcutMode(): Promise<void>;
+  getPendingShortcutIntervention(): Promise<ShortcutIntervention | null>;
+  completeShortcutIntervention(
+    contextId: string,
+    durationSeconds: number,
+  ): Promise<ShortcutUnlockSession>;
+  cancelShortcutIntervention(contextId: string): Promise<void>;
+  cancelCurrentIntervention(): Promise<void>;
   startUnlock(
     target: LocalAppHandle,
     durationSeconds: number,
@@ -73,6 +91,13 @@ const unavailable: RestrictionEngine = {
   requestWellbeingAuthorization: async () => "unavailable",
   presentAppPicker: async () => ({ count: 0, localReference: "unavailable" }),
   applyRestrictions: async () => undefined,
+  enableShortcutMode: async () => undefined,
+  getPendingShortcutIntervention: async () => null,
+  completeShortcutIntervention: async () => {
+    throw new Error("Shortcut interventions are unavailable in this build");
+  },
+  cancelShortcutIntervention: async () => undefined,
+  cancelCurrentIntervention: async () => undefined,
   startUnlock: async () => {
     throw new Error("Restriction engine is unavailable in this build");
   },

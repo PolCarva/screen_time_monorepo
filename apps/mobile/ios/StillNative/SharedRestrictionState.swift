@@ -18,10 +18,29 @@ enum SharedRestrictionState {
   private static let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
   private static let unlockDurationSecondsKey = "unlockDurationSeconds"
   private static let restrictionsEnabledKey = "restrictionsEnabled"
+  private static let shortcutModeEnabledKey = "shortcutModeEnabled"
+  private static let targetProductMetricsPrefix = "targetProductMetrics:"
+  static let currentShieldMetricScopeKey = "currentShieldMetricScope"
+  private static let externalBrowserBypassUntilKey = "externalBrowserBypassUntil"
+  static let externalBrowserActivity = DeviceActivityName("still.external-browser")
 
   static var restrictionsEnabled: Bool {
     guard defaults.object(forKey: restrictionsEnabledKey) != nil else { return false }
     return defaults.bool(forKey: restrictionsEnabledKey)
+  }
+
+  static var shortcutModeEnabled: Bool {
+    defaults.bool(forKey: shortcutModeEnabledKey)
+  }
+
+  static func setShortcutModeEnabled(_ enabled: Bool) {
+    defaults.set(enabled, forKey: shortcutModeEnabledKey)
+    if enabled {
+      store.clearAllSettings()
+    } else {
+      applyShields()
+    }
+    flush()
   }
 
   static var unlockDurationSeconds: Int {
@@ -61,10 +80,26 @@ enum SharedRestrictionState {
     case webDomain(WebDomainToken)
   }
 
+  static func metricScope(application token: ApplicationToken) -> String {
+    "application:\(tokenKey(token))"
+  }
+
+  static func metricScope(category token: ActivityCategoryToken) -> String {
+    "category:\(tokenKey(token))"
+  }
+
+  static func metricScope(webDomain token: WebDomainToken) -> String {
+    "webDomain:\(tokenKey(token))"
+  }
+
+  static func currentShieldMetricScope(fallback: String) -> String {
+    defaults.string(forKey: currentShieldMetricScopeKey) ?? fallback
+  }
+
   static var selection: FamilyActivitySelection {
     get {
       guard let data = defaults.data(forKey: selectionKey),
-            let decoded = try? PropertyListDecoder().decode(FamilyActivitySelection.self, from: data)
+        let decoded = try? PropertyListDecoder().decode(FamilyActivitySelection.self, from: data)
       else { return FamilyActivitySelection() }
       return decoded
     }
@@ -75,37 +110,62 @@ enum SharedRestrictionState {
   }
 
   static func applyShields() {
-    guard restrictionsEnabled else {
+    guard restrictionsEnabled, !shortcutModeEnabled else {
       store.clearAllSettings()
       return
     }
     pruneExpiredSessions()
+    if externalBrowserBypassActive {
+      store.clearAllSettings()
+      return
+    }
     let sessions = loadSessions().values
-    let activeApplications = Set(sessions.filter { $0.targetKind == nil || $0.targetKind == "application" }.map(\.tokenKey))
+    let activeApplications = Set(
+      sessions.filter { $0.targetKind == nil || $0.targetKind == "application" }.map(\.tokenKey))
     let activeCategories = Set(sessions.filter { $0.targetKind == "category" }.map(\.tokenKey))
     let activeWebDomains = Set(sessions.filter { $0.targetKind == "webDomain" }.map(\.tokenKey))
     let chosen = selection
-    store.shield.applications = Set(chosen.applicationTokens.filter { !activeApplications.contains(tokenKey($0)) })
-    let shieldedCategories = Set(chosen.categoryTokens.filter { !activeCategories.contains(tokenKey($0)) })
-    store.shield.applicationCategories = shieldedCategories.isEmpty ? nil : .specific(shieldedCategories)
-    store.shield.webDomains = Set(chosen.webDomainTokens.filter { !activeWebDomains.contains(tokenKey($0)) })
+    store.shield.applications = Set(
+      chosen.applicationTokens.filter { !activeApplications.contains(tokenKey($0)) })
+    let shieldedCategories = Set(
+      chosen.categoryTokens.filter { !activeCategories.contains(tokenKey($0)) })
+    store.shield.applicationCategories =
+      shieldedCategories.isEmpty ? nil : .specific(shieldedCategories)
+    store.shield.webDomains = Set(
+      chosen.webDomainTokens.filter { !activeWebDomains.contains(tokenKey($0)) })
   }
 
-  static func beginUnlock(application token: ApplicationToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
-    try beginUnlock(targetKind: "application", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  static func beginUnlock(
+    application token: ApplicationToken, durationSeconds: Int, scheduleMonitoring: Bool = true
+  ) throws -> (String, Date) {
+    try beginUnlock(
+      targetKind: "application", tokenKey: tokenKey(token), durationSeconds: durationSeconds,
+      scheduleMonitoring: scheduleMonitoring)
   }
 
-  static func beginUnlock(category token: ActivityCategoryToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
-    try beginUnlock(targetKind: "category", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  static func beginUnlock(
+    category token: ActivityCategoryToken, durationSeconds: Int, scheduleMonitoring: Bool = true
+  ) throws -> (String, Date) {
+    try beginUnlock(
+      targetKind: "category", tokenKey: tokenKey(token), durationSeconds: durationSeconds,
+      scheduleMonitoring: scheduleMonitoring)
   }
 
-  static func beginUnlock(webDomain token: WebDomainToken, durationSeconds: Int, scheduleMonitoring: Bool = true) throws -> (String, Date) {
-    try beginUnlock(targetKind: "webDomain", tokenKey: tokenKey(token), durationSeconds: durationSeconds, scheduleMonitoring: scheduleMonitoring)
+  static func beginUnlock(
+    webDomain token: WebDomainToken, durationSeconds: Int, scheduleMonitoring: Bool = true
+  ) throws -> (String, Date) {
+    try beginUnlock(
+      targetKind: "webDomain", tokenKey: tokenKey(token), durationSeconds: durationSeconds,
+      scheduleMonitoring: scheduleMonitoring)
   }
 
-  private static func beginUnlock(targetKind: String, tokenKey: String, durationSeconds: Int, scheduleMonitoring: Bool) throws -> (String, Date) {
+  private static func beginUnlock(
+    targetKind: String, tokenKey: String, durationSeconds: Int, scheduleMonitoring: Bool
+  ) throws -> (String, Date) {
     guard restrictionsEnabled else {
-      throw NSError(domain: "StillRestrictionEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restrictions are temporarily disabled"])
+      throw NSError(
+        domain: "StillRestrictionEngine", code: 2,
+        userInfo: [NSLocalizedDescriptionKey: "Restrictions are temporarily disabled"])
     }
     let duration = max(60, min(durationSeconds, 86_400))
     let id = UUID().uuidString
@@ -129,7 +189,8 @@ enum SharedRestrictionState {
     // Persist only after DeviceActivity accepts the schedule. Otherwise a
     // failed start would leave a phantom session that suppresses the Shield.
     var sessions = loadSessions()
-    sessions[id] = UnlockRecord(tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
+    sessions[id] = UnlockRecord(
+      tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
     saveSessions(sessions)
     return (id, end)
   }
@@ -143,8 +204,46 @@ enum SharedRestrictionState {
   }
 
   static func restoreExpired() {
+    if !externalBrowserBypassActive {
+      defaults.removeObject(forKey: externalBrowserBypassUntilKey)
+    }
     pruneExpiredSessions()
     applyShields()
+  }
+
+  static func beginExternalBrowserBypass(
+    durationSeconds: Int = 600,
+    scheduleMonitoring: Bool = true
+  ) throws {
+    let duration = max(60, min(durationSeconds, 600))
+    let now = Date()
+    let end = now.addingTimeInterval(TimeInterval(duration))
+    if scheduleMonitoring {
+      // DeviceActivity rejects schedules shorter than 15 minutes. The stored
+      // bypass still expires after `duration`; this longer monitor is only the
+      // native fail-safe that restores shields if JavaScript never resumes.
+      let monitorEnd = now.addingTimeInterval(max(TimeInterval(duration), 15 * 60))
+      let calendar = Calendar.current
+      let schedule = DeviceActivitySchedule(
+        intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
+        intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: monitorEnd),
+        repeats: false
+      )
+      let center = DeviceActivityCenter()
+      center.stopMonitoring([externalBrowserActivity])
+      try center.startMonitoring(externalBrowserActivity, during: schedule)
+    }
+
+    defaults.set(end, forKey: externalBrowserBypassUntilKey)
+    store.clearAllSettings()
+    flush()
+  }
+
+  static func endExternalBrowserBypass() {
+    DeviceActivityCenter().stopMonitoring([externalBrowserActivity])
+    defaults.removeObject(forKey: externalBrowserBypassUntilKey)
+    applyShields()
+    flush()
   }
 
   static func resetLocalData() {
@@ -219,9 +318,11 @@ enum SharedRestrictionState {
     unlockDurationSeconds: Int,
     restrictionsEnabled: Bool
   ) {
-    let wallet = LocalWallet(rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
+    let wallet = LocalWallet(
+      rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
-    defaults.set(max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
+    defaults.set(
+      max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
     defaults.set(max(60, min(unlockDurationSeconds, 86_400)), forKey: unlockDurationSecondsKey)
     defaults.set(restrictionsEnabled, forKey: restrictionsEnabledKey)
     applyShields()
@@ -250,8 +351,11 @@ enum SharedRestrictionState {
 
   static func refundUnlock(_ source: String) {
     var wallet = loadWallet()
-    if source == "rewarded" { wallet.rewarded += 1 }
-    else if source == "emergency" { wallet.emergency += 1 }
+    if source == "rewarded" {
+      wallet.rewarded += 1
+    } else if source == "emergency" {
+      wallet.emergency += 1
+    }
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
   }
 
@@ -264,7 +368,7 @@ enum SharedRestrictionState {
 
   static func pendingUnlocks() -> [NativeUnlockEvent] {
     guard let data = defaults.data(forKey: unlockOutboxKey),
-          let events = try? JSONDecoder().decode([NativeUnlockEvent].self, from: data)
+      let events = try? JSONDecoder().decode([NativeUnlockEvent].self, from: data)
     else { return [] }
     return events
   }
@@ -274,24 +378,56 @@ enum SharedRestrictionState {
     defaults.set(try? JSONEncoder().encode(remaining), forKey: unlockOutboxKey)
   }
 
-  static func recordIntervention(avoided: Bool, unlocked: Bool) {
-    let key = "productMetrics:\(utcDay())"
+  static func recordIntervention(targetMetricScope: String, avoided: Bool, unlocked: Bool) {
+    recordOpenAttempt(targetMetricScope: targetMetricScope)
+    recordOutcome(targetMetricScope: targetMetricScope, avoided: avoided, unlocked: unlocked)
+  }
+
+  static func recordOpenAttempt(targetMetricScope: String) {
+    recordOpenAttempt(at: "productMetrics:\(utcDay())")
+    recordOpenAttempt(at: targetMetricsKey(targetMetricScope))
+  }
+
+  static func recordOutcome(targetMetricScope: String, avoided: Bool, unlocked: Bool) {
+    recordOutcome(at: "productMetrics:\(utcDay())", avoided: avoided, unlocked: unlocked)
+    recordOutcome(at: targetMetricsKey(targetMetricScope), avoided: avoided, unlocked: unlocked)
+  }
+
+  private static func recordOpenAttempt(at key: String) {
     var metrics: DailyProductMetrics
-    if let data = defaults.data(forKey: key), let saved = try? JSONDecoder().decode(DailyProductMetrics.self, from: data) {
+    if let data = defaults.data(forKey: key),
+      let saved = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+    {
       metrics = saved
     } else {
       metrics = DailyProductMetrics()
     }
     metrics.openAttempts += 1
+    defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
+  }
+
+  private static func recordOutcome(at key: String, avoided: Bool, unlocked: Bool) {
+    var metrics: DailyProductMetrics
+    if let data = defaults.data(forKey: key),
+      let saved = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+    {
+      metrics = saved
+    } else {
+      metrics = DailyProductMetrics()
+    }
     if avoided { metrics.avoidedOpens += 1 }
     if unlocked { metrics.unlocks += 1 }
     defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
   }
 
-  static func rollbackUnlockedIntervention() {
-    let key = "productMetrics:\(utcDay())"
+  static func rollbackUnlockedIntervention(targetMetricScope: String) {
+    rollbackUnlockedIntervention(at: "productMetrics:\(utcDay())")
+    rollbackUnlockedIntervention(at: targetMetricsKey(targetMetricScope))
+  }
+
+  private static func rollbackUnlockedIntervention(at key: String) {
     guard let data = defaults.data(forKey: key),
-          var metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+      var metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
     else { return }
     metrics.openAttempts = max(0, metrics.openAttempts - 1)
     metrics.unlocks = max(0, metrics.unlocks - 1)
@@ -308,21 +444,33 @@ enum SharedRestrictionState {
   static func productMetrics() -> DailyProductMetrics {
     let key = "productMetrics:\(utcDay())"
     guard let data = defaults.data(forKey: key),
-          let metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+      let metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+    else { return DailyProductMetrics() }
+    return metrics
+  }
+
+  static func productMetrics(targetMetricScope: String) -> DailyProductMetrics {
+    let key = targetMetricsKey(targetMetricScope)
+    guard let data = defaults.data(forKey: key),
+      let metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
     else { return DailyProductMetrics() }
     return metrics
   }
 
   private static func loadWallet() -> LocalWallet {
-    guard let data = defaults.data(forKey: walletKey), let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
-    // Corrupt or missing shared state must never mint access. The JS layer
-    // synchronizes the server-owned emergency allowance before enabling shields.
-    else { return LocalWallet(rewarded: 0, emergency: 0, resetAt: Date().addingTimeInterval(86_400)) }
+    guard let data = defaults.data(forKey: walletKey),
+      let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
+      // Corrupt or missing shared state must never mint access. The JS layer
+      // synchronizes the server-owned emergency allowance before enabling shields.
+    else {
+      return LocalWallet(rewarded: 0, emergency: 0, resetAt: Date().addingTimeInterval(86_400))
+    }
     return wallet
   }
 
   private static func loadSessions() -> [String: UnlockRecord] {
-    guard let data = defaults.data(forKey: sessionsKey), let sessions = try? JSONDecoder().decode([String: UnlockRecord].self, from: data)
+    guard let data = defaults.data(forKey: sessionsKey),
+      let sessions = try? JSONDecoder().decode([String: UnlockRecord].self, from: data)
     else { return [:] }
     return sessions
   }
@@ -340,7 +488,20 @@ enum SharedRestrictionState {
     saveSessions(active)
   }
 
-  private static func bootEpoch() -> TimeInterval { Date().timeIntervalSince1970 - ProcessInfo.processInfo.systemUptime }
+  private static func targetMetricsKey(_ scope: String) -> String {
+    "\(targetProductMetricsPrefix)\(scope):\(utcDay())"
+  }
+
+  private static var externalBrowserBypassActive: Bool {
+    guard let deadline = defaults.object(forKey: externalBrowserBypassUntilKey) as? Date else {
+      return false
+    }
+    return deadline > Date()
+  }
+
+  private static func bootEpoch() -> TimeInterval {
+    Date().timeIntervalSince1970 - ProcessInfo.processInfo.systemUptime
+  }
   private static func utcDay() -> String {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .gregorian)

@@ -29,12 +29,10 @@ import {
   linkIdentity,
   type IdentityProvider,
 } from "@/lib/identity";
+import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { getJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
-import {
-  restrictionEngine,
-  type RestrictionHealth,
-} from "@/native/restriction-engine";
+import { type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
@@ -242,71 +240,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function chooseApps() {
-    const selection = await restrictionEngine.presentAppPicker();
-    await restrictionEngine.applyRestrictions(selection);
-    await refresh();
-  }
-
-  async function repairOrChooseApps() {
-    try {
-      const enabled =
-        Platform.OS === "ios"
-          ? config.iosRestrictionEnabled
-          : config.androidRestrictionEnabled;
-      if (!enabled) {
-        Alert.alert(
-          localize(
-            "Pauses are temporarily disabled",
-            "Las pausas están deshabilitadas temporalmente",
-          ),
-          localize(
-            "Your selection remains on this device and will be available when the service enables pauses again.",
-            "Tu selección permanece en este dispositivo y estará disponible cuando el servicio vuelva a habilitar las pausas.",
-          ),
-        );
-        return;
-      }
-      if (health.authorization !== "authorized") {
-        await restrictionEngine.requestAuthorization();
-        Alert.alert(
-          localize("Finish in Settings", "Termina en Ajustes"),
-          localize(
-            "Enable Still, then return here. The status refreshes automatically.",
-            "Activa Still y vuelve aquí. El estado se actualiza automáticamente.",
-          ),
-        );
-        return;
-      }
-      if (
-        Platform.OS === "android" &&
-        health.issue === "usage_access_disabled"
-      ) {
-        await restrictionEngine.requestWellbeingAuthorization();
-        Alert.alert(
-          localize("Finish in Settings", "Termina en Ajustes"),
-          localize(
-            "Allow Usage Access, then return here. The status refreshes automatically.",
-            "Permite el acceso de uso y vuelve aquí. El estado se actualiza automáticamente.",
-          ),
-        );
-        return;
-      }
-      await chooseApps();
-    } catch {
-      Alert.alert(
-        localize(
-          "Could not update permissions",
-          "No se pudieron actualizar los permisos",
-        ),
-        localize(
-          "Try again from this device's Settings.",
-          "Inténtalo otra vez desde los Ajustes del dispositivo.",
-        ),
-      );
-    }
-  }
-
   async function toggleAnalytics(value: boolean) {
     setAnalyticsEnabled(value);
     await setAnalyticsCollectionEnabled(value);
@@ -401,20 +334,20 @@ export default function SettingsScreen() {
     );
   }
 
-  const restrictionsEnabled =
-    Platform.OS === "ios"
-      ? config.iosRestrictionEnabled
-      : config.androidRestrictionEnabled;
+  const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
+  const shortcutMode = Platform.OS === "ios";
   const restrictionHealthy =
     restrictionsEnabled && health.engineActive && !health.issue;
-  const restrictionAction = !restrictionsEnabled
-    ? localize(
-        "Pauses temporarily disabled",
-        "Pausas deshabilitadas temporalmente",
-      )
-    : health.authorization !== "authorized" || health.issue
-      ? localize("Repair permissions", "Reparar permisos")
-      : localize("Choose other apps", "Elegir otras apps");
+  const restrictionAction = shortcutMode
+    ? localize("Configure iOS Shortcuts", "Configurar Atajos de iOS")
+    : !restrictionsEnabled
+      ? localize(
+          "Pauses temporarily disabled",
+          "Pausas deshabilitadas temporalmente",
+        )
+      : health.authorization !== "authorized" || health.selectedCount === 0
+        ? localize("Set up Android", "Configurar Android")
+        : localize("Review Android setup", "Revisar configuración Android");
   const syncLabel =
     syncStatus === "online"
       ? localize("SYNCED", "SINCRONIZADO")
@@ -449,7 +382,9 @@ export default function SettingsScreen() {
         <View style={styles.sectionHeading}>
           <Eyebrow>01 / {localize("PAUSES", "PAUSAS")}</Eyebrow>
           <Mono>
-            {health?.selectedCount ?? 0} {localize("APPS", "APPS")}
+            {shortcutMode
+              ? localize("SHORTCUTS", "ATAJOS")
+              : `${health?.selectedCount ?? 0} ${localize("APPS", "APPS")}`}
           </Mono>
         </View>
         <View style={styles.health}>
@@ -457,7 +392,12 @@ export default function SettingsScreen() {
           <View style={styles.healthCopy}>
             <Heading style={styles.sectionTitle}>
               {restrictionHealthy
-                ? localize("Still is active", "Still está activo")
+                ? shortcutMode
+                  ? localize(
+                      "Shortcut mode is active",
+                      "El modo Atajos está activo",
+                    )
+                  : localize("Still is active", "Still está activo")
                 : !restrictionsEnabled
                   ? localize(
                       "Pauses are temporarily disabled",
@@ -471,13 +411,22 @@ export default function SettingsScreen() {
                     "Your on-device selection is preserved.",
                     "Tu selección en el dispositivo se conserva.",
                   )
-                : authorizationLabel(health.authorization)}
+                : shortcutMode
+                  ? localize(
+                      "Each app automation stays private on this iPhone.",
+                      "Cada automatización permanece privada en este iPhone.",
+                    )
+                  : authorizationLabel(health.authorization)}
             </Body>
           </View>
         </View>
         <PrimaryButton
           disabled={!restrictionsEnabled}
-          onPress={repairOrChooseApps}
+          onPress={() =>
+            shortcutMode
+              ? router.push("/shortcut-setup")
+              : router.push("/android-setup")
+          }
           variant="secondary"
         >
           {restrictionAction}

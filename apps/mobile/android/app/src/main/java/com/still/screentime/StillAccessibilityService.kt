@@ -22,19 +22,35 @@ class StillAccessibilityService : AccessibilityService() {
     if (target !in selected || isTemporarilyUnlocked(target) || isExternalAuthBrowser(target)) return
 
     val now = SystemClock.elapsedRealtime()
-    if (lastInterventionPackage == target && now - lastInterventionAt < 1_200) return
+    val alreadyPending =
+      preferences.getString(StillRestrictionModule.KEY_CURRENT_PACKAGE, null) == target &&
+        lastInterventionPackage == target &&
+        now - lastInterventionAt < 1_200
     lastInterventionPackage = target
     lastInterventionAt = now
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val attemptsKey = "open_attempts:$day"
-    preferences.edit()
-      .putString(StillRestrictionModule.KEY_CURRENT_PACKAGE, target)
-      .putInt(attemptsKey, preferences.getInt(attemptsKey, 0) + 1)
-      .apply()
+    val appAttemptsKey = StillRestrictionModule.appMetricKey(
+      StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS,
+      day,
+      target,
+    )
+    val attempts = if (alreadyPending) {
+      preferences.getInt(appAttemptsKey, 1).coerceAtLeast(1)
+    } else {
+      val nextAttempts = preferences.getInt(appAttemptsKey, 0) + 1
+      preferences.edit()
+        .putString(StillRestrictionModule.KEY_CURRENT_PACKAGE, target)
+        .putInt(attemptsKey, preferences.getInt(attemptsKey, 0) + 1)
+        .putInt(appAttemptsKey, nextAttempts)
+        .apply()
+      nextAttempts
+    }
 
     startActivity(Intent(this, InterventionActivity::class.java).apply {
       addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
       putExtra(InterventionActivity.EXTRA_TARGET_PACKAGE, target)
+      putExtra(InterventionActivity.EXTRA_TARGET_ATTEMPTS, attempts)
     })
   }
 

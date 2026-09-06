@@ -5,7 +5,6 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
+import { openExternalBrowser } from "@/lib/external-browser";
 import { getLinkedIdentityProviders } from "@/lib/identity";
 import { isMissingImpactWeekError } from "@/lib/impact-errors";
 import { ensureAnonymousSession } from "@/lib/supabase";
@@ -152,7 +152,7 @@ export default function ImpactScreen() {
 
   async function openExternal(url: string) {
     try {
-      await Linking.openURL(url);
+      await openExternalBrowser(url);
     } catch {
       Alert.alert(
         localize("Could not open the link", "No se pudo abrir el enlace"),

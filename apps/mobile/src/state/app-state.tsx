@@ -25,6 +25,7 @@ import { registerDeviceResponseSchema } from "@screen-time/contracts";
 import { z } from "zod";
 
 import { apiFetch, apiRequest } from "@/lib/api";
+import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import {
   addProvisionalReward,
@@ -36,6 +37,7 @@ import {
   restrictionEngine,
   type PendingUnlockEvent,
   type RestrictionHealth,
+  type ShortcutUnlockSession,
   type UnlockSession,
 } from "@/native/restriction-engine";
 
@@ -65,7 +67,12 @@ type AppStateValue = {
   ): Promise<UserPreferences>;
   spendEmergency(): Promise<boolean>;
   addProvisionalToken(): Promise<void>;
-  unlockCurrent(): Promise<UnlockSession>;
+  unlockCurrent(options?: { freshReward?: boolean }): Promise<UnlockSession>;
+  unlockShortcut(
+    contextId: string,
+    options?: { freshReward?: boolean },
+  ): Promise<ShortcutUnlockSession>;
+  cancelShortcut(contextId: string): Promise<void>;
   clearLocalData(): Promise<void>;
   syncStatus: SyncStatus;
   lastSyncedAt: string | null;
@@ -350,11 +357,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   }, [refresh]);
   useEffect(() => {
     if (!walletHydrated) return;
-    const restrictionsEnabled =
-      Platform.OS === "ios"
-        ? config.iosRestrictionEnabled
-        : config.androidRestrictionEnabled;
+    const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
     void (async () => {
+      if (Platform.OS === "ios") {
+        await restrictionEngine.enableShortcutMode();
+      }
       await restrictionEngine.syncWallet(
         Math.min(wallet.rewardedBalance, wallet.rewardedPassesRemainingToday),
         wallet.emergencyRemaining,
@@ -406,18 +413,23 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     if (cleanup.some((result) => result.status === "rejected"))
       throw new Error("local_cleanup_incomplete");
   }, []);
-  const unlockCurrent = useCallback(async () => {
+  const unlockCurrent = useCallback(async (options: { freshReward?: boolean } = {}) => {
     const restrictionsEnabled =
       Platform.OS === "ios"
         ? config.iosRestrictionEnabled
         : config.androidRestrictionEnabled;
     if (!restrictionsEnabled) throw new Error("restrictions_disabled");
-    const source =
-      wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0
+    const source = options.freshReward
+      ? "rewarded"
+      : wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0
         ? "rewarded"
         : "emergency";
     if (source === "rewarded" && !deviceId) throw new Error("backend_required");
-    if (source === "emergency" && wallet.emergencyRemaining <= 0)
+    if (
+      !options.freshReward &&
+      source === "emergency" &&
+      wallet.emergencyRemaining <= 0
+    )
       throw new Error("no_unlocks");
 
     const event: PendingUnlockEvent = {
@@ -438,7 +450,10 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     );
 
     if (source === "rewarded") {
-      const next = spendLocalWallet(wallet, "rewarded");
+      const spendableWallet = options.freshReward
+        ? addProvisionalReward(wallet, config.maxRewardTokenBalance)
+        : wallet;
+      const next = spendLocalWallet(spendableWallet, "rewarded");
       setWallet(next);
       await setJson("wallet", next);
       try {
@@ -480,10 +495,80 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   }, [
     config.androidRestrictionEnabled,
     config.iosRestrictionEnabled,
+    config.maxRewardTokenBalance,
     deviceId,
     preferences.unlockDurationSeconds,
     wallet,
   ]);
+  const unlockShortcut = useCallback(
+    async (contextId: string, options: { freshReward?: boolean } = {}) => {
+      if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
+      const source = options.freshReward
+        ? "rewarded"
+        : wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0
+          ? "rewarded"
+          : "emergency";
+      if (source === "rewarded" && !deviceId)
+        throw new Error("backend_required");
+      if (
+        !options.freshReward &&
+        source === "emergency" &&
+        wallet.emergencyRemaining <= 0
+      )
+        throw new Error("no_unlocks");
+
+      const event: PendingUnlockEvent = {
+        clientSessionId: Crypto.randomUUID(),
+        source,
+        durationSeconds: preferences.unlockDurationSeconds,
+        startedAt: new Date().toISOString(),
+      };
+      const session = await restrictionEngine.completeShortcutIntervention(
+        contextId,
+        preferences.unlockDurationSeconds,
+      );
+      const spendableWallet = options.freshReward
+        ? addProvisionalReward(wallet, config.maxRewardTokenBalance)
+        : wallet;
+      const next = spendLocalWallet(spendableWallet, source);
+      setWallet(next);
+      await setJson("wallet", next);
+
+      if (deviceId) {
+        try {
+          await reportUnlock(event, deviceId);
+        } catch {
+          const pending = await getJson<PendingUnlockEvent[]>(
+            "pendingUnlockReports",
+            [],
+          );
+          await setJson(
+            "pendingUnlockReports",
+            mergePendingUnlockEvents(pending, [event]),
+          );
+        }
+      } else {
+        const pending = await getJson<PendingUnlockEvent[]>(
+          "pendingUnlockReports",
+          [],
+        );
+        await setJson(
+          "pendingUnlockReports",
+          mergePendingUnlockEvents(pending, [event]),
+        );
+      }
+      return session;
+    },
+    [
+      config.maxRewardTokenBalance,
+      deviceId,
+      preferences.unlockDurationSeconds,
+      wallet,
+    ],
+  );
+  const cancelShortcut = useCallback(async (contextId: string) => {
+    await restrictionEngine.cancelShortcutIntervention(contextId);
+  }, []);
   const value = useMemo(
     () => ({
       ready,
@@ -501,6 +586,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       spendEmergency,
       addProvisionalToken,
       unlockCurrent,
+      unlockShortcut,
+      cancelShortcut,
       clearLocalData,
       syncStatus,
       lastSyncedAt,
@@ -521,6 +608,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       spendEmergency,
       addProvisionalToken,
       unlockCurrent,
+      unlockShortcut,
+      cancelShortcut,
       clearLocalData,
       syncStatus,
       lastSyncedAt,

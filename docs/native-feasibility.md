@@ -21,10 +21,37 @@ Opening the main app directly from Shield is treated as best-effort. The impleme
 
 Run on Android 10, 12, 14, 15, and 16, including Pixel, Samsung, and Xiaomi.
 
-1. Enable the disclosed Accessibility service and select a launchable app.
+Before completing the wider matrix, run the automated attribution regression on
+an authorized USB-debug device with a debuggable Still build, Accessibility
+enabled, and Gmail plus YouTube selected:
+
+```bash
+pnpm --filter mobile acceptance:shield
+```
+
+The gate launches Gmail, returns Home without destroying the intervention, then
+launches YouTube. It asserts that the reused Shield changes to the exact current
+app, displays that app's expected daily attempt, and increments both per-app
+counters independently. It then taps the visible `Go back`/`Volver` control,
+confirms that Android returns to the launcher instead of the blocked app, and
+attributes the avoided open only to YouTube. Alternative installed apps can be
+supplied explicitly:
+
+```bash
+pnpm --filter mobile acceptance:shield -- \
+  com.example.first="First label" \
+  com.example.second="Second label"
+```
+
+1. From the visual Android setup screen, enable the disclosed Accessibility
+   service and select a launchable app. Usage Access is optional and only gates
+   real foreground-time totals.
 2. Confirm `TYPE_WINDOW_STATE_CHANGED` produces the intervention within one second.
-3. Confirm “Ahora no” returns Home and Back cannot bypass it.
-4. Unlock and confirm the package launch intent reopens the target.
+3. Confirm “Ahora no” returns Home, clears the pending target, records the
+   avoided opening for that app, and Back cannot bypass it.
+4. From the React Native intervention, complete a rewarded ad or use a stored
+   pass and confirm the package launch intent reopens the exact target without
+   briefly re-shielding it.
 5. Kill Still and verify detection remains active; reboot and confirm stale sessions no longer apply.
 6. Disable Accessibility, revoke Usage Access, and uninstall a selected target; Settings must show a recoverable health state and open the relevant system control.
 7. Disable `androidRestrictionEnabled` remotely, foreground Still, and confirm the service stops intervening while preserving the local selection; re-enable it and confirm detection returns.

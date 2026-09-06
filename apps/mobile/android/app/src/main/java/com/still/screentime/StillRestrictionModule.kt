@@ -118,6 +118,32 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun cancelCurrentIntervention(promise: Promise) {
+    val packageName = preferences.getString(KEY_CURRENT_PACKAGE, null)
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val totalKey = "avoided_opens:$day"
+    val editor = preferences.edit()
+      .remove(KEY_CURRENT_PACKAGE)
+    if (!packageName.isNullOrBlank()) {
+      val appKey = appMetricKey(METRIC_APP_AVOIDED_OPENS, day, packageName)
+      editor
+        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
+        .putInt(appKey, preferences.getInt(appKey, 0) + 1)
+    }
+    editor.apply()
+
+    val opened = runCatching {
+      context.startActivity(
+        Intent(Intent.ACTION_MAIN)
+          .addCategory(Intent.CATEGORY_HOME)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }.isSuccess
+    if (opened) promise.resolve(null)
+    else promise.reject("home_unavailable", "Android could not return to Home")
+  }
+
+  @ReactMethod
   fun startUnlock(target: ReadableMap, durationSeconds: Int, promise: Promise) {
     if (!preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)) {
       promise.reject("restrictions_disabled", "Restrictions are temporarily disabled")
@@ -127,6 +153,11 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val packageName = if (requested == "current") preferences.getString(KEY_CURRENT_PACKAGE, null) else requested
     if (packageName.isNullOrBlank()) {
       promise.reject("missing_target", "No restricted app is waiting")
+      return
+    }
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+    if (launchIntent == null) {
+      promise.reject("target_unavailable", "The restricted app is no longer available")
       return
     }
 
@@ -140,15 +171,29 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       .putString("session:$sessionId", packageName)
       .apply()
 
+    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+    try {
+      context.startActivity(launchIntent)
+    } catch (error: Exception) {
+      preferences.edit()
+        .remove("session:$sessionId")
+        .remove("unlocked:$packageName")
+        .remove("unlocked_boot:$packageName")
+        .apply()
+      promise.reject("target_launch_failed", "Android could not reopen the restricted app", error)
+      return
+    }
+
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val unlocksKey = "unlocks:$day"
-    preferences.edit().putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1).apply()
+    val appUnlocksKey = appMetricKey(METRIC_APP_UNLOCKS, day, packageName)
+    preferences.edit()
+      .remove(KEY_CURRENT_PACKAGE)
+      .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
+      .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
+      .apply()
 
     Handler(Looper.getMainLooper()).postDelayed({ restoreSession(sessionId) }, duration * 1_000L)
-    context.packageManager.getLaunchIntentForPackage(packageName)?.let {
-      it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-      context.startActivity(it)
-    }
 
     val result = Arguments.createMap().apply {
       putString("id", sessionId)
@@ -171,12 +216,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
     promise.resolve(Arguments.createMap().apply {
       putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
+      putString("wellbeingAuthorization", if (usageAccessEnabled) "authorized" else "denied")
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }
       if (!restrictionsEnabled) putString("issue", "restrictions_disabled")
       else if (!accessibilityEnabled) putString("issue", "accessibility_disabled")
-      else if (!usageAccessEnabled) putString("issue", "usage_access_disabled")
     })
   }
 
@@ -353,6 +398,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val PREFERENCES = "still_restrictions"
     const val KEY_SELECTED_PACKAGES = "selected_packages"
     const val KEY_CURRENT_PACKAGE = "current_package"
+    const val METRIC_APP_OPEN_ATTEMPTS = "app_open_attempts"
+    const val METRIC_APP_AVOIDED_OPENS = "app_avoided_opens"
+    const val METRIC_APP_UNLOCKS = "app_unlocks"
     const val KEY_LAST_RESTORED = "last_restored_at"
     const val KEY_REWARDED_BALANCE = "rewarded_balance"
     const val KEY_EMERGENCY_REMAINING = "emergency_remaining"
@@ -363,6 +411,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_EXTERNAL_AUTH_BYPASS_PACKAGES = "external_auth_bypass_packages"
     const val KEY_EXTERNAL_AUTH_BYPASS_UNTIL = "external_auth_bypass_until"
     const val KEY_EXTERNAL_AUTH_BYPASS_BOOT = "external_auth_bypass_boot"
+
+    fun appMetricKey(metric: String, day: String, packageName: String) =
+      "$metric:$day:$packageName"
     private const val EXTERNAL_AUTH_BYPASS_TIMEOUT_MS = 10 * 60 * 1_000L
     private const val PICKER_REQUEST = 4270
   }

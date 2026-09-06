@@ -50,13 +50,36 @@ final class StillRestrictionEngine: RCTEventEmitter {
       let sheet = StillFamilyPicker(initial: SharedRestrictionState.selection) { selection in
         SharedRestrictionState.selection = selection
         resolve([
-          "count": selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count,
-          "localReference": "ios-app-group-selection"
+          "count": selection.applicationTokens.count + selection.categoryTokens.count
+            + selection.webDomainTokens.count,
+          "localReference": "ios-app-group-selection",
         ])
         presenter.dismiss(animated: true)
       }
       presenter.present(UIHostingController(rootView: sheet), animated: true)
     }
+  }
+
+  @objc func beginExternalAuthSession(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      try SharedRestrictionState.beginExternalBrowserBypass(
+        scheduleMonitoring: shouldScheduleMonitoring
+      )
+      resolve(nil)
+    } catch {
+      reject("external_browser_bypass_failed", error.localizedDescription, error)
+    }
+  }
+
+  @objc func endExternalAuthSession(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    SharedRestrictionState.endExternalBrowserBypass()
+    resolve(nil)
   }
 
   @objc func applyRestrictions(
@@ -66,6 +89,65 @@ final class StillRestrictionEngine: RCTEventEmitter {
   ) {
     SharedRestrictionState.applyShields()
     resolve(nil)
+  }
+
+  @objc func enableShortcutMode(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    SharedRestrictionState.setShortcutModeEnabled(true)
+    resolve(nil)
+  }
+
+  @objc func getPendingShortcutIntervention(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    guard let context = ShortcutInterventionState.pending() else {
+      resolve(nil)
+      return
+    }
+    resolve([
+      "id": context.id,
+      "appName": context.appName,
+      "returnShortcutName": context.returnShortcutName,
+      "attemptsToday": context.attemptsToday,
+      "createdAt": ISO8601DateFormatter().string(from: context.createdAt),
+    ])
+  }
+
+  @objc func completeShortcutIntervention(
+    _ contextId: String,
+    durationSeconds: NSNumber,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      let result = try ShortcutInterventionState.complete(
+        id: contextId,
+        durationSeconds: durationSeconds.intValue
+      )
+      resolve([
+        "id": result.0,
+        "endsAt": ISO8601DateFormatter().string(from: result.1),
+        "returnUrl": result.2.absoluteString,
+      ])
+    } catch {
+      reject("shortcut_intervention_expired", error.localizedDescription, error)
+    }
+  }
+
+  @objc func cancelShortcutIntervention(
+    _ contextId: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      try ShortcutInterventionState.cancel(id: contextId)
+      resolve(nil)
+    } catch {
+      reject("shortcut_intervention_expired", error.localizedDescription, error)
+    }
   }
 
   @objc func startUnlock(
@@ -123,6 +205,16 @@ final class StillRestrictionEngine: RCTEventEmitter {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let selection = SharedRestrictionState.selection
+    if SharedRestrictionState.shortcutModeEnabled {
+      let shortcutHealth: [String: Any] = [
+        "authorization": "authorized",
+        "engineActive": true,
+        "selectedCount": 0,
+        "mode": "shortcuts",
+      ]
+      resolve(shortcutHealth)
+      return
+    }
     let status: String
     switch AuthorizationCenter.shared.authorizationStatus {
     case .approved: status = "authorized"
@@ -130,11 +222,15 @@ final class StillRestrictionEngine: RCTEventEmitter {
     case .notDetermined: status = "notDetermined"
     @unknown default: status = "unavailable"
     }
-    let count = selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count
+    let count =
+      selection.applicationTokens.count + selection.categoryTokens.count
+      + selection.webDomainTokens.count
     var health: [String: Any] = [
       "authorization": status,
-      "engineActive": SharedRestrictionState.restrictionsEnabled && status == "authorized" && count > 0,
-      "selectedCount": count
+      "engineActive": SharedRestrictionState.restrictionsEnabled && status == "authorized"
+        && count > 0,
+      "selectedCount": count,
+      "mode": "managed",
     ]
     if let lastRestoredAt = SharedRestrictionState.defaults.string(forKey: "lastRestoredAt") {
       health["lastRestoredAt"] = lastRestoredAt
@@ -170,14 +266,15 @@ final class StillRestrictionEngine: RCTEventEmitter {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let formatter = ISO8601DateFormatter()
-    resolve(SharedRestrictionState.pendingUnlocks().map { event in
-      [
-        "clientSessionId": event.clientSessionId,
-        "source": event.source,
-        "durationSeconds": event.durationSeconds,
-        "startedAt": formatter.string(from: event.startedAt)
-      ]
-    })
+    resolve(
+      SharedRestrictionState.pendingUnlocks().map { event in
+        [
+          "clientSessionId": event.clientSessionId,
+          "source": event.source,
+          "durationSeconds": event.durationSeconds,
+          "startedAt": formatter.string(from: event.startedAt),
+        ]
+      })
   }
 
   @objc func acknowledgeUnlockEvent(
@@ -212,7 +309,7 @@ final class StillRestrictionEngine: RCTEventEmitter {
       "openAttempts": metrics.openAttempts,
       "avoidedOpens": metrics.avoidedOpens,
       "unlocks": metrics.unlocks,
-      "weeklyScreenTimeSeconds": []
+      "weeklyScreenTimeSeconds": [],
     ])
   }
 

@@ -9,6 +9,8 @@
     "ios": "expo run:ios --port 8082",
     "android": "expo run:android --port 8082",
     "prebuild": "expo prebuild",
+    "acceptance:shield": "node scripts/verify-shield-attribution.mjs",
+    "acceptance:ios-shortcuts": "node scripts/verify-ios-shortcuts-build.mjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"

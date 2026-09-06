@@ -1079,6 +1079,28 @@ img {
   color: var(--mineral-light);
   font-size: 12px;
 }
+.closing-v3__download {
+  flex-wrap: wrap;
+}
+.closing-v3__checksum {
+  padding-bottom: 3px;
+  border-bottom: 1px solid currentColor;
+  color: var(--mineral-light);
+  font-size: 12px;
+}
+.closing-v3__waitlist {
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 14px !important;
+}
+.closing-v3__waitlist .beta-form {
+  width: min(100%, 700px);
+}
+.closing-v3__waitlist .beta-form input,
+.closing-v3__waitlist .beta-form select {
+  color: var(--graphite);
+  background: var(--chalk);
+}
 .site-footer {
   min-height: 180px;
   display: grid;

@@ -39,6 +39,7 @@ function Navigation() {
   const router = useRouter();
   const { onboarded, walletHydrated } = useAppState();
   const lastRechargeNavigation = useRef(0);
+  const lastShortcutIntervention = useRef<string | null>(null);
 
   useEffect(() => {
     if (!onboarded || Platform.OS === "web") return;
@@ -54,6 +55,24 @@ function Navigation() {
 
   useEffect(() => {
     if (!walletHydrated) return;
+    const checkPendingShortcut = async () => {
+      if (Platform.OS !== "ios") return false;
+      const pending = await restrictionEngine
+        .getPendingShortcutIntervention()
+        .catch(() => null);
+      if (!pending || pending.id === lastShortcutIntervention.current)
+        return Boolean(pending);
+      lastShortcutIntervention.current = pending.id;
+      router.replace({
+        pathname: "/intervention",
+        params: {
+          app: pending.appName,
+          attempts: String(pending.attemptsToday),
+          shortcutId: pending.id,
+        },
+      });
+      return true;
+    };
     const openRecharge = (source: string, requestId: string) => {
       const now = Date.now();
       if (now - lastRechargeNavigation.current < 3_000) return;
@@ -84,7 +103,11 @@ function Navigation() {
     const appStateSubscription = AppState.addEventListener(
       "change",
       (state) => {
-        if (state === "active") void checkPendingRecharge("foreground");
+        if (state === "active") {
+          void checkPendingShortcut().then((opened) => {
+            if (!opened) void checkPendingRecharge("foreground");
+          });
+        }
       },
     );
     const notificationSubscription =
@@ -98,7 +121,9 @@ function Navigation() {
       void Notifications.clearLastNotificationResponseAsync();
       void checkPendingRecharge("cold-notification", true);
     });
-    void checkPendingRecharge();
+    void checkPendingShortcut().then((opened) => {
+      if (!opened) void checkPendingRecharge();
+    });
     return () => {
       subscription?.remove();
       appStateSubscription.remove();
@@ -117,6 +142,8 @@ function Navigation() {
       <Stack.Screen name="(onboarding)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="auth/callback" />
+      <Stack.Screen name="shortcut-setup" />
+      <Stack.Screen name="android-setup" />
       <Stack.Screen name="unlock-ready" />
       <Stack.Screen
         name="intervention"
