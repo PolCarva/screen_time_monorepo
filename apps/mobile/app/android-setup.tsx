@@ -58,6 +58,30 @@ const steps = [
   },
 ] as const;
 
+function confirmAccessibilityDisclosure(): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      localize("Accessibility access", "Acceso de Accesibilidad"),
+      localize(
+        "Still uses Android Accessibility to detect the identifier of the app that enters the foreground, only so it can show a pause for apps you choose. It cannot read screen content or type for you. Selected app identifiers and per-app counters stay on this device and are not collected or shared. You can turn this access off at any time in Android Settings.",
+        "Still usa la Accesibilidad de Android para detectar el identificador de la app que entra en primer plano, únicamente para mostrar una pausa en las apps que tú eliges. No puede leer el contenido de la pantalla ni escribir por ti. Los identificadores elegidos y los contadores por app permanecen en este dispositivo y no se recopilan ni comparten. Puedes desactivar este acceso en cualquier momento desde los Ajustes de Android.",
+      ),
+      [
+        {
+          text: localize("Not now", "Ahora no"),
+          style: "cancel",
+          onPress: () => resolve(false),
+        },
+        {
+          text: localize("I agree and continue", "Aceptar y continuar"),
+          onPress: () => resolve(true),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
 export default function AndroidSetupScreen() {
   const { config, health, refresh } = useAppState();
   const [localHealth, setLocalHealth] = useState<RestrictionHealth>(health);
@@ -91,6 +115,8 @@ export default function AndroidSetupScreen() {
     try {
       let authorization = localHealth.authorization;
       if (authorization !== "authorized") {
+        const consented = await confirmAccessibilityDisclosure();
+        if (!consented) return;
         authorization = await restrictionEngine.requestAuthorization();
       }
       if (authorization !== "authorized") {
@@ -140,7 +166,10 @@ export default function AndroidSetupScreen() {
       await refreshHealth();
       if (status !== "authorized") {
         Alert.alert(
-          localize("Real stats remain off", "Las estadísticas reales siguen apagadas"),
+          localize(
+            "Real stats remain off",
+            "Las estadísticas reales siguen apagadas",
+          ),
           localize(
             "This is optional. Pauses and per-app opening counts still work without Usage Access.",
             "Esto es opcional. Las pausas y los conteos de aperturas por app siguen funcionando sin Acceso al uso.",
@@ -151,7 +180,10 @@ export default function AndroidSetupScreen() {
       }
     } catch {
       Alert.alert(
-        localize("Could not open Usage Access", "No se pudo abrir Acceso al uso"),
+        localize(
+          "Could not open Usage Access",
+          "No se pudo abrir Acceso al uso",
+        ),
         localize(
           "You can enable it later from Android Settings.",
           "Puedes activarlo más tarde desde los Ajustes de Android.",
@@ -176,7 +208,9 @@ export default function AndroidSetupScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>{localize("ANDROID / SETUP", "ANDROID / CONFIGURACIÓN")}</Eyebrow>
+        <Eyebrow>
+          {localize("ANDROID / SETUP", "ANDROID / CONFIGURACIÓN")}
+        </Eyebrow>
       </View>
 
       <View style={styles.header}>
@@ -197,11 +231,11 @@ export default function AndroidSetupScreen() {
       <View style={styles.status}>
         <View style={styles.statusRow}>
           <Mono>{localize("ACCESSIBILITY", "ACCESIBILIDAD")}</Mono>
-          <Mono>{
-            localHealth.authorization === "authorized"
+          <Mono>
+            {localHealth.authorization === "authorized"
               ? localize("READY", "LISTO")
-              : localize("REQUIRED", "REQUERIDO")
-          }</Mono>
+              : localize("REQUIRED", "REQUERIDO")}
+          </Mono>
         </View>
         <View style={styles.statusRow}>
           <Mono>{localize("SELECTED APPS", "APPS ELEGIDAS")}</Mono>
@@ -237,8 +271,14 @@ export default function AndroidSetupScreen() {
 
       <View style={styles.optional}>
         <View style={styles.statusRow}>
-          <Eyebrow>{localize("OPTIONAL / REAL TIME", "OPCIONAL / TIEMPO REAL")}</Eyebrow>
-          <Mono>{statsEnabled ? localize("ON", "ACTIVO") : localize("OFF", "APAGADO")}</Mono>
+          <Eyebrow>
+            {localize("OPTIONAL / REAL TIME", "OPCIONAL / TIEMPO REAL")}
+          </Eyebrow>
+          <Mono>
+            {statsEnabled
+              ? localize("ON", "ACTIVO")
+              : localize("OFF", "APAGADO")}
+          </Mono>
         </View>
         <Body style={styles.stepBody}>
           {localize(
@@ -272,7 +312,10 @@ export default function AndroidSetupScreen() {
       >
         {ready
           ? localize("Done", "Listo")
-          : localize("Complete required setup first", "Completa primero lo requerido")}
+          : localize(
+              "Complete required setup first",
+              "Completa primero lo requerido",
+            )}
       </PrimaryButton>
     </Screen>
   );
