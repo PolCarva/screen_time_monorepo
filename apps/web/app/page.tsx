@@ -361,6 +361,11 @@ export default async function HomePage() {
             >
               Verificar SHA-256
             </a>
+            <span>
+              Nota: algunos dispositivos bloquean desde Play Protect las apps
+              descargadas por navegador que usan Accesibilidad. Estamos
+              habilitando el canal de pruebas de Google Play para esos casos.
+            </span>
           </div>
           <div className="closing-v3__waitlist">
             <span>¿Usas iPhone o quieres recibir próximas versiones?</span>
