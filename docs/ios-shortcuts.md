@@ -41,6 +41,16 @@ open. It does not run the return shortcut.
 
 ## Physical release acceptance
 
+Before building or installing, run the physical-device preflight:
+
+```sh
+pnpm --filter mobile acceptance:ios-device-ready
+```
+
+It requires an online, unlocked and trusted physical iPhone or iPad plus at
+least one valid Apple code-signing identity. Its failure message distinguishes
+an offline device from missing signing credentials.
+
 First verify the compiled app contract. The command checks that Shortcuts can
 discover the action, its single app-specific parameter is present, Still only
 foregrounds dynamically, and the production iOS AdMob application id reached

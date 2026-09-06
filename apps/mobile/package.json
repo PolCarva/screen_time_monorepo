@@ -11,6 +11,7 @@
     "prebuild": "expo prebuild",
     "acceptance:shield": "node scripts/verify-shield-attribution.mjs",
     "acceptance:ios-shortcuts": "node scripts/verify-ios-shortcuts-build.mjs",
+    "acceptance:ios-device-ready": "node scripts/verify-ios-device-readiness.mjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
