@@ -34,6 +34,12 @@ class InterventionActivity : Activity() {
 
     val spanish = resources.configuration.locales[0].language == "es"
     val targetPackage = currentTargetPackage
+    if (StillSelfProtection.isOwnPackage(packageName, targetPackage)) {
+      val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
+      StillSelfProtection.clearOwnTarget(preferences, packageName)
+      finish()
+      return
+    }
     val appLabel = targetPackage?.let {
       runCatching {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()

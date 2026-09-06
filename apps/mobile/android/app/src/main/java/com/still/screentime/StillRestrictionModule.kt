@@ -36,6 +36,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   private var pickerPromise: Promise? = null
 
   init {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     context.addActivityEventListener(this)
     context.addLifecycleEventListener(this)
   }
@@ -44,6 +45,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun requestAuthorization(promise: Promise) {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     if (isAccessibilityEnabled()) {
       promise.resolve("authorized")
       return
@@ -80,6 +82,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun presentAppPicker(promise: Promise) {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val activity = context.currentActivity
     if (activity == null) {
       promise.reject("no_activity", "Still must be open to choose apps")
@@ -114,6 +117,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun applyRestrictions(selection: ReadableMap, promise: Promise) {
     // AppPickerActivity persists only opaque local package selections.
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     promise.resolve(null)
   }
 
@@ -124,7 +128,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val totalKey = "avoided_opens:$day"
     val editor = preferences.edit()
       .remove(KEY_CURRENT_PACKAGE)
-    if (!packageName.isNullOrBlank()) {
+    if (!packageName.isNullOrBlank() && !StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
       val appKey = appMetricKey(METRIC_APP_AVOIDED_OPENS, day, packageName)
       editor
         .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
@@ -153,6 +157,11 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val packageName = if (requested == "current") preferences.getString(KEY_CURRENT_PACKAGE, null) else requested
     if (packageName.isNullOrBlank()) {
       promise.reject("missing_target", "No restricted app is waiting")
+      return
+    }
+    if (StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      StillSelfProtection.clearOwnTarget(preferences, context.packageName)
+      promise.reject("invalid_target", "Still cannot restrict or unlock itself")
       return
     }
     val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -210,7 +219,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun getHealth(promise: Promise) {
-    val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet())?.size ?: 0
+    val selected = StillSelfProtection
+      .sanitizePreferences(preferences, context.packageName)
+      .size
     val accessibilityEnabled = isAccessibilityEnabled()
     val usageAccessEnabled = hasUsageAccess()
     val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
@@ -258,7 +269,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun getLocalWellbeing(promise: Promise) {
     val day = LocalDate.now(ZoneOffset.UTC).toString()
-    val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()
+    val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     val usageAllowed = hasUsageAccess()
     var foregroundMillis = 0L
@@ -310,6 +321,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   private fun restoreSession(sessionId: String) {
     val packageName = preferences.getString("session:$sessionId", null) ?: return
+    if (StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      StillSelfProtection.clearOwnTarget(preferences, context.packageName)
+      return
+    }
     preferences.edit()
       .remove("session:$sessionId")
       .remove("unlocked:$packageName")
@@ -376,6 +391,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   override fun onNewIntent(intent: Intent) = Unit
 
   override fun onHostResume() {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     authorizationPromise?.let {
       authorizationPromise = null
       it.resolve(if (isAccessibilityEnabled()) "authorized" else "denied")

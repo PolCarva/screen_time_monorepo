@@ -21,6 +21,12 @@ describe("committed native production configuration", () => {
     const accessibilityService = nativeFile(
       "android/app/src/main/java/com/still/screentime/StillAccessibilityService.kt",
     );
+    const appPicker = nativeFile(
+      "android/app/src/main/java/com/still/screentime/AppPickerActivity.kt",
+    );
+    const selfProtection = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillSelfProtection.kt",
+    );
 
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
@@ -65,6 +71,29 @@ describe("committed native production configuration", () => {
     expect(accessibilityService).toContain("METRIC_APP_OPEN_ATTEMPTS");
     expect(accessibilityService).toContain("alreadyPending");
     expect(accessibilityService).toContain("EXTRA_TARGET_ATTEMPTS");
+    expect(accessibilityService).toContain(
+      "StillSelfProtection.isOwnPackage(packageName, target)",
+    );
+    expect(
+      accessibilityService.indexOf(
+        "StillSelfProtection.isOwnPackage(packageName, target)",
+      ),
+    ).toBeLessThan(accessibilityService.indexOf("val selected ="));
+    expect(appPicker).toMatch(
+      /StillSelfProtection\s*\.sanitizePreferences\(preferences, packageName\)/,
+    );
+    expect(appPicker).toContain(
+      "!StillSelfProtection.isOwnPackage(packageName, it.packageName)",
+    );
+    expect(restrictionModule).toContain(
+      "StillSelfProtection.sanitizePreferences",
+    );
+    expect(restrictionModule).toContain('promise.reject("invalid_target"');
+    expect(intervention).toContain(
+      "StillSelfProtection.isOwnPackage(packageName, targetPackage)",
+    );
+    expect(selfProtection).toContain("fun withoutOwnPackage");
+    expect(selfProtection).toContain(".remove(KEY_CURRENT_PACKAGE)");
   });
 
   it("keeps iOS identity, deep linking, ads, and Screen Time entitlements in sync", () => {

@@ -14,10 +14,21 @@ class StillAccessibilityService : AccessibilityService() {
   private var lastInterventionPackage: String? = null
   private var lastInterventionAt = 0L
 
+  override fun onServiceConnected() {
+    super.onServiceConnected()
+    StillSelfProtection.sanitizePreferences(preferences, packageName)
+  }
+
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
     if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
     val target = event.packageName?.toString() ?: return
+    if (StillSelfProtection.isOwnPackage(packageName, target)) {
+      StillSelfProtection.clearOwnTarget(preferences, packageName)
+      lastInterventionPackage = null
+      lastInterventionAt = 0L
+      return
+    }
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
     val selected = preferences.getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()
     if (target !in selected || isTemporarilyUnlocked(target) || isExternalAuthBrowser(target)) return
 
