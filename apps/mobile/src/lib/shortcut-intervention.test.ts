@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { getInterventionUnlockAction } from "./shortcut-intervention";
+import {
+  completeShortcutAndReturn,
+  getInterventionUnlockAction,
+} from "./shortcut-intervention";
 
 const base = {
   supportsDirectAd: true,
@@ -56,5 +59,69 @@ describe("direct intervention unlock action", () => {
     expect(
       getInterventionUnlockAction({ ...base, supportsDirectAd: false }),
     ).toBeNull();
+  });
+});
+
+describe("iOS Shortcut return orchestration", () => {
+  it("activates the app-scoped allowance before opening the exact return URL", async () => {
+    const order: string[] = [];
+    const unlockShortcut = vi.fn(async () => {
+      order.push("allowance");
+      return {
+        returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+      };
+    });
+    const onUnlockActivated = vi.fn(() => {
+      order.push("record");
+    });
+    const openUrl = vi.fn(async (url: string) => {
+      order.push(`open:${url}`);
+    });
+
+    await completeShortcutAndReturn({
+      contextId: "youtube-context",
+      freshReward: true,
+      unlockShortcut,
+      onUnlockActivated,
+      openUrl,
+    });
+
+    expect(unlockShortcut).toHaveBeenCalledWith("youtube-context", {
+      freshReward: true,
+    });
+    expect(order).toEqual([
+      "allowance",
+      "record",
+      "open:shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+    ]);
+  });
+
+  it("never opens the target when activating the allowance fails", async () => {
+    const openUrl = vi.fn(async () => undefined);
+
+    await expect(
+      completeShortcutAndReturn({
+        contextId: "youtube-context",
+        unlockShortcut: vi.fn(async () => {
+          throw new Error("allowance_failed");
+        }),
+        openUrl,
+      }),
+    ).rejects.toThrow("allowance_failed");
+    expect(openUrl).not.toHaveBeenCalled();
+  });
+
+  it("uses an existing pass without claiming a fresh reward", async () => {
+    const unlockShortcut = vi.fn(async () => ({
+      returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+    }));
+
+    await completeShortcutAndReturn({
+      contextId: "youtube-context",
+      unlockShortcut,
+      openUrl: vi.fn(async () => undefined),
+    });
+
+    expect(unlockShortcut).toHaveBeenCalledWith("youtube-context");
   });
 });

@@ -19,7 +19,10 @@ import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
-import { getInterventionUnlockAction } from "@/lib/shortcut-intervention";
+import {
+  completeShortcutAndReturn,
+  getInterventionUnlockAction,
+} from "@/lib/shortcut-intervention";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -84,11 +87,13 @@ export default function InterventionScreen() {
         : Math.max(stats.openAttempts, stats.avoidedOpens + stats.unlocks);
 
   async function unlock() {
-    let shortcutFailureStage: "reward" | "unlock" | "return" = "unlock";
+    const shortcutFailureStage: {
+      current: "reward" | "unlock" | "return";
+    } = { current: "unlock" };
     setBusy(true);
     try {
       if (directAdReady) {
-        shortcutFailureStage = "reward";
+        shortcutFailureStage.current = "reward";
         const prepared = await showPrepared();
         if (!prepared) throw new Error("reward_unavailable");
         const { intent, result } = prepared;
@@ -105,18 +110,22 @@ export default function InterventionScreen() {
             headers: { "idempotency-key": result.clientEventId },
           },
         );
-        shortcutFailureStage = "unlock";
+        shortcutFailureStage.current = "unlock";
         if (shortcutId) {
-          const session = await unlockShortcut(shortcutId, {
+          await completeShortcutAndReturn({
+            contextId: shortcutId,
             freshReward: true,
+            unlockShortcut,
+            onUnlockActivated: () => {
+              capture("unlock_started", {
+                source: "rewarded",
+                resumedIntent: true,
+                trigger: "ios_shortcut",
+              });
+              shortcutFailureStage.current = "return";
+            },
+            openUrl: Linking.openURL,
           });
-          capture("unlock_started", {
-            source: "rewarded",
-            resumedIntent: true,
-            trigger: "ios_shortcut",
-          });
-          shortcutFailureStage = "return";
-          await Linking.openURL(session.returnUrl);
           return;
         }
         await unlockCurrent({ freshReward: true });
@@ -140,14 +149,19 @@ export default function InterventionScreen() {
           );
           return;
         }
-        const session = await unlockShortcut(shortcutId);
-        capture("unlock_started", {
-          source: hasRewardedPass ? "rewarded" : "emergency",
-          resumedIntent: true,
-          trigger: "ios_shortcut",
+        await completeShortcutAndReturn({
+          contextId: shortcutId,
+          unlockShortcut,
+          onUnlockActivated: () => {
+            capture("unlock_started", {
+              source: hasRewardedPass ? "rewarded" : "emergency",
+              resumedIntent: true,
+              trigger: "ios_shortcut",
+            });
+            shortcutFailureStage.current = "return";
+          },
+          openUrl: Linking.openURL,
         });
-        shortcutFailureStage = "return";
-        await Linking.openURL(session.returnUrl);
         return;
       }
       if (
@@ -179,12 +193,12 @@ export default function InterventionScreen() {
       Alert.alert(
         localize("Couldn’t open the app", "No se pudo abrir la app"),
         isShortcutIntervention
-          ? shortcutFailureStage === "reward"
+          ? shortcutFailureStage.current === "reward"
             ? localize(
                 "The reward could not be confirmed, so access was not activated. Check your connection and try again.",
                 "No se pudo confirmar la recompensa, por lo que el acceso no se activó. Revisa tu conexión e inténtalo de nuevo.",
               )
-            : shortcutFailureStage === "return"
+            : shortcutFailureStage.current === "return"
               ? localize(
                   "Check that the return shortcut name is exact. Access is active, so reopening the app will not show Still again during this window.",
                   "Comprueba que el nombre del atajo de retorno sea exacto. El acceso está activo, así que volver a abrir la app no mostrará Still durante este período.",
@@ -326,12 +340,12 @@ export default function InterventionScreen() {
               ? `After continuing, Still runs your return shortcut and ${appLabel} stays open for ${durationLabel}.`
               : isAndroidIntervention
                 ? `After continuing, Still returns directly to ${appLabel}, which stays open for ${durationLabel}.`
-              : `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
+                : `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
             isShortcutIntervention
               ? `Después de continuar, Still ejecuta tu atajo de retorno y ${appLabel} queda abierto durante ${durationLabel}.`
               : isAndroidIntervention
                 ? `Después de continuar, Still vuelve directamente a ${appLabel}, que queda abierto durante ${durationLabel}.`
-              : `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
+                : `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
           )}
         </Body>
       </View>

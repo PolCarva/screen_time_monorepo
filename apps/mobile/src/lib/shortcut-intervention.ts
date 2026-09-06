@@ -8,6 +8,23 @@ export type InterventionUnlockAction =
   | "use_emergency"
   | "retry_ad";
 
+type ShortcutReturnSession = {
+  returnUrl: string;
+};
+
+type ShortcutUnlock = (
+  contextId: string,
+  options?: { freshReward?: boolean },
+) => Promise<ShortcutReturnSession>;
+
+type CompleteShortcutAndReturnInput = {
+  contextId: string;
+  freshReward?: boolean;
+  unlockShortcut: ShortcutUnlock;
+  onUnlockActivated?: () => void | Promise<void>;
+  openUrl: (url: string) => Promise<unknown>;
+};
+
 type InterventionUnlockInput = {
   supportsDirectAd: boolean;
   hasDevice: boolean;
@@ -50,4 +67,19 @@ export function getInterventionUnlockAction({
     return "use_rewarded_pass";
   if (emergencyRemaining > 0) return "use_emergency";
   return "retry_ad";
+}
+
+export async function completeShortcutAndReturn({
+  contextId,
+  freshReward = false,
+  unlockShortcut,
+  onUnlockActivated,
+  openUrl,
+}: CompleteShortcutAndReturnInput): Promise<ShortcutReturnSession> {
+  const session = freshReward
+    ? await unlockShortcut(contextId, { freshReward: true })
+    : await unlockShortcut(contextId);
+  await onUnlockActivated?.();
+  await openUrl(session.returnUrl);
+  return session;
 }
