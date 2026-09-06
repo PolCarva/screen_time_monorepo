@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AttentionField } from "@/components/attention-field";
+import { AndroidDownloadLink } from "@/components/android-download-link";
 import { BetaSignupForm } from "@/components/beta-signup-form";
 import { BrandLockup } from "@/components/brand-mark";
 import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
@@ -36,9 +37,7 @@ export default async function HomePage() {
               visible la decisión; no la toma por ti.
             </p>
             <div className="hero-v3__actions" id="download">
-              <a className="button button--ink" href="#beta-status">
-                Ver disponibilidad
-              </a>
+              <AndroidDownloadLink>Descargar para Android</AndroidDownloadLink>
               <a className="text-link" href="#intervencion">
                 Ver la intervención
               </a>
@@ -73,7 +72,7 @@ export default async function HomePage() {
           </div>
           <div>
             <dt>Siguiente acción</dt>
-            <dd>Ver disponibilidad →</dd>
+            <dd>Descargar APK →</dd>
           </div>
         </dl>
       </section>
@@ -346,14 +345,26 @@ export default async function HomePage() {
 
       <section className="closing-v3" id="beta-status">
         <div className="shell-wide closing-v3__inner">
-          <p className="mono-label">BETA PRIVADA / ANDROID</p>
-          <h2>El momento antes de entrar también puede ser tuyo.</h2>
-          <div>
-            <BetaSignupForm />
+          <p className="mono-label">BETA DESCARGABLE / ANDROID</p>
+          <h2>Instala Still y prueba la pausa en tu teléfono.</h2>
+          <div className="closing-v3__download">
+            <AndroidDownloadLink className="button button--chalk">
+              Descargar Still para Android
+            </AndroidDownloadLink>
             <span>
-              Acceso por invitación · disponibilidad limitada por país y
-              plataforma.
+              Versión 0.1.0 beta · Android 10 o posterior · teléfonos ARM64 ·
+              85 MB
             </span>
+            <a
+              className="closing-v3__checksum"
+              href="/downloads/still-android-beta-0.1.0-arm64.apk.sha256"
+            >
+              Verificar SHA-256
+            </a>
+          </div>
+          <div className="closing-v3__waitlist">
+            <span>¿Usas iPhone o quieres recibir próximas versiones?</span>
+            <BetaSignupForm />
           </div>
         </div>
       </section>

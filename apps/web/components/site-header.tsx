@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AndroidDownloadLink } from "@/components/android-download-link";
 import { BrandLockup } from "@/components/brand-mark";
 
 export function SiteHeader() {
@@ -8,7 +9,9 @@ export function SiteHeader() {
       <nav aria-label="Principal">
         <Link className="nav-link" href="/#producto">Producto</Link>
         <Link className="nav-link" href="/impact">Impacto</Link>
-        <Link className="button button--small button--outline" href="/#beta-status">Estado beta</Link>
+        <AndroidDownloadLink className="button button--small button--outline">
+          Descargar APK
+        </AndroidDownloadLink>
       </nav>
     </header>
   );
