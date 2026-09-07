@@ -34,6 +34,8 @@ let loadingAd: {
   intentId: string;
   promise: Promise<"ready" | "unavailable">;
 } | null = null;
+export const REWARD_AD_LOAD_TIMEOUT_MS = 12_000;
+
 function createAd(intent?: RewardIntent) {
   return RewardedAd.createForAdRequest(
     __DEV__ ? TestIds.REWARDED : configuredAdUnit!,
@@ -57,20 +59,26 @@ function loadAd(intent: RewardIntent): Promise<"ready" | "unavailable"> {
 
   const ad = createAd(intent);
   const promise = new Promise<"ready" | "unavailable">((resolve) => {
-    const unsubscribeLoaded = ad.addAdEventListener(
-      RewardedAdEventType.LOADED,
-      () => {
-        unsubscribeLoaded();
-        unsubscribeError();
-        loadedAd = { intentId: intent.id, ad };
-        resolve("ready");
-      },
+    let settled = false;
+    const cleanups: Array<() => void> = [];
+    const timeout = setTimeout(
+      () => finish("unavailable"),
+      REWARD_AD_LOAD_TIMEOUT_MS,
     );
-    const unsubscribeError = ad.addAdEventListener(AdEventType.ERROR, () => {
-      unsubscribeLoaded();
-      unsubscribeError();
-      resolve("unavailable");
-    });
+    const finish = (result: "ready" | "unavailable") => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      cleanups.splice(0).forEach((unsubscribe) => unsubscribe());
+      if (result === "ready") loadedAd = { intentId: intent.id, ad };
+      resolve(result);
+    };
+    cleanups.push(
+      ad.addAdEventListener(RewardedAdEventType.LOADED, () => finish("ready")),
+    );
+    cleanups.push(
+      ad.addAdEventListener(AdEventType.ERROR, () => finish("unavailable")),
+    );
     ad.load();
   }).finally(() => {
     if (loadingAd?.intentId === intent.id) loadingAd = null;

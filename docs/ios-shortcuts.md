@@ -29,8 +29,9 @@ shortcut name never leave the device.
    background and the app remains visible.
 3. Otherwise the intent stores an app-scoped intervention and conditionally
    brings Still to the foreground.
-4. Still offers the prepared rewarded ad directly. A stored pass or Emergency
-   Access is used only when a direct ad is unavailable or capped.
+4. Still offers the prepared rewarded ad directly. On a cold start it waits up
+   to 12 seconds for AdMob; a stored pass or Emergency Access is used only when
+   a direct ad is unavailable, times out or is capped.
 5. Once the reward is accepted, Still records the unlock, starts the app-scoped
    allowance and runs `shortcuts://run-shortcut?name=Still · YouTube`.
 6. The return shortcut opens YouTube. Its automation fires again, sees the
