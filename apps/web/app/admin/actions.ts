@@ -241,6 +241,7 @@ export async function publishConfig(
       iosRestrictionEnabled: formData.get("iosRestrictionEnabled") === "on",
       androidRestrictionEnabled:
         formData.get("androidRestrictionEnabled") === "on",
+      iosHomeOnCancelEnabled: formData.get("iosHomeOnCancelEnabled") === "on",
       publishedAt: new Date().toISOString(),
     });
     const client = createAdminClient()!;

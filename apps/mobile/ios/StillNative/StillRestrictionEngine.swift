@@ -219,6 +219,27 @@ final class StillRestrictionEngine: RCTEventEmitter {
     resolve(nil)
   }
 
+  /// Sends Still to the background so the user lands on the Home Screen after
+  /// declining to open an app. iOS has no public API for this; `suspend` is the
+  /// same message the system sends for a Home press. JavaScript only calls it
+  /// while the remote `iosHomeOnCancelEnabled` flag is on and falls back to a
+  /// helper shortcut or a manual hint otherwise.
+  @objc func suspendToHome(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async {
+      let application = UIApplication.shared
+      let selector = NSSelectorFromString("suspend")
+      guard application.responds(to: selector) else {
+        reject("suspend_unavailable", "This iOS version cannot leave to the Home Screen", nil)
+        return
+      }
+      application.perform(selector)
+      resolve(nil)
+    }
+  }
+
   @objc func startUnlock(
     _ target: NSDictionary,
     durationSeconds: NSNumber,

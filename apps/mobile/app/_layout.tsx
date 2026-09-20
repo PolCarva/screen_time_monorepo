@@ -147,6 +147,7 @@ function Navigation() {
       <Stack.Screen name="shortcut-setup" />
       <Stack.Screen name="android-setup" />
       <Stack.Screen name="unlock-ready" />
+      <Stack.Screen name="leave" options={{ gestureEnabled: false }} />
       <Stack.Screen
         name="intervention"
         options={{ presentation: "fullScreenModal", gestureEnabled: false }}

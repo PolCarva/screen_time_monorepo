@@ -21,6 +21,7 @@ import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import { getInterventionUnlockAction } from "@/lib/shortcut-intervention";
 import { restrictionEngine } from "@/native/restriction-engine";
+import { useLeaveToHome } from "@/native/use-leave-to-home";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
 import { colors, fonts, spacing } from "@/theme/tokens";
@@ -43,6 +44,8 @@ export default function InterventionScreen() {
     setupTest?: string;
   }>();
 
+  const leaveToHome = useLeaveToHome();
+
   // iOS Shortcuts pauses follow their own ad-first flow. Everything below this
   // branch is the Android and in-app path.
   if (shortcutId) {
@@ -52,7 +55,9 @@ export default function InterventionScreen() {
         appLabel={app || localize("Selected app", "App seleccionada")}
         attempts={Number.isFinite(parsed) && parsed > 0 ? parsed : 1}
         isSetupTest={setupTest === "1"}
-        onLeave={() => router.replace("/(tabs)/(today)")}
+        onLeave={async () => {
+          await leaveToHome();
+        }}
         shortcutId={shortcutId}
       />
     );
