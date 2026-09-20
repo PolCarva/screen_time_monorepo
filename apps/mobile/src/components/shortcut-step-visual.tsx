@@ -3,11 +3,23 @@ import { StyleSheet, Text, View } from "react-native";
 import { localize } from "@/i18n";
 import { colors, radius, spacing } from "@/theme/tokens";
 
-export type ShortcutStepVisualVariant = "return" | "trigger" | "pause";
+export type ShortcutStepVisualVariant =
+  | "return"
+  | "trigger"
+  | "pause"
+  | "import"
+  | "toggle"
+  | "trigger-multi"
+  | "current-app"
+  | "pause-current";
 
 type ShortcutStepVisualProps = {
   accessibilityLabel: string;
   variant: ShortcutStepVisualVariant;
+  /** App shown in the mock-up; the user's own first choice when there is one. */
+  appName?: string;
+  /** Apps listed in the multi-app trigger mock-up. */
+  appNames?: readonly string[];
 };
 
 function Chrome({ title }: { title: string }) {
@@ -39,10 +51,10 @@ function ShortcutBadge({ label, tone }: { label: string; tone: "blue" | "red" | 
   );
 }
 
-function ReturnShortcutVisual() {
+function ReturnShortcutVisual({ appName }: { appName: string }) {
   return (
     <>
-      <Chrome title="Still · YouTube" />
+      <Chrome title={`Still · ${appName}`} />
       <View style={styles.actionCard}>
         <ShortcutBadge label="↗" tone="blue" />
         <View style={styles.actionCopy}>
@@ -50,7 +62,7 @@ function ReturnShortcutVisual() {
             {localize("Open App", "Abrir app")}
           </Text>
           <View style={styles.valuePill}>
-            <Text style={styles.valueText}>YouTube</Text>
+            <Text style={styles.valueText}>{appName}</Text>
           </View>
         </View>
       </View>
@@ -58,7 +70,7 @@ function ReturnShortcutVisual() {
   );
 }
 
-function TriggerVisual() {
+function TriggerVisual({ appName }: { appName: string }) {
   return (
     <>
       <Chrome title={localize("New Automation", "Nueva automatización")} />
@@ -69,7 +81,7 @@ function TriggerVisual() {
             {localize("WHEN", "CUANDO")}
           </Text>
           <Text style={styles.actionTitle}>
-            {localize("YouTube is opened", "Se abre YouTube")}
+            {localize(`${appName} is opened`, `Se abre ${appName}`)}
           </Text>
           <View style={styles.immediateRow}>
             <View style={styles.statusDot} />
@@ -83,7 +95,7 @@ function TriggerVisual() {
   );
 }
 
-function PauseVisual() {
+function PauseVisual({ appName }: { appName: string }) {
   return (
     <>
       <Chrome title={localize("Still action", "Acción de Still")} />
@@ -98,7 +110,7 @@ function PauseVisual() {
               {localize("App name", "Nombre de app")}
             </Text>
             <View style={styles.valuePill}>
-              <Text style={styles.valueText}>YouTube</Text>
+              <Text style={styles.valueText}>{appName}</Text>
             </View>
           </View>
         </View>
@@ -113,8 +125,125 @@ function PauseVisual() {
   );
 }
 
+function ImportVisual() {
+  return (
+    <>
+      <Chrome title={localize("Add Shortcut", "Añadir atajo")} />
+      <View style={styles.actionCard}>
+        <ShortcutBadge label="S" tone="still" />
+        <View style={styles.actionCopy}>
+          <Text style={styles.actionTitle}>Still · Pausa</Text>
+          <Text style={styles.fieldLabel}>
+            {localize("1 automation · 1 action", "1 automatización · 1 acción")}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.ctaPill}>
+        <Text style={styles.ctaText}>
+          {localize("Add Shortcut", "Añadir atajo")}
+        </Text>
+      </View>
+    </>
+  );
+}
+
+function ToggleVisual() {
+  return (
+    <>
+      <Chrome title="Still · Pausa" />
+      <View style={styles.actionCard}>
+        <ShortcutBadge label="▶" tone="red" />
+        <View style={styles.actionCopy}>
+          <Text style={styles.actionEyebrow}>
+            {localize("AUTOMATION", "AUTOMATIZACIÓN")}
+          </Text>
+          <Text style={styles.actionTitle}>
+            {localize("When an app is opened", "Cuando se abre una app")}
+          </Text>
+        </View>
+        <View style={styles.toggleTrack}>
+          <View style={styles.toggleKnob} />
+        </View>
+      </View>
+    </>
+  );
+}
+
+function TriggerMultiVisual({ appNames }: { appNames: readonly string[] }) {
+  return (
+    <>
+      <Chrome title={localize("When", "Cuando")} />
+      <View style={styles.actionCard}>
+        <ShortcutBadge label="▶" tone="red" />
+        <View style={styles.actionCopy}>
+          <Text style={styles.actionEyebrow}>
+            {localize("ANY OF THESE IS OPENED", "SE ABRE CUALQUIERA DE ESTAS")}
+          </Text>
+          <View style={styles.pillRow}>
+            {appNames.slice(0, 3).map((name) => (
+              <View key={name} style={styles.valuePill}>
+                <Text style={styles.valueText}>{name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function CurrentAppVisual() {
+  return (
+    <>
+      <Chrome title={localize("Add Action", "Añadir acción")} />
+      <View style={styles.actionCard}>
+        <ShortcutBadge label="◎" tone="blue" />
+        <View style={styles.actionCopy}>
+          <Text style={styles.actionTitle}>
+            {localize("Get Current App", "Obtener app actual")}
+          </Text>
+          <Text style={styles.fieldLabel}>
+            {localize(
+              "Tells Still which app you opened",
+              "Le dice a Still qué app abriste",
+            )}
+          </Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function PauseCurrentVisual() {
+  return (
+    <>
+      <Chrome title={localize("Still action", "Acción de Still")} />
+      <View style={styles.actionCard}>
+        <ShortcutBadge label="S" tone="still" />
+        <View style={styles.actionCopy}>
+          <Text style={styles.actionTitle}>
+            {localize("Pause Before Opening", "Pausa antes de abrir")}
+          </Text>
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>
+              {localize("App name", "Nombre de app")}
+            </Text>
+            <View style={[styles.valuePill, styles.variablePill]}>
+              <Text style={styles.valueText}>
+                {localize("Current App", "App actual")}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
 export function ShortcutStepVisual({
   accessibilityLabel,
+  appName = "YouTube",
+  appNames = ["YouTube"],
   variant,
 }: ShortcutStepVisualProps) {
   return (
@@ -124,9 +253,16 @@ export function ShortcutStepVisual({
       accessibilityRole="image"
       style={styles.root}
     >
-      {variant === "return" ? <ReturnShortcutVisual /> : null}
-      {variant === "trigger" ? <TriggerVisual /> : null}
-      {variant === "pause" ? <PauseVisual /> : null}
+      {variant === "return" ? <ReturnShortcutVisual appName={appName} /> : null}
+      {variant === "trigger" ? <TriggerVisual appName={appName} /> : null}
+      {variant === "pause" ? <PauseVisual appName={appName} /> : null}
+      {variant === "import" ? <ImportVisual /> : null}
+      {variant === "toggle" ? <ToggleVisual /> : null}
+      {variant === "trigger-multi" ? (
+        <TriggerMultiVisual appNames={appNames} />
+      ) : null}
+      {variant === "current-app" ? <CurrentAppVisual /> : null}
+      {variant === "pause-current" ? <PauseCurrentVisual /> : null}
     </View>
   );
 }
@@ -201,6 +337,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F1FF",
   },
   valueText: { color: "#1769D2", fontSize: 12, fontWeight: "700" },
+  variablePill: { backgroundColor: "#E4F6EA" },
+  pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  ctaPill: {
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: "#2F7CF6",
+  },
+  ctaText: { color: colors.white, fontSize: 13, fontWeight: "700" },
+  toggleTrack: {
+    width: 42,
+    height: 26,
+    padding: 2,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: "#34C759",
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+  },
   immediateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   statusDot: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.success },
   immediateText: { color: colors.success, fontSize: 11, fontWeight: "700" },

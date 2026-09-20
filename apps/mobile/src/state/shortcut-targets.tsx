@@ -68,9 +68,12 @@ export function ShortcutTargetsProvider({ children }: { children: ReactNode }) {
     const native = await restrictionEngine
       .getShortcutTargetsHealth()
       .catch(() => [] as ShortcutTargetHealth[]);
-    const base = current.current.length
-      ? current.current
+    const stored = current.current.length
+      ? null
       : hydrateTargets(await getJson<ShortcutTarget[]>(STORAGE_KEY, []));
+    // Read the selection only after every await, so a tap that landed while
+    // the native call was in flight is merged instead of overwritten.
+    const base = current.current.length ? current.current : (stored ?? []);
     const merged = mergeNativeTargets(base, native);
     setHealth(
       Object.fromEntries(

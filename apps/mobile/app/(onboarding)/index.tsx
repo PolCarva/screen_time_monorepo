@@ -91,7 +91,7 @@ export default function OnboardingScreen() {
           "Las pausas no están\ndisponibles temporalmente.",
         )
       : step === steps.length - 1 && Platform.OS === "ios"
-        ? localize("Choose apps in\nShortcuts.", "Elige las apps en\nAtajos.")
+        ? localize("Choose your\napps.", "Elige tus\napps.")
         : step === 1
           ? localize(
               preferences.unlockDurationSeconds >= 86_400
@@ -110,15 +110,15 @@ export default function OnboardingScreen() {
         )
       : step === steps.length - 1 && Platform.OS === "ios"
         ? localize(
-            "For each app, an on-device personal automation asks Still to pause. Setup takes about one minute per app.",
-            "Para cada app, una automatización personal en el dispositivo le pide a Still que haga la pausa. Configurarla lleva cerca de un minuto por app.",
+            "Pick the apps here, then connect Apple's Shortcuts so it tells Still when you open them. Everything stays on this iPhone.",
+            "Elige las apps aquí y luego conecta Atajos de Apple para que avise a Still cuando las abras. Todo se queda en este iPhone.",
           )
         : current.body;
   const currentAction =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize("Finish setup", "Terminar configuración")
       : step === steps.length - 1 && Platform.OS === "ios"
-        ? localize("Set up Shortcuts", "Configurar Atajos")
+        ? localize("Choose apps", "Elegir apps")
         : current.action;
 
   async function next() {
@@ -137,7 +137,7 @@ export default function OnboardingScreen() {
       if (Platform.OS === "ios") {
         await restrictionEngine.enableShortcutMode();
         await setOnboarded(true);
-        router.replace("/shortcut-setup");
+        router.replace({ pathname: "/ios-apps", params: { onboarding: "1" } });
         return;
       }
       await setOnboarded(true);

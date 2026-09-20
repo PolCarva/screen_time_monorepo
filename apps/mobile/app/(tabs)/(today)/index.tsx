@@ -1,15 +1,17 @@
 import { impactWeekSchema } from "@screen-time/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
+import { activeTargets } from "@/lib/shortcut-targets";
 import { ActivityReport } from "@/native/activity-report";
 import { useAppState } from "@/state/app-state";
+import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, spacing } from "@/theme/tokens";
 
 export default function TodayScreen() {
@@ -32,7 +34,13 @@ export default function TodayScreen() {
         maximumFractionDigits: 0,
       }).format(impact.impactFundMinor / 100)
     : "—";
-  const selectedCount = health.selectedCount;
+  const { targets } = useShortcutTargets();
+  // On iOS the apps live in Still, not in Screen Time, and change without a
+  // native health refresh.
+  const selectedCount =
+    Platform.OS === "ios"
+      ? activeTargets(targets).length
+      : health.selectedCount;
   const nextAction =
     selectedCount === 0
       ? localize("Choose apps to protect", "Elegir apps para proteger")

@@ -30,10 +30,12 @@ import {
   type IdentityProvider,
 } from "@/lib/identity";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
+import { activeTargets } from "@/lib/shortcut-targets";
 import { getJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
+import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
 function authorizationLabel(
@@ -125,6 +127,7 @@ export default function SettingsScreen() {
     savePreferences,
     syncStatus,
   } = useAppState();
+  const shortcutTargets = useShortcutTargets();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
     [],
@@ -336,10 +339,21 @@ export default function SettingsScreen() {
 
   const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const shortcutMode = Platform.OS === "ios";
-  const restrictionHealthy =
-    restrictionsEnabled && health.engineActive && !health.issue;
+  // iOS cannot report whether an automation exists; an app counts as
+  // connected once its automation has fired at least once.
+  const chosenApps = activeTargets(shortcutTargets.targets);
+  const connectedApps = chosenApps.filter(
+    (target) => shortcutTargets.health[target.id]?.verifiedAt,
+  );
+  const restrictionHealthy = shortcutMode
+    ? restrictionsEnabled &&
+      chosenApps.length > 0 &&
+      connectedApps.length === chosenApps.length
+    : restrictionsEnabled && health.engineActive && !health.issue;
   const restrictionAction = shortcutMode
-    ? localize("Configure iOS Shortcuts", "Configurar Atajos de iOS")
+    ? chosenApps.length === 0
+      ? localize("Choose apps", "Elegir apps")
+      : localize("Apps with a pause", "Apps con pausa")
     : !restrictionsEnabled
       ? localize(
           "Pauses temporarily disabled",
@@ -383,7 +397,7 @@ export default function SettingsScreen() {
           <Eyebrow>01 / {localize("PAUSES", "PAUSAS")}</Eyebrow>
           <Mono>
             {shortcutMode
-              ? localize("SHORTCUTS", "ATAJOS")
+              ? `${connectedApps.length}/${chosenApps.length} ${localize("APPS", "APPS")}`
               : `${health?.selectedCount ?? 0} ${localize("APPS", "APPS")}`}
           </Mono>
         </View>
@@ -403,7 +417,19 @@ export default function SettingsScreen() {
                       "Pauses are temporarily disabled",
                       "Las pausas están deshabilitadas temporalmente",
                     )
-                  : localize("Action needed", "Requiere atención")}
+                  : shortcutMode && chosenApps.length === 0
+                    ? localize("Choose your apps", "Elige tus apps")
+                    : shortcutMode && connectedApps.length === 0
+                      ? localize(
+                          "Shortcuts is not connected yet",
+                          "Atajos todavía no está conectado",
+                        )
+                      : shortcutMode
+                        ? localize(
+                            `${connectedApps.length} of ${chosenApps.length} apps connected`,
+                            `${connectedApps.length} de ${chosenApps.length} apps conectadas`,
+                          )
+                        : localize("Action needed", "Requiere atención")}
             </Heading>
             <Body style={styles.muted}>
               {!restrictionsEnabled
@@ -412,10 +438,15 @@ export default function SettingsScreen() {
                     "Tu selección en el dispositivo se conserva.",
                   )
                 : shortcutMode
-                  ? localize(
-                      "Each app automation stays private on this iPhone.",
-                      "Cada automatización permanece privada en este iPhone.",
-                    )
+                  ? restrictionHealthy
+                    ? localize(
+                        "Your apps and automations stay private on this iPhone.",
+                        "Tus apps y automatizaciones permanecen privadas en este iPhone.",
+                      )
+                    : localize(
+                        "An app is connected once you test it from the Shortcuts setup.",
+                        "Una app queda conectada cuando la pruebas desde la configuración de Atajos.",
+                      )
                   : authorizationLabel(health.authorization)}
             </Body>
           </View>
@@ -424,13 +455,26 @@ export default function SettingsScreen() {
           disabled={!restrictionsEnabled}
           onPress={() =>
             shortcutMode
-              ? router.push("/shortcut-setup")
+              ? router.push("/ios-apps")
               : router.push("/android-setup")
           }
           variant="secondary"
         >
           {restrictionAction}
         </PrimaryButton>
+        {shortcutMode && chosenApps.length > 0 ? (
+          <PrimaryButton
+            disabled={!restrictionsEnabled}
+            onPress={() => router.push("/shortcut-setup")}
+            variant="quiet"
+          >
+            {restrictionHealthy
+              ? localize("Shortcuts setup", "Configuración de Atajos")
+              : connectedApps.length === 0
+                ? localize("Connect Shortcuts", "Conectar Atajos")
+                : localize("Finish connecting", "Terminar de conectar")}
+          </PrimaryButton>
+        ) : null}
         <View style={styles.syncRow}>
           <Mono>{syncLabel}</Mono>
           <Body style={styles.muted}>
