@@ -21,7 +21,7 @@ function validMetadata() {
         },
         isDiscoverable: true,
         openAppWhenRun: false,
-        parameters: [{ name: "appName" }],
+        parameters: [{ name: "appName", dynamicOptionsSupport: 1 }],
         supportedModes: 9,
         title: { key: "Pause Before Opening" },
       },
@@ -47,6 +47,15 @@ describe("iOS Shortcuts compiled-build verification", () => {
 
     expect(() => verifyShortcutMetadata(metadata)).toThrow(
       "parameters must be appName",
+    );
+  });
+
+  it("rejects a build where the app name has to be typed again", () => {
+    const metadata = validMetadata();
+    metadata.actions.PauseBeforeOpeningIntent.parameters[0].dynamicOptionsSupport = 0;
+
+    expect(() => verifyShortcutMetadata(metadata)).toThrow(
+      "apps chosen in Still as options",
     );
   });
 

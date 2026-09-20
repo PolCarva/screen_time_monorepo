@@ -1,10 +1,14 @@
 # Native feasibility gate
 
-The current release is Android-only. The go/no-go decision requires signed Android physical-device runs and Google Play review. The iOS matrix below is retained only as a future reference and does not gate v1.
+The current release is Android-only. The go/no-go decision requires signed Android physical-device runs and Google Play review. iOS does not gate v1.
 
-## Future iOS test matrix — out of v1 scope
+## iOS
 
-Run on the minimum supported iOS 16.4 device and a current iOS 26 device after Apple approves Family Controls distribution for all five bundle IDs.
+iOS now pauses through Apple Shortcuts, not through Screen Time shields. Its go/no-go gate is the twelve-point physical checklist in `ios-shortcuts.md` plus the device hypotheses H1–H9 in `ios-shortcuts-v2-plan.md`; none of them has been run yet, and the flow stays off in production through `iosRestrictionEnabled`.
+
+### Legacy Family Controls matrix — retired while Shortcuts mode is active
+
+Shortcuts mode clears every Managed Settings shield, so this matrix only applies if the Screen Time approach is ever revived. Run on the minimum supported iOS 16.4 device and a current iOS 26 device after Apple approves Family Controls distribution for all five bundle IDs.
 
 1. Authorize individual Family Controls and select a real app.
 2. Confirm its Shield appears and “Ahora no” closes it.

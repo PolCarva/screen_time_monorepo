@@ -167,6 +167,51 @@ describe("committed native production configuration", () => {
       "key(appName: String, returnShortcutName:",
     );
     expect(project).toContain("StillShortcutIntent.swift in Sources");
+    // A regenerated project must keep the intent, or Shortcuts silently loses
+    // the action while the app still builds.
+    expect(nativeFile("scripts/configure-ios-targets.rb")).toContain(
+      "StillShortcutIntent.swift",
+    );
+
+    // Pausa vía Atajos v2: targets chosen in Still, direct return, real health.
+    expect(info).toContain("<key>LSApplicationQueriesSchemes</key>");
+    expect(shortcutIntent).toContain("enum ShortcutTargetStore");
+    expect(shortcutIntent).toContain(
+      "struct ShortcutTargetOptionsProvider: DynamicOptionsProvider",
+    );
+    expect(shortcutIntent).toContain(
+      "optionsProvider: ShortcutTargetOptionsProvider()",
+    );
+    expect(shortcutIntent).toContain(
+      "let target = ShortcutTargetStore.resolve(appName: requestedName)",
+    );
+    expect(shortcutIntent).toContain(
+      "ShortcutTargetStore.markTriggered(targetKey)",
+    );
+    // The remote kill switch and a removed app both keep the intent silent.
+    expect(shortcutIntent).toContain(
+      'guard SharedRestrictionState.restrictionsEnabled, target.state != "removed"',
+    );
+    expect(shortcutIntent).toContain("consumeSetupProbe(for: targetKey)");
+    // Only a bare `scheme://` may ever be stored as a way back.
+    expect(shortcutIntent).toContain('candidate == "\\(scheme)://"');
+    expect(shortcutIntent).toContain('"still", "shortcuts", "http", "https"');
+    expect(shortcutIntent).toContain(
+      "-> (String, Date, URL, URL?)",
+    );
+    for (const method of [
+      "setShortcutTargets",
+      "getShortcutTargetsHealth",
+      "beginShortcutSetupProbe",
+      "finishShortcutSetupTest",
+      "suspendToHome",
+    ]) {
+      expect(restrictionEngine).toContain(`@objc func ${method}(`);
+      expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);
+    }
+    expect(restrictionEngine).toContain('"fallbackReturnUrl"');
+    expect(restrictionEngine).toContain('"shortcuts_not_verified"');
+    expect(restrictionEngine).not.toContain('"engineActive": true,');
     expect(shieldAction).toContain("targetMetricScope:");
     expect(shieldConfiguration).toContain("todayMetrics(for: application)");
 

@@ -28,12 +28,14 @@ import {
   resolveSetupTier,
   setupSteps,
 } from "@/lib/ios-shortcut-setup";
+import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   type ShortcutTarget,
   activeTargets,
   returnShortcutName,
 } from "@/lib/shortcut-targets";
 import { restrictionEngine } from "@/native/restriction-engine";
+import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, spacing } from "@/theme/tokens";
 
@@ -222,6 +224,8 @@ export default function ShortcutSetupScreen() {
     onboarding?: string;
   }>();
   const { targets, health, refresh, disableScheme } = useShortcutTargets();
+  const { config } = useAppState();
+  const pausesEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const [probe, setProbe] = useState<{ id: string; startedAt: number } | null>(
     null,
   );
@@ -338,6 +342,18 @@ export default function ShortcutSetupScreen() {
         </Heading>
         <Body style={styles.lede}>{tierLede(tier)}</Body>
       </View>
+
+      {pausesEnabled ? null : (
+        <View accessibilityLiveRegion="polite" style={styles.note}>
+          <Eyebrow>{localize("PAUSED", "EN PAUSA")}</Eyebrow>
+          <Body style={styles.stepBody}>
+            {localize(
+              "Pauses are temporarily switched off for iPhone, so a test cannot succeed right now. You can still prepare the automation; it starts working when pauses are back.",
+              "Las pausas están apagadas temporalmente en iPhone, así que ahora una prueba no puede funcionar. Puedes dejar lista la automatización; empezará a funcionar cuando vuelvan las pausas.",
+            )}
+          </Body>
+        </View>
+      )}
 
       {tested ? (
         <View accessibilityLiveRegion="polite" style={styles.banner}>
@@ -459,7 +475,7 @@ export default function ShortcutSetupScreen() {
                     </PrimaryButton>
                   ) : (
                     <PrimaryButton
-                      disabled={state.tone === "pending"}
+                      disabled={state.tone === "pending" || !pausesEnabled}
                       onPress={() => void test(target)}
                       variant={state.tone === "ok" ? "quiet" : "secondary"}
                     >

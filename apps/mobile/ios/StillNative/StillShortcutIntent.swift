@@ -210,7 +210,9 @@ enum ShortcutInterventionState {
     let targetKey = key(appName: cleanAppName)
     // Every run proves the automation is alive, including the silent ones.
     ShortcutTargetStore.markTriggered(targetKey)
-    guard target.state != "removed" else {
+    // `restrictionsEnabled` mirrors the remote iOS kill switch. While it is off
+    // the automation keeps firing but Still never interrupts.
+    guard SharedRestrictionState.restrictionsEnabled, target.state != "removed" else {
       SharedRestrictionState.flush()
       return nil
     }

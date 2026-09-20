@@ -1,6 +1,6 @@
 # Still iOS · Pausa vía Atajos v2 — investigación y plan
 
-Fecha: 2026-09-20 · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: plan aprobado para convertir en `/goal`.
+Fecha: 2026-09-20 · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–5 implementadas** (ver §11); Fase 0 pendiente en dispositivo.
 
 Este documento complementa a `docs/ios-shortcuts.md` (contrato del flujo v1 ya
 construido en esta rama). Aquí se documenta cómo funciona one sec, qué permite
@@ -265,6 +265,32 @@ Orden: **0 → 1 → 2 → 3 → 4 → 5**. Las fases 1–3 no dependen de los r
 | H9 Estructura del atajo de one sec 6.0 | ⏳ | |
 
 ---
+
+## 11. Estado de implementación (2026-09-20)
+
+Fases 1–5 implementadas en esta rama, un commit por fase. Verificado sin dispositivo: `pnpm check` (172 tests), `pnpm build`, 25 invariantes pgTAP en el stack local, compilación de iOS para simulador y `acceptance:ios-shortcuts` contra ese `.app`. **Nada se ha observado en un iPhone físico**; la checklist de 12 puntos está en `docs/ios-shortcuts.md`.
+
+Niveles de setup: H1 y H2 siguen ⏳, así que `IOS_SHORTCUT_IMPORT_URL = ""` y `IOS_SINGLE_AUTOMATION_ENABLED = false`. Todos los usuarios reciben hoy el nivel **C · Por app**, ya sin teclear el nombre y sin atajo de retorno para apps del catálogo.
+
+### Desviaciones respecto a este plan
+
+| Plan | Implementado | Motivo |
+|---|---|---|
+| `state: "active" \| "removed"` | Se añade `"available"` | Las apps del catálogo no elegidas también se reflejan al intent, para que una app añadida solo en el trigger se adopte con su URL scheme en vez de como desconocida. |
+| `resetLocalData()` preserva `targets` | **Los borra** | "Borrar datos locales" es una acción de privacidad; conservar la lista de apps la contradiría. Las automatizaciones que sigan existiendo vuelven a adoptarse solas en la siguiente apertura. |
+| `src/state/shortcut-targets.ts` | Lógica pura en `src/lib/shortcut-targets.ts` + provider en `src/state/shortcut-targets.tsx` | La regla del goal exige módulos puros testeables sin React Native. |
+| `timed_pause` en `shortcut-intervention.ts` | Mapeo en `intervention-flow.ts` (`gateFromUnlockAction`) | Evita tocar `getInterventionUnlockAction`, que Android sigue usando con `retry_ad`. |
+| Flag solo en contratos/migración/admin/pgTAP | Además, el RPC `admin_publish_remote_config` rechaza un payload sin el flag, y el admin gana el checkbox de `iosRestrictionEnabled` que faltaba | Sin ese checkbox iOS no podía activarse nunca desde `/admin`. |
+| — | El intent también calla si `restrictionsEnabled` es falso | Da a `iosRestrictionEnabled` efecto real en iOS (kill switch), igual que exige la base de datos al reportar un unlock. |
+| Pantalla "Listo" genérica | Ruta `/leave` | Último eslabón de la cadena de salida al Home. |
+
+### Pendiente fuera de este trabajo
+
+- Fase 0 completa (H1–H9) y la checklist física de 12 puntos.
+- Activar `iosRestrictionEnabled` en producción: hoy está en `false`, así que **iOS no pausa nada en producción** hasta que se publique desde `/admin`.
+- Aplicar la migración `202609200001` a producción (no se ha hecho `db push`).
+- Unidades de anuncio de iOS reales en el entorno de build (`EXPO_PUBLIC_ADMOB_REWARDED_IOS`).
+- Decidir si se retira el entitlement de Family Controls antes del primer archive (ver `store-compliance.md`).
 
 ## Fuentes
 - one sec — [Setup iOS](https://tutorials.one-sec.app/setup-ios) · [Setup legacy](https://tutorials.one-sec.app/setup-ios-legacy) · [Intentional App Switching](https://tutorials.one-sec.app/en/articles/3310146) · [Custom apps](https://tutorials.one-sec.app/adding-custom-apps) · [Apps sin URL scheme](https://tutorials.one-sec.app/en/articles/3378626) · [Intervention not showing](https://tutorials.one-sec.app/en/articles/3262210) · [Prevent preview](https://tutorials.one-sec.app/en/articles/3312258) · [Prevent deleting automations](https://tutorials.one-sec.app/en/articles/4018306) · [Lock Screen Time permission](https://one-sec.app/blog/lock-screen-time-permission/) · [App Store](https://apps.apple.com/us/app/one-sec-screen-time-focus/id1532875441)

@@ -42,6 +42,13 @@ export function verifyShortcutMetadata(metadata) {
     `${INTENT_IDENTIFIER} parameters must be ${EXPECTED_PARAMETERS.join(", ")}; received ${parameters?.join(", ") ?? "none"}.`,
   );
 
+  // Without the options provider the user would be back to typing the app's
+  // name inside Shortcuts, which is where most setups used to break.
+  requireValue(
+    Number(intent.parameters?.[0]?.dynamicOptionsSupport) > 0,
+    `${INTENT_IDENTIFIER} must offer the apps chosen in Still as options for appName.`,
+  );
+
   const summary =
     intent.actionConfiguration?.actionSummary?.wrapper?.summaryString;
   requireValue(

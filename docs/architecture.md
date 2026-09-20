@@ -1,6 +1,6 @@
 # Architecture
 
-The current release target is Android only. The committed Swift/Family Controls spike is dormant future source and does not participate in v1 deployment or release gating.
+The current release target is Android only. iOS does not participate in v1 deployment or release gating: its Shortcuts-based pause (`ios-shortcuts.md`) is implemented but unreleased and disabled remotely by default, and the older Family Controls shields are switched off whenever Shortcuts mode is active.
 
 Still is a pnpm monorepo with three deployable surfaces:
 
