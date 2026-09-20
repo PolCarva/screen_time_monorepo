@@ -70,6 +70,7 @@ function Navigation() {
           app: pending.appName,
           attempts: String(pending.attemptsToday),
           shortcutId: pending.id,
+          setupTest: pending.isSetupTest ? "1" : "0",
         },
       });
       return true;

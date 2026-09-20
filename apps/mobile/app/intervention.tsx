@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,14 +14,12 @@ import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
 import { Screen } from "@/components/screen";
+import { ShortcutIntervention } from "@/components/shortcut-intervention";
 import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
-import {
-  completeShortcutAndReturn,
-  getInterventionUnlockAction,
-} from "@/lib/shortcut-intervention";
+import { getInterventionUnlockAction } from "@/lib/shortcut-intervention";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -38,21 +35,41 @@ export default function InterventionScreen() {
     app,
     attempts: attemptsParam,
     shortcutId,
+    setupTest,
   } = useLocalSearchParams<{
     app?: string;
     attempts?: string;
     shortcutId?: string;
+    setupTest?: string;
   }>();
-  const {
-    cancelShortcut,
-    config,
-    deviceId,
-    wallet,
-    preferences,
-    stats,
-    unlockCurrent,
-    unlockShortcut,
-  } = useAppState();
+
+  // iOS Shortcuts pauses follow their own ad-first flow. Everything below this
+  // branch is the Android and in-app path.
+  if (shortcutId) {
+    const parsed = Number.parseInt(attemptsParam ?? "", 10);
+    return (
+      <ShortcutIntervention
+        appLabel={app || localize("Selected app", "App seleccionada")}
+        attempts={Number.isFinite(parsed) && parsed > 0 ? parsed : 1}
+        isSetupTest={setupTest === "1"}
+        onLeave={() => router.replace("/(tabs)/(today)")}
+        shortcutId={shortcutId}
+      />
+    );
+  }
+
+  return <PlatformIntervention app={app} attemptsParam={attemptsParam} />;
+}
+
+function PlatformIntervention({
+  app,
+  attemptsParam,
+}: {
+  app?: string;
+  attemptsParam?: string;
+}) {
+  const { config, deviceId, wallet, preferences, stats, unlockCurrent } =
+    useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   const [busy, setBusy] = useState(false);
   const durationLabel = localize(
@@ -63,10 +80,9 @@ export default function InterventionScreen() {
     wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0;
   const hasEmergencyAccess = wallet.emergencyRemaining > 0;
   const appLabel = app || localize("Selected app", "App seleccionada");
-  const isShortcutIntervention = Boolean(shortcutId);
   const isAndroidIntervention = Platform.OS === "android" && Boolean(app);
   const directUnlockAction = getInterventionUnlockAction({
-    supportsDirectAd: isShortcutIntervention || isAndroidIntervention,
+    supportsDirectAd: isAndroidIntervention,
     hasDevice: Boolean(deviceId),
     rewardProvider: config.rewardProvider,
     rewardStatus: adStatus,
@@ -87,13 +103,9 @@ export default function InterventionScreen() {
         : Math.max(stats.openAttempts, stats.avoidedOpens + stats.unlocks);
 
   async function unlock() {
-    const shortcutFailureStage: {
-      current: "reward" | "unlock" | "return";
-    } = { current: "unlock" };
     setBusy(true);
     try {
       if (directAdReady) {
-        shortcutFailureStage.current = "reward";
         const prepared = await showPrepared();
         if (!prepared) throw new Error("reward_unavailable");
         const { intent, result } = prepared;
@@ -110,24 +122,6 @@ export default function InterventionScreen() {
             headers: { "idempotency-key": result.clientEventId },
           },
         );
-        shortcutFailureStage.current = "unlock";
-        if (shortcutId) {
-          await completeShortcutAndReturn({
-            contextId: shortcutId,
-            freshReward: true,
-            unlockShortcut,
-            onUnlockActivated: () => {
-              capture("unlock_started", {
-                source: "rewarded",
-                resumedIntent: true,
-                trigger: "ios_shortcut",
-              });
-              shortcutFailureStage.current = "return";
-            },
-            openUrl: Linking.openURL,
-          });
-          return;
-        }
         await unlockCurrent({ freshReward: true });
         capture("unlock_started", {
           source: "rewarded",
@@ -137,33 +131,6 @@ export default function InterventionScreen() {
         return;
       }
       if (directAdPreparing) return;
-      if (shortcutId) {
-        if (!hasRewardedPass && !hasEmergencyAccess) {
-          retry();
-          Alert.alert(
-            localize("Ad not ready", "El anuncio no está listo"),
-            localize(
-              "Still is preparing another ad. Try again in a moment or use Emergency Access.",
-              "Still está preparando otro anuncio. Inténtalo en un momento o usa el acceso de emergencia.",
-            ),
-          );
-          return;
-        }
-        await completeShortcutAndReturn({
-          contextId: shortcutId,
-          unlockShortcut,
-          onUnlockActivated: () => {
-            capture("unlock_started", {
-              source: hasRewardedPass ? "rewarded" : "emergency",
-              resumedIntent: true,
-              trigger: "ios_shortcut",
-            });
-            shortcutFailureStage.current = "return";
-          },
-          openUrl: Linking.openURL,
-        });
-        return;
-      }
       if (
         isAndroidIntervention &&
         directUnlockAction === "retry_ad" &&
@@ -192,45 +159,17 @@ export default function InterventionScreen() {
     } catch {
       Alert.alert(
         localize("Couldn’t open the app", "No se pudo abrir la app"),
-        isShortcutIntervention
-          ? shortcutFailureStage.current === "reward"
-            ? localize(
-                "The reward could not be confirmed, so access was not activated. Check your connection and try again.",
-                "No se pudo confirmar la recompensa, por lo que el acceso no se activó. Revisa tu conexión e inténtalo de nuevo.",
-              )
-            : shortcutFailureStage.current === "return"
-              ? localize(
-                  "Check that the return shortcut name is exact. Access is active, so reopening the app will not show Still again during this window.",
-                  "Comprueba que el nombre del atajo de retorno sea exacto. El acceso está activo, así que volver a abrir la app no mostrará Still durante este período.",
-                )
-              : localize(
-                  "Still could not activate this access window. Open the app again to retry.",
-                  "Still no pudo activar este período de acceso. Abre la app otra vez para reintentar.",
-                )
-          : localize(
-              "No pass was lost. Try again from Still.",
-              "No perdiste ningún pase. Inténtalo otra vez desde Still.",
-            ),
+        localize(
+          "No pass was lost. Try again from Still.",
+          "No perdiste ningún pase. Inténtalo otra vez desde Still.",
+        ),
       );
     } finally {
       setBusy(false);
-      if (isShortcutIntervention) retry();
     }
   }
 
   async function goBack() {
-    if (shortcutId) {
-      setBusy(true);
-      try {
-        await cancelShortcut(shortcutId);
-      } catch {
-        // An expired intervention is already closed from the user's point of view.
-      } finally {
-        setBusy(false);
-      }
-      router.replace("/(tabs)/(today)");
-      return;
-    }
     if (isAndroidIntervention) {
       setBusy(true);
       try {
@@ -269,7 +208,7 @@ export default function InterventionScreen() {
                 `Emergency access · ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}`,
                 `Acceso de emergencia · ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}`,
               )
-            : isShortcutIntervention || isAndroidIntervention
+            : isAndroidIntervention
               ? localize("Retry ad", "Reintentar anuncio")
               : localize("Get a pass", "Conseguir un pase");
 
@@ -336,16 +275,12 @@ export default function InterventionScreen() {
         </Pressable>
         <Body style={styles.note}>
           {localize(
-            isShortcutIntervention
-              ? `After continuing, Still runs your return shortcut and ${appLabel} stays open for ${durationLabel}.`
-              : isAndroidIntervention
-                ? `After continuing, Still returns directly to ${appLabel}, which stays open for ${durationLabel}.`
-                : `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
-            isShortcutIntervention
-              ? `Después de continuar, Still ejecuta tu atajo de retorno y ${appLabel} queda abierto durante ${durationLabel}.`
-              : isAndroidIntervention
-                ? `Después de continuar, Still vuelve directamente a ${appLabel}, que queda abierto durante ${durationLabel}.`
-                : `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
+            isAndroidIntervention
+              ? `After continuing, Still returns directly to ${appLabel}, which stays open for ${durationLabel}.`
+              : `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
+            isAndroidIntervention
+              ? `Después de continuar, Still vuelve directamente a ${appLabel}, que queda abierto durante ${durationLabel}.`
+              : `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
           )}
         </Body>
       </View>

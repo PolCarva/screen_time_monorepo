@@ -25,6 +25,7 @@ import { registerDeviceResponseSchema } from "@screen-time/contracts";
 import { z } from "zod";
 
 import { apiFetch, apiRequest } from "@/lib/api";
+import { PAUSE_ALLOWANCE_SECONDS } from "@/lib/intervention-flow";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import {
@@ -72,6 +73,11 @@ type AppStateValue = {
     contextId: string,
     options?: { freshReward?: boolean },
   ): Promise<ShortcutUnlockSession>;
+  /**
+   * Activates a short allowance after the timed pause. It spends nothing and
+   * reports nothing: the pause is the friction of last resort, not a purchase.
+   */
+  unlockShortcutWithPause(contextId: string): Promise<ShortcutUnlockSession>;
   cancelShortcut(contextId: string): Promise<void>;
   clearLocalData(): Promise<void>;
   syncStatus: SyncStatus;
@@ -566,6 +572,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       wallet,
     ],
   );
+  const unlockShortcutWithPause = useCallback(async (contextId: string) => {
+    if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
+    return restrictionEngine.completeShortcutIntervention(
+      contextId,
+      PAUSE_ALLOWANCE_SECONDS,
+    );
+  }, []);
   const cancelShortcut = useCallback(async (contextId: string) => {
     await restrictionEngine.cancelShortcutIntervention(contextId);
   }, []);
@@ -587,6 +600,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       addProvisionalToken,
       unlockCurrent,
       unlockShortcut,
+      unlockShortcutWithPause,
       cancelShortcut,
       clearLocalData,
       syncStatus,
@@ -609,6 +623,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       addProvisionalToken,
       unlockCurrent,
       unlockShortcut,
+      unlockShortcutWithPause,
       cancelShortcut,
       clearLocalData,
       syncStatus,
