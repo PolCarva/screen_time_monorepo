@@ -21,6 +21,7 @@ import {
 } from "@/native/restriction-engine";
 import { AppStateProvider, useAppState } from "@/state/app-state";
 import { RewardAdProvider } from "@/state/reward-ad-state";
+import { ShortcutTargetsProvider } from "@/state/shortcut-targets";
 import { colors } from "@/theme/tokens";
 
 void SplashScreen.preventAutoHideAsync();
@@ -176,8 +177,10 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AppStateProvider>
           <RewardAdProvider>
-            <StatusBar style="dark" />
-            <Navigation />
+            <ShortcutTargetsProvider>
+              <StatusBar style="dark" />
+              <Navigation />
+            </ShortcutTargetsProvider>
           </RewardAdProvider>
         </AppStateProvider>
       </QueryClientProvider>

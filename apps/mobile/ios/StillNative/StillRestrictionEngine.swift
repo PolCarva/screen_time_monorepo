@@ -113,6 +113,8 @@ final class StillRestrictionEngine: RCTEventEmitter {
       "returnShortcutName": context.returnShortcutName,
       "attemptsToday": context.attemptsToday,
       "createdAt": ISO8601DateFormatter().string(from: context.createdAt),
+      "isSetupTest": context.isSetupTest == true,
+      "returnKind": ShortcutInterventionState.returnKind(for: context),
     ])
   }
 
@@ -127,11 +129,13 @@ final class StillRestrictionEngine: RCTEventEmitter {
         id: contextId,
         durationSeconds: durationSeconds.intValue
       )
-      resolve([
+      var session: [String: Any] = [
         "id": result.0,
         "endsAt": ISO8601DateFormatter().string(from: result.1),
         "returnUrl": result.2.absoluteString,
-      ])
+      ]
+      if let fallback = result.3 { session["fallbackReturnUrl"] = fallback.absoluteString }
+      resolve(session)
     } catch {
       reject("shortcut_intervention_expired", error.localizedDescription, error)
     }
@@ -148,6 +152,71 @@ final class StillRestrictionEngine: RCTEventEmitter {
     } catch {
       reject("shortcut_intervention_expired", error.localizedDescription, error)
     }
+  }
+
+  @objc func finishShortcutSetupTest(
+    _ contextId: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    ShortcutInterventionState.finishSetupTest(id: contextId)
+    resolve(nil)
+  }
+
+  @objc func setShortcutTargets(
+    _ targets: NSArray,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let parsed: [ShortcutTarget] = targets.compactMap { entry in
+      guard let value = entry as? NSDictionary,
+        let id = value["id"] as? String,
+        let name = value["name"] as? String,
+        let origin = value["origin"] as? String,
+        let state = value["state"] as? String
+      else { return nil }
+      return ShortcutTarget(
+        id: id, name: name, matchKeys: value["matchKeys"] as? [String] ?? [],
+        urlScheme: value["urlScheme"] as? String, origin: origin, state: state)
+    }
+    ShortcutTargetStore.replace(with: parsed)
+    resolve(nil)
+  }
+
+  @objc func getShortcutTargetsHealth(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let formatter = ISO8601DateFormatter()
+    let health: [[String: Any]] = ShortcutTargetStore.load().map { target in
+      let targetKey = ShortcutInterventionState.key(appName: target.name)
+      var entry: [String: Any] = [
+        "id": target.id,
+        "name": target.name,
+        "matchKeys": target.matchKeys,
+        "origin": target.origin,
+        "state": target.state,
+        "targetKey": targetKey,
+      ]
+      entry["urlScheme"] = target.urlScheme ?? NSNull()
+      if let last = ShortcutTargetStore.lastTriggered(targetKey) {
+        entry["lastTriggeredAt"] = formatter.string(from: last)
+      }
+      if let first = ShortcutTargetStore.firstTriggered(targetKey) {
+        entry["verifiedAt"] = formatter.string(from: first)
+      }
+      return entry
+    }
+    resolve(health)
+  }
+
+  @objc func beginShortcutSetupProbe(
+    _ appName: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    ShortcutTargetStore.beginSetupProbe(appName: appName)
+    resolve(nil)
   }
 
   @objc func startUnlock(
@@ -206,12 +275,24 @@ final class StillRestrictionEngine: RCTEventEmitter {
   ) {
     let selection = SharedRestrictionState.selection
     if SharedRestrictionState.shortcutModeEnabled {
-      let shortcutHealth: [String: Any] = [
+      // iOS offers no way to ask whether a personal automation exists. An app
+      // counts as connected only once its automation has actually fired.
+      let chosen = ShortcutTargetStore.load().filter { $0.state == "active" }
+      let verified = chosen.filter {
+        ShortcutTargetStore.firstTriggered(ShortcutInterventionState.key(appName: $0.name)) != nil
+      }
+      var shortcutHealth: [String: Any] = [
         "authorization": "authorized",
-        "engineActive": true,
-        "selectedCount": 0,
+        "engineActive": !verified.isEmpty,
+        "selectedCount": chosen.count,
+        "verifiedCount": verified.count,
         "mode": "shortcuts",
       ]
+      if chosen.isEmpty {
+        shortcutHealth["issue"] = "shortcuts_no_apps"
+      } else if verified.isEmpty {
+        shortcutHealth["issue"] = "shortcuts_not_verified"
+      }
       resolve(shortcutHealth)
       return
     }

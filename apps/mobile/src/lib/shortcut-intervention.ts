@@ -10,6 +10,8 @@ export type InterventionUnlockAction =
 
 type ShortcutReturnSession = {
   returnUrl: string;
+  /** Return shortcut to run when `returnUrl` is a URL scheme that fails. */
+  fallbackReturnUrl?: string;
 };
 
 type ShortcutUnlock = (
@@ -22,6 +24,8 @@ type CompleteShortcutAndReturnInput = {
   freshReward?: boolean;
   unlockShortcut: ShortcutUnlock;
   onUnlockActivated?: () => void | Promise<void>;
+  /** The app's URL scheme did not open; called before the fallback is tried. */
+  onPrimaryReturnFailed?: () => void | Promise<void>;
   openUrl: (url: string) => Promise<unknown>;
 };
 
@@ -74,12 +78,21 @@ export async function completeShortcutAndReturn({
   freshReward = false,
   unlockShortcut,
   onUnlockActivated,
+  onPrimaryReturnFailed,
   openUrl,
 }: CompleteShortcutAndReturnInput): Promise<ShortcutReturnSession> {
   const session = freshReward
     ? await unlockShortcut(contextId, { freshReward: true })
     : await unlockShortcut(contextId);
   await onUnlockActivated?.();
-  await openUrl(session.returnUrl);
+  try {
+    await openUrl(session.returnUrl);
+  } catch (error) {
+    // A wrong or uninstalled URL scheme must not strand the user in Still
+    // with the allowance already running: fall back to the return shortcut.
+    if (!session.fallbackReturnUrl) throw error;
+    await onPrimaryReturnFailed?.();
+    await openUrl(session.fallbackReturnUrl);
+  }
   return session;
 }

@@ -124,4 +124,48 @@ describe("iOS Shortcut return orchestration", () => {
 
     expect(unlockShortcut).toHaveBeenCalledWith("youtube-context");
   });
+
+  it("falls back to the return shortcut when the app's URL scheme does not open", async () => {
+    const opened: string[] = [];
+    const onPrimaryReturnFailed = vi.fn();
+    const openUrl = vi.fn(async (url: string) => {
+      opened.push(url);
+      if (url === "instagram://") throw new Error("no_handler");
+    });
+
+    await completeShortcutAndReturn({
+      contextId: "instagram-context",
+      unlockShortcut: vi.fn(async () => ({
+        returnUrl: "instagram://",
+        fallbackReturnUrl:
+          "shortcuts://run-shortcut?name=Still%20%C2%B7%20Instagram",
+      })),
+      onPrimaryReturnFailed,
+      openUrl,
+    });
+
+    expect(opened).toEqual([
+      "instagram://",
+      "shortcuts://run-shortcut?name=Still%20%C2%B7%20Instagram",
+    ]);
+    expect(onPrimaryReturnFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces the failure when there is no fallback to try", async () => {
+    const onPrimaryReturnFailed = vi.fn();
+
+    await expect(
+      completeShortcutAndReturn({
+        contextId: "youtube-context",
+        unlockShortcut: vi.fn(async () => ({
+          returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+        })),
+        onPrimaryReturnFailed,
+        openUrl: vi.fn(async () => {
+          throw new Error("shortcut_missing");
+        }),
+      }),
+    ).rejects.toThrow("shortcut_missing");
+    expect(onPrimaryReturnFailed).not.toHaveBeenCalled();
+  });
 });

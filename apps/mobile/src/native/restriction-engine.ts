@@ -1,5 +1,7 @@
 import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
+import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
+
 export type PermissionStatus =
   "notDetermined" | "authorized" | "denied" | "unavailable";
 export type LocalAppHandle = {
@@ -17,13 +19,28 @@ export type ShortcutIntervention = {
   returnShortcutName: string;
   attemptsToday: number;
   createdAt: string;
+  /** The automation fired because the user tapped "Test" during setup. */
+  isSetupTest?: boolean;
+  returnKind?: "scheme" | "shortcut";
 };
-export type ShortcutUnlockSession = UnlockSession & { returnUrl: string };
+export type ShortcutUnlockSession = UnlockSession & {
+  returnUrl: string;
+  /** Return shortcut to try when `returnUrl` is a URL scheme that fails. */
+  fallbackReturnUrl?: string;
+};
+export type ShortcutTargetHealth = NativeShortcutTarget & {
+  targetKey: string;
+  lastTriggeredAt?: string;
+  /** First time the automation fired for this app; absent until it does. */
+  verifiedAt?: string;
+};
 export type RestrictionHealth = {
   authorization: PermissionStatus;
   wellbeingAuthorization?: PermissionStatus;
   engineActive: boolean;
   selectedCount: number;
+  /** Shortcut mode only: chosen apps whose automation has fired at least once. */
+  verifiedCount?: number;
   mode?: "managed" | "shortcuts";
   lastRestoredAt?: string;
   issue?: string;
@@ -57,6 +74,10 @@ export interface RestrictionEngine {
     durationSeconds: number,
   ): Promise<ShortcutUnlockSession>;
   cancelShortcutIntervention(contextId: string): Promise<void>;
+  finishShortcutSetupTest(contextId: string): Promise<void>;
+  setShortcutTargets(targets: NativeShortcutTarget[]): Promise<void>;
+  getShortcutTargetsHealth(): Promise<ShortcutTargetHealth[]>;
+  beginShortcutSetupProbe(appName: string): Promise<void>;
   cancelCurrentIntervention(): Promise<void>;
   startUnlock(
     target: LocalAppHandle,
@@ -97,6 +118,10 @@ const unavailable: RestrictionEngine = {
     throw new Error("Shortcut interventions are unavailable in this build");
   },
   cancelShortcutIntervention: async () => undefined,
+  finishShortcutSetupTest: async () => undefined,
+  setShortcutTargets: async () => undefined,
+  getShortcutTargetsHealth: async () => [],
+  beginShortcutSetupProbe: async () => undefined,
   cancelCurrentIntervention: async () => undefined,
   startUnlock: async () => {
     throw new Error("Restriction engine is unavailable in this build");
