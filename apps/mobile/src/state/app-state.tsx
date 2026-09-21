@@ -25,6 +25,7 @@ import { registerDeviceResponseSchema } from "@screen-time/contracts";
 import { z } from "zod";
 
 import { apiFetch, apiRequest } from "@/lib/api";
+import { applyDevConfigOverrides } from "@/lib/dev-config";
 import { PAUSE_ALLOWANCE_SECONDS } from "@/lib/intervention-flow";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
@@ -83,6 +84,14 @@ type AppStateValue = {
   syncStatus: SyncStatus;
   lastSyncedAt: string | null;
 };
+
+function withDevOverrides(config: RemoteConfig): RemoteConfig {
+  return applyDevConfigOverrides(config, {
+    dev: __DEV__,
+    forceIosPauses: process.env.EXPO_PUBLIC_DEV_IOS_PAUSES,
+    forceIosHomeOnCancel: process.env.EXPO_PUBLIC_DEV_IOS_HOME_ON_CANCEL,
+  });
+}
 
 const defaultWallet: Wallet = {
   rewardedBalance: 0,
@@ -203,10 +212,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       const nextConfig = await apiFetch("/api/v1/config", remoteConfigSchema);
       configSynced = true;
       activeConfig = nextConfig;
-      setConfig(nextConfig);
+      setConfig(withDevOverrides(nextConfig));
+      // The cache keeps the server's answer; overrides are applied on read.
       await setJson("remoteConfig", nextConfig);
     } catch {
-      setConfig(activeConfig);
+      setConfig(withDevOverrides(activeConfig));
     }
     let activePreferences = await getJson(
       "userPreferences",
