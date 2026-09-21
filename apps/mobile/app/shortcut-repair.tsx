@@ -13,6 +13,7 @@ import {
   PAUSE_SHORTCUT_NAME,
   type RepairCauseId,
   SHORTCUTS_APP_URL,
+  SHORTCUTS_AUTOMATIONS_URL,
   SHORTCUTS_CREATE_URL,
   type SetupTier,
   isTrustedImportUrl,
@@ -35,13 +36,17 @@ type CauseCopy = {
 };
 
 function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
+  // The import tier has one named shortcut to open; otherwise the closest
+  // iOS allows is the Automation tab, where the user taps their automation.
   const editUrl =
-    tier === "import" ? shortcutsOpenUrl(PAUSE_SHORTCUT_NAME) : SHORTCUTS_APP_URL;
+    tier === "import"
+      ? shortcutsOpenUrl(PAUSE_SHORTCUT_NAME)
+      : SHORTCUTS_AUTOMATIONS_URL;
   const edit = {
     label:
       tier === "import"
         ? localize("Open the shortcut", "Abrir el atajo")
-        : localize("Open Shortcuts", "Abrir Atajos"),
+        : localize("Open my automations", "Abrir mis automatizaciones"),
     url: editUrl,
   };
   switch (id) {
@@ -75,12 +80,12 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
     case "wrong_app_in_action":
       return {
         title: localize(
-          "Still's action names another app",
-          "La acción de Still nombra otra app",
+          "It says “No actions”, or names another app",
+          "Dice «No actions», o nombra otra app",
         ),
         body: localize(
-          "Inside the automation, tap “Pause Before Opening” and pick the same app as the trigger from the list.",
-          "Dentro de la automatización, toca «Pause Before Opening» y elige en la lista la misma app que en el disparador.",
+          "In your automations list, the line under the app should read “Pause Before Opening”. If it says “No actions”, open it and add Still's action (steps 5 to 9 of the guide). If the action is there, tap it and pick the same app as the trigger.",
+          "En tu lista de automatizaciones, la línea bajo la app debe decir «Pause Before Opening». Si dice «No actions», ábrela y añade la acción de Still (pasos 5 a 9 de la guía). Si la acción está, tócala y elige la misma app que en el disparador.",
         ),
         action: edit,
       };
@@ -124,15 +129,25 @@ export default function ShortcutRepairScreen() {
   async function open(url: string) {
     try {
       await Linking.openURL(url);
+      return;
     } catch {
-      Alert.alert(
-        localize("Could not open Shortcuts", "No se pudo abrir Atajos"),
-        localize(
-          "Open Apple's Shortcuts app and select Automation.",
-          "Abre la app Atajos de Apple y elige Automatización.",
-        ),
-      );
+      // The Automation-tab link is undocumented; plain Shortcuts is the fallback.
     }
+    try {
+      if (url !== SHORTCUTS_APP_URL) {
+        await Linking.openURL(SHORTCUTS_APP_URL);
+        return;
+      }
+    } catch {
+      // Fall through to the manual instruction.
+    }
+    Alert.alert(
+      localize("Could not open Shortcuts", "No se pudo abrir Atajos"),
+      localize(
+        "Open Apple's Shortcuts app and select Automation.",
+        "Abre la app Atajos de Apple y elige Automatización.",
+      ),
+    );
   }
 
   return (

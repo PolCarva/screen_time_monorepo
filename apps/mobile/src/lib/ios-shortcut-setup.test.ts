@@ -1,3 +1,7 @@
+/// <reference types="node" />
+
+import { existsSync, readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +9,8 @@ import {
   IOS_SHORTCUT_IMPORT_URL,
   IOS_SINGLE_AUTOMATION_ENABLED,
   SETUP_PROBE_GRACE_MS,
+  guideLinkUrl,
+  guideSteps,
   isTrustedImportUrl,
   parseIosVersion,
   probeResult,
@@ -92,11 +98,27 @@ describe("iOS Shortcuts setup steps", () => {
 
   it("drops the return shortcut for apps Still can reopen by itself", () => {
     const withScheme = setupSteps("per_app", { needsReturnShortcut: false });
-    expect(withScheme).toHaveLength(4);
-    expect(withScheme).not.toContain("return_shortcut");
-    expect(setupSteps("per_app", { needsReturnShortcut: true }).at(-1)).toBe(
-      "return_shortcut",
-    );
+    expect(withScheme.some((id) => id.startsWith("return_"))).toBe(false);
+    const withReturn = setupSteps("per_app", { needsReturnShortcut: true });
+    expect(withReturn.slice(-3)).toEqual([
+      "return_open_app",
+      "return_choose_app",
+      "return_rename",
+    ]);
+  });
+
+  it("walks the per-app automation one tap at a time, in Shortcuts' own order", () => {
+    expect(setupSteps("per_app", { needsReturnShortcut: false })).toEqual([
+      "pick_app_trigger",
+      "tap_choose",
+      "select_app",
+      "run_immediately",
+      "create_new_shortcut",
+      "search_actions",
+      "add_still_action",
+      "pick_app_name",
+      "save_automation",
+    ]);
   });
 
   it("uses the current app instead of a typed name in the single automation", () => {
@@ -190,5 +212,66 @@ describe("last pause age", () => {
       unit: "now",
       value: 0,
     });
+  });
+});
+
+describe("guide pictures and jump links", () => {
+  const perApp = guideSteps("per_app", { needsReturnShortcut: true });
+
+  it("backs every per-app step with a real capture that exists on disk", () => {
+    const spec = JSON.parse(
+      readFileSync(
+        new URL("../../scripts/shortcut-guide/spec.json", import.meta.url),
+        "utf8",
+      ),
+    ) as { images: { id: string }[] };
+    const specIds = new Set(spec.images.map((image) => image.id));
+    const manifest = readFileSync(
+      new URL("../components/shortcut-guide-assets.ts", import.meta.url),
+      "utf8",
+    );
+
+    for (const step of perApp) {
+      expect(step.image, step.id).not.toBeNull();
+      expect(specIds.has(step.image!), step.id).toBe(true);
+      expect(manifest).toContain(`"${step.image}": {`);
+      expect(
+        existsSync(
+          new URL(
+            `../../assets/shortcut-guide/${step.image}.jpg`,
+            import.meta.url,
+          ),
+        ),
+        step.id,
+      ).toBe(true);
+    }
+    expect(new Set(perApp.map((step) => step.image)).size).toBe(perApp.length);
+  });
+
+  it("jumps to the exact Shortcuts screen only where iOS has a link for it", () => {
+    const byId = Object.fromEntries(perApp.map((step) => [step.id, step.link]));
+    expect(byId.pick_app_trigger).toBe("create_automation");
+    expect(byId.return_open_app).toBe("create_shortcut");
+    // Everything else happens inside a sheet no URL can reach: resume instead
+    // of restarting the flow the user is in the middle of.
+    const others = perApp.filter(
+      (step) =>
+        step.id !== "pick_app_trigger" && step.id !== "return_open_app",
+    );
+    expect(others.every((step) => step.link === "resume")).toBe(true);
+  });
+
+  it("maps every link to a Shortcuts URL and nothing else", () => {
+    expect(guideLinkUrl("create_automation")).toBe(
+      "shortcuts://create-automation",
+    );
+    expect(guideLinkUrl("create_shortcut")).toBe("shortcuts://create-shortcut");
+    expect(guideLinkUrl("automations")).toBe("shortcuts://automations");
+    expect(guideLinkUrl("resume")).toBe("shortcuts://");
+  });
+
+  it("keeps the step that connects the app to Still", () => {
+    // An automation saved without it shows up as "No actions" and does nothing.
+    expect(perApp.map((step) => step.id)).toContain("add_still_action");
   });
 });

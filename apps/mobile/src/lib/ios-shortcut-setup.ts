@@ -35,12 +35,40 @@ export type SetupStepId =
   | "import_enable"
   | "automation_new"
   | "automation_pick_apps"
-  | "automation_pick_one_app"
   | "automation_run_immediately"
   | "action_current_app"
   | "action_pause_current"
-  | "action_pause_named"
-  | "return_shortcut";
+  // Per-app tier: one step per tap, each backed by a real capture of Shortcuts.
+  | "pick_app_trigger"
+  | "tap_choose"
+  | "select_app"
+  | "run_immediately"
+  | "create_new_shortcut"
+  | "search_actions"
+  | "add_still_action"
+  | "pick_app_name"
+  | "save_automation"
+  | "return_open_app"
+  | "return_choose_app"
+  | "return_rename";
+
+/**
+ * Where tapping a step's picture takes the user. Shortcuts has no URL for the
+ * middle of its "new automation" sheet, so only the entry points are exact;
+ * `resume` just brings Shortcuts back, which keeps the sheet where it was left.
+ */
+export type GuideLink =
+  | "create_automation"
+  | "create_shortcut"
+  | "automations"
+  | "resume";
+
+export type GuideStep = {
+  id: SetupStepId;
+  /** File name in assets/shortcut-guide without extension; null = drawn mock-up. */
+  image: string | null;
+  link: GuideLink;
+};
 
 export type RepairCauseId =
   | "toggle_off"
@@ -84,41 +112,69 @@ export function resolveSetupTier(input: {
   return "per_app";
 }
 
+const PER_APP_STEPS: readonly GuideStep[] = [
+  { id: "pick_app_trigger", image: "auto-01-app-trigger", link: "create_automation" },
+  { id: "tap_choose", image: "auto-02-choose", link: "resume" },
+  { id: "select_app", image: "auto-03-pick-app", link: "resume" },
+  { id: "run_immediately", image: "auto-04-run-immediately", link: "resume" },
+  { id: "create_new_shortcut", image: "auto-05-create-new", link: "resume" },
+  { id: "search_actions", image: "auto-06-search-actions", link: "resume" },
+  { id: "add_still_action", image: "auto-07-pick-action", link: "resume" },
+  { id: "pick_app_name", image: "auto-08-pick-name", link: "resume" },
+  { id: "save_automation", image: "auto-09-save", link: "resume" },
+];
+
+const RETURN_SHORTCUT_STEPS: readonly GuideStep[] = [
+  { id: "return_open_app", image: "return-01-open-app", link: "create_shortcut" },
+  { id: "return_choose_app", image: "return-02-choose-app", link: "resume" },
+  { id: "return_rename", image: "return-03-rename", link: "resume" },
+];
+
 /**
  * `needsReturnShortcut` is true when at least one chosen app has no URL scheme
  * Still can open, so the user must also create its `Still - <App>` shortcut.
  */
+export function guideSteps(
+  tier: SetupTier,
+  options: { needsReturnShortcut: boolean },
+): GuideStep[] {
+  const steps: GuideStep[] =
+    tier === "import"
+      ? [
+          { id: "import_add", image: null, link: "resume" },
+          { id: "import_choose_apps", image: null, link: "resume" },
+          { id: "import_enable", image: null, link: "resume" },
+        ]
+      : tier === "single_automation"
+        ? [
+            { id: "automation_new", image: null, link: "create_automation" },
+            { id: "automation_pick_apps", image: null, link: "resume" },
+            { id: "automation_run_immediately", image: null, link: "resume" },
+            { id: "action_current_app", image: null, link: "resume" },
+            { id: "action_pause_current", image: null, link: "resume" },
+          ]
+        : [...PER_APP_STEPS];
+  return options.needsReturnShortcut
+    ? [...steps, ...RETURN_SHORTCUT_STEPS]
+    : steps;
+}
+
 export function setupSteps(
   tier: SetupTier,
   options: { needsReturnShortcut: boolean },
 ): SetupStepId[] {
-  const steps: SetupStepId[] =
-    tier === "import"
-      ? ["import_add", "import_choose_apps", "import_enable"]
-      : tier === "single_automation"
-        ? [
-            "automation_new",
-            "automation_pick_apps",
-            "automation_run_immediately",
-            "action_current_app",
-            "action_pause_current",
-          ]
-        : [
-            "automation_new",
-            "automation_pick_one_app",
-            "automation_run_immediately",
-            "action_pause_named",
-          ];
-  return options.needsReturnShortcut ? [...steps, "return_shortcut"] : steps;
+  return guideSteps(tier, options).map((step) => step.id);
 }
 
 /** Most likely cause first, so a non-technical user can stop at the first hit. */
 export function repairCauses(tier: SetupTier): RepairCauseId[] {
   if (tier === "per_app")
     return [
+      // Saving the trigger without Still's action is the easiest mistake to
+      // make by hand, and Shortcuts shows it plainly as "No actions".
+      "wrong_app_in_action",
       "toggle_off",
       "not_run_immediately",
-      "wrong_app_in_action",
       "shortcut_deleted",
       "just_rebooted",
     ];
@@ -175,3 +231,23 @@ export function shortcutsOpenUrl(shortcutName: string): string {
 
 export const SHORTCUTS_CREATE_URL = "shortcuts://create-shortcut";
 export const SHORTCUTS_APP_URL = "shortcuts://";
+/**
+ * Opens the "new personal automation" trigger list and the Automation tab.
+ * Apple does not document these two; they were verified on iOS 26.0. Callers
+ * must fall back to `SHORTCUTS_APP_URL` when they fail to open.
+ */
+export const SHORTCUTS_CREATE_AUTOMATION_URL = "shortcuts://create-automation";
+export const SHORTCUTS_AUTOMATIONS_URL = "shortcuts://automations";
+
+export function guideLinkUrl(link: GuideLink): string {
+  switch (link) {
+    case "create_automation":
+      return SHORTCUTS_CREATE_AUTOMATION_URL;
+    case "create_shortcut":
+      return SHORTCUTS_CREATE_URL;
+    case "automations":
+      return SHORTCUTS_AUTOMATIONS_URL;
+    case "resume":
+      return SHORTCUTS_APP_URL;
+  }
+}

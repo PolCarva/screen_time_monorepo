@@ -297,6 +297,12 @@ Se montó y recorrió el flujo en el simulador de iOS 26.0 (receta en `docs/ios-
 - Se añadió Apple News al catálogo (`applenews://`), útil además porque existe en el simulador.
 - Interruptores solo de desarrollo: `EXPO_PUBLIC_DEV_IOS_PAUSES` y `EXPO_PUBLIC_DEV_IOS_HOME_ON_CANCEL`.
 
+### Guía con capturas reales (2026-09-21)
+
+El tutorial dibujado no bastaba: en la prueba real una automatización quedó guardada con «No actions» (faltó añadir la acción de Still). Ahora el nivel «por app» se explica toque a toque con **capturas reales de Atajos** y el control exacto rodeado con un anillo. Cada imagen es un botón; los enlaces verificados en iOS 26.0 son `shortcuts://create-automation` (lista de triggers), `shortcuts://create-shortcut`, `shortcuts://automations` (pestaña Automatización) y `shortcuts://` (reanuda donde se dejó). No existe URL para el interior de la hoja «nueva automatización», así que los pasos intermedios reanudan Atajos en vez de saltar. Detalles y regeneración en `docs/ios-shortcuts.md`.
+
+Siguiente mejora posible, no hecha: un vídeo en Picture-in-Picture que flote sobre Atajos mientras el usuario configura, para no tener que alternar entre apps.
+
 ### Pendiente fuera de este trabajo
 
 - Fase 0 completa (H1–H9) y la checklist física de 12 puntos.

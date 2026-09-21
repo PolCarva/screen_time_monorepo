@@ -31,13 +31,35 @@ Turning it on is an explicit operator action in `/admin`.
    | Single automation | 18.2–26 | One automation for every app using **Get Current App** | Off until H1 is validated |
    | Per app | 16.4+ | One automation per app | **Active** |
 
-   The per-app tier, for YouTube:
+   The per-app tier is shown one tap at a time, each step with a **real
+   capture of Shortcuts** and the control to tap ringed (and numbered when
+   there are several). For YouTube:
 
-   1. Shortcuts → Automation → **+** → **App**.
-   2. Select only **YouTube**, keep **Is Opened**.
-   3. Choose **Run Immediately** and turn off **Notify When Run**.
-   4. Add Still's **Pause Before Opening** action and pick **YouTube** from the
-      list. There is nothing to type.
+   1. In the trigger list, search **App** and tap it.
+   2. Tap **Choose**.
+   3. Check **YouTube**, then the blue check mark.
+   4. Tap **Run Immediately**, keep **Notify When Run** off, tap **Next**.
+   5. Tap **Create New Shortcut**.
+   6. Tap **Search Actions** and type **Still**.
+   7. Tap **Pause Before Opening**. An automation saved without this step shows
+      up as "No actions" in Shortcuts and does nothing; it is the easiest step
+      to miss, so the repair screen leads with it.
+   8. Tap **App name** and pick **YouTube** from the list. Nothing to type.
+   9. Tap the blue check mark to save.
+
+   Every picture is a button. Shortcuts has no URL for the middle of its "new
+   automation" sheet, so only the entry points land on the exact screen:
+
+   | Tapping | Opens |
+   | --- | --- |
+   | Step 1 | `shortcuts://create-automation`, the trigger list itself |
+   | First return-shortcut step | `shortcuts://create-shortcut`, a new shortcut |
+   | Repair buttons | `shortcuts://automations`, the Automation tab |
+   | Every other step | `shortcuts://`, which resumes the sheet where it was left |
+
+   `create-automation` and `automations` are not documented by Apple; they were
+   verified on iOS 26.0 and fall back to `shortcuts://` if they ever stop
+   opening. The user comes back with iOS's own "◀ Still" breadcrumb.
 
    Apps outside the catalog have no URL scheme Still can open, so they need one
    more step: a shortcut named exactly `Still - [App name]` with a single
@@ -110,6 +132,28 @@ pnpm --filter mobile acceptance:ios-shortcuts -- /absolute/path/to/Still.app
 ```
 
 This build gate complements rather than replaces the device test below.
+
+## Guide captures
+
+The pictures live in `apps/mobile/assets/shortcut-guide` (12 JPEGs, about
+430 KB). They are cropped from raw simulator captures by
+`apps/mobile/scripts/shortcut-guide/build.swift`, driven by `spec.json` in the
+same folder, which also lists each tap target. The script writes
+`src/components/shortcut-guide-assets.ts` with those targets as fractions of
+the image, and `ShortcutGuideImage` draws the rings from it, so the pictures
+themselves carry no annotations.
+
+Raw captures are not committed. To refresh them after an iOS redesign, walk
+the flow in a simulator, save each screen with
+`xcrun simctl io <udid> screenshot <name>.png` using the file names in
+`spec.json`, adjust the point coordinates there, and run:
+
+```sh
+swift apps/mobile/scripts/shortcut-guide/build.swift /path/to/raw-captures
+```
+
+The captures are in English from an iPhone 15 on iOS 26.0. A device in another
+language shows translated labels in the same positions.
 
 ## Testing in the iOS Simulator
 
