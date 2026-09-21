@@ -5,10 +5,12 @@ import {
   type ShortcutTarget,
   activeTargets,
   addCustomTarget,
+  catalogSchemeFor,
   catalogTargets,
   disableTargetScheme,
   hydrateTargets,
   mergeNativeTargets,
+  restoreTargetScheme,
   returnShortcutName,
   setTargetSelected,
   toNativeTargets,
@@ -64,6 +66,28 @@ describe("shortcut targets", () => {
       "tiktok",
     );
     expect(find(hydrateTargets(broken), "tiktok").urlScheme).toBeNull();
+  });
+
+  it("restores a disabled scheme once it is seen working again", () => {
+    const broken = disableTargetScheme(
+      setTargetSelected(hydrateTargets([]), "tiktok", true),
+      "tiktok",
+    );
+    expect(catalogSchemeFor(find(broken, "tiktok"))).toBe("tiktok://");
+    const restored = restoreTargetScheme(broken, "tiktok");
+    expect(find(restored, "tiktok").urlScheme).toBe("tiktok://");
+    expect(find(hydrateTargets(restored), "tiktok").urlScheme).toBe(
+      "tiktok://",
+    );
+  });
+
+  it("never invents a scheme for an app outside the catalog", () => {
+    const { targets } = addCustomTarget(hydrateTargets([]), "My Bank");
+    expect(catalogSchemeFor(find(targets, "custom:mybank"))).toBeNull();
+    expect(
+      find(restoreTargetScheme(targets, "custom:mybank"), "custom:mybank")
+        .urlScheme,
+    ).toBeNull();
   });
 
   it("adds a custom app without a scheme and rejects unusable names", () => {
@@ -164,7 +188,8 @@ describe("shortcut targets", () => {
     expect(x).not.toHaveProperty("aliases");
   });
 
-  it("derives the return shortcut name with the middle dot the intent expects", () => {
-    expect(returnShortcutName("YouTube")).toBe("Still · YouTube");
+  it("derives a return shortcut name that can be typed on the stock iOS keyboard", () => {
+    expect(returnShortcutName("YouTube")).toBe("Still - YouTube");
+    expect(returnShortcutName("YouTube")).toMatch(/^[\x20-\x7E]+$/);
   });
 });

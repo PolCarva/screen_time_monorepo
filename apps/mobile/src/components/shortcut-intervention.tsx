@@ -217,7 +217,9 @@ export function ShortcutIntervention({
           );
           if (target) await disableScheme(target.id);
         },
-        openUrl: Linking.openURL,
+        // Call through Linking: its openURL method reads `this`, so handing the
+        // bare method over would throw before iOS ever sees the URL.
+        openUrl: (url) => Linking.openURL(url),
       });
       dispatch({ type: "FINISHED" });
       // Still is already behind the target app; do not leave this screen

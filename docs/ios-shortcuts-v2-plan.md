@@ -25,7 +25,7 @@ iOS, qué falta en Still y en qué orden construirlo.
 | D5 | Se mantiene el **modo Atajos** y siguen desactivados los shields de Managed Settings en iOS (ya decidido en `docs/ios-shortcuts.md`). | Repo |
 | D6 | El canal Atajos → Still sigue siendo **App Group + polling** (`shortcutIntervention.pending`), no un deep link. Ya está construido y probado. | Repo |
 | D7 | El parámetro del intent sigue siendo `appName: String` (no `AppEntity`), para aceptar tanto un valor fijo como la variable "App actual". Se le añade una lista de opciones. | Este plan |
-| D8 | Retorno a la app: **URL scheme del catálogo primero**; si no hay, el atajo de retorno `Still · <App>` que ya existe. | Este plan |
+| D8 | Retorno a la app: **URL scheme del catálogo primero**; si no hay, el atajo de retorno `Still - <App>` que ya existe. | Este plan |
 
 ---
 
@@ -87,7 +87,7 @@ Stack: Expo SDK 57 / RN 0.86 con `ios/` committeado, pnpm + Turborepo, Vitest, S
 
 **Brechas respecto al flujo objetivo**
 1. No hay selección de apps dentro de Still: el nombre se teclea en Atajos y el tutorial usa "YouTube" fijo.
-2. Retorno solo por atajo `Still · <App>` (2 artefactos por app, nombre exacto con `·`).
+2. Retorno solo por atajo `Still - <App>` (2 artefactos por app, nombre exacto con `·`).
 3. Orden invertido: hoy se decide **antes** del anuncio; objetivo: anuncio → decisión.
 4. "Volver" navega a la pestaña Hoy; no sale al Home.
 5. Sin verificación ni reparación: `getHealth` devuelve éxito fijo en modo Atajos (`StillRestrictionEngine.swift:208-217`).
@@ -121,7 +121,7 @@ type ShortcutTarget = {
 ### 4.2 Intent (`StillShortcutIntent.swift`)
 - Mantener `appName: String` y añadir `DynamicOptionsProvider` que lista los `targets` activos → en Atajos se **elige de una lista** en vez de teclear, y sigue aceptando la variable "App actual".
 - `prepare(appName:)`: resolver target por nombre/alias normalizado → si `state == removed` salir en silencio; si no existe, **auto-adoptar** como `origin: "detected"`; registrar `lastTriggered`; si hay `setupProbe` vigente para ese target devolver contexto con `isSetupTest: true` (sin contar intento).
-- `complete()`: `returnURL = target.urlScheme ?? shortcuts://run-shortcut?name=Still · <App>`.
+- `complete()`: `returnURL = target.urlScheme ?? shortcuts://run-shortcut?name=Still - <App>`.
 - `ShortcutInterventionContext` gana `isSetupTest: Bool` y `returnKind: "scheme" | "shortcut"`.
 - La `targetKey` (base64 del nombre en minúsculas) **no cambia**: allowances y métricas siguen válidas.
 
@@ -131,8 +131,8 @@ Métodos nuevos: `setShortcutTargets(targets)`, `getShortcutTargetsHealth()` →
 ### 4.4 Comunicación y deep links
 - **Atajos → Still:** App Group + polling (D6). No hace falta URL de entrada.
 - **Still → app destino:** `Linking.openURL(urlScheme)`; fallback `shortcuts://run-shortcut?name=…`.
-- **Still → Atajos (setup/reparación):** enlace iCloud de importación (iOS 27), `shortcuts://open-shortcut?name=Still · Pausa`, `shortcuts://create-shortcut`, `shortcuts://`.
-- **Still → Home:** `suspendToHome()`; fallback `shortcuts://run-shortcut?name=Still · Inicio`.
+- **Still → Atajos (setup/reparación):** enlace iCloud de importación (iOS 27), `shortcuts://open-shortcut?name=Still - Pausa`, `shortcuts://create-shortcut`, `shortcuts://`.
+- **Still → Home:** `suspendToHome()`; fallback `shortcuts://run-shortcut?name=Still - Inicio`.
 
 ### 4.5 Flujo de intervención (máquina de estados pura)
 Nuevo `src/lib/intervention-flow.ts` (+ test), consumido por `app/intervention.tsx`:
@@ -150,7 +150,7 @@ gate ──"Ver anuncio"──▶ ad ──earned──▶ claim ──ok──�
 - `isSetupTest` → pantalla "Conectado ✓" en lugar del gate.
 
 ### 4.6 Salida al Home
-`src/lib/leave-to-home.ts`: `router.replace("/(tabs)/(today)")` **antes** de salir (para no reabrir sobre una intervención vieja) → si `config.iosHomeOnCancelEnabled` → `suspendToHome()`; si no → atajo `Still · Inicio` si está marcado como instalado → si no, pantalla "Listo. Desliza hacia arriba para salir."
+`src/lib/leave-to-home.ts`: `router.replace("/(tabs)/(today)")` **antes** de salir (para no reabrir sobre una intervención vieja) → si `config.iosHomeOnCancelEnabled` → `suspendToHome()`; si no → atajo `Still - Inicio` si está marcado como instalado → si no, pantalla "Listo. Desliza hacia arriba para salir."
 Flag nuevo `iosHomeOnCancelEnabled` en `remoteConfigSchema` (`packages/contracts/src/schemas.ts`), migración Supabase, `apps/web/app/admin/actions.ts`, `supabase/tests/production_invariants.sql`. Default `false` (fail-closed), se activa desde admin.
 
 ### 4.7 Niveles de setup (según versión de iOS)
@@ -184,7 +184,7 @@ Cada nivel se activa con constantes en `src/lib/ios-shortcut-setup.ts` (`IOS_SHO
 | 4 | **Listo** | Resumen + 2 tips: apagar "Notificar al ejecutar"; tras reiniciar el iPhone las automatizaciones tardan ~2 min | "Terminar" → Hoy |
 
 - **Volver a Still:** miga "◀ Still" de iOS o el conmutador; en la prueba, Still vuelve solo porque la automatización lo trae.
-- **Editar apps:** Ajustes → "Apps con pausa" (misma lista + estado "Activa · última pausa hace 2 h" / "Sin verificar"). Añadir → recordatorio "añádela también en el trigger del atajo" con `shortcuts://open-shortcut?name=Still · Pausa` → Probar. Quitar → `state: "removed"` (el intent calla) + recordatorio de quitarla del trigger.
+- **Editar apps:** Ajustes → "Apps con pausa" (misma lista + estado "Activa · última pausa hace 2 h" / "Sin verificar"). Añadir → recordatorio "añádela también en el trigger del atajo" con `shortcuts://open-shortcut?name=Still - Pausa` → Probar. Quitar → `state: "removed"` (el intent calla) + recordatorio de quitarla del trigger.
 - **Reparar:** checklist con causas ordenadas — interruptor apagado · app no está en el trigger · falta "Ejecutar inmediatamente" · atajo borrado (→ reimportar) · iPhone recién reiniciado — y botón "Probar de nuevo".
 - Reutilizar `ShortcutStepVisual` con variantes nuevas (`import`, `toggle`, `current-app`) y `localize(en, es)`.
 
@@ -257,10 +257,10 @@ Orden: **0 → 1 → 2 → 3 → 4 → 5**. Las fases 1–3 no dependen de los r
 |---|---|---|
 | H1 App actual en automatización multi-app | ⏳ | |
 | H2 Importación por enlace con trigger | ⏳ | |
-| H3 Primer plano sin diálogo en iOS 27 | ⏳ | |
-| H4 `suspend` → Home | ⏳ | |
-| H5 Retorno por scheme + allowance | ⏳ | |
-| H6 Lista de opciones + variable | ⏳ | |
+| H3 Primer plano sin diálogo en iOS 27 | 🟡 simulador | Confirmado en el simulador de iOS 26.0: `continueInForeground` trae Still al frente sin diálogo. Falta iOS 27 y dispositivo. |
+| H4 `suspend` → Home | 🟡 simulador | Confirmado en el simulador de iOS 26.0: aterriza en el Home y al reabrir Still se ve Hoy. Falta dispositivo. |
+| H5 Retorno por scheme + allowance | 🟡 simulador | `applenews://` vuelve a News sin pasar por Atajos y el intent calla durante la allowance. El re-disparo de la automatización no es comprobable en simulador. |
+| H6 Lista de opciones + variable | ✅ simulador | La acción lista exactamente las apps elegidas en Still y ofrece «Variables…». |
 | H7 URL schemes del catálogo | ⏳ | |
 | H9 Estructura del atajo de one sec 6.0 | ⏳ | |
 
@@ -283,6 +283,19 @@ Niveles de setup: H1 y H2 siguen ⏳, así que `IOS_SHORTCUT_IMPORT_URL = ""` y 
 | Flag solo en contratos/migración/admin/pgTAP | Además, el RPC `admin_publish_remote_config` rechaza un payload sin el flag, y el admin gana el checkbox de `iosRestrictionEnabled` que faltaba | Sin ese checkbox iOS no podía activarse nunca desde `/admin`. |
 | — | El intent también calla si `restrictionsEnabled` es falso | Da a `iosRestrictionEnabled` efecto real en iOS (kill switch), igual que exige la base de datos al reportar un unlock. |
 | Pantalla "Listo" genérica | Ruta `/leave` | Último eslabón de la cadena de salida al Home. |
+
+### Prueba en simulador (2026-09-20)
+
+Se montó y recorrió el flujo en el simulador de iOS 26.0 (receta en `docs/ios-shortcuts.md`). Hallazgos:
+
+- **Los triggers «cuando se abre una app» no disparan en el simulador** (no corre `contextstored`/`coreduetd`). H1 y el disparo real solo son comprobables en un iPhone. Todo lo posterior al disparo se prueba con un atajo normal que ejecuta la misma acción.
+- **Bug corregido:** se pasaba `Linking.openURL` como referencia suelta; ese método lee `this` y lanzaba antes de llegar a iOS, así que el retorno a la app fallaba siempre. Venía del código v1. Hay un test que impide reintroducirlo.
+- **Bug corregido:** un fallo espurio dejaba el URL scheme de una app desactivado para siempre. Ahora «Probar» lo reintenta y lo restaura si abre.
+- **Cambio de convención:** `Still · <App>` → `Still - <App>`. El punto medio (U+00B7) no existe en el teclado estándar de iOS, así que el usuario no podía escribir ese nombre.
+- El trigger admite varias apps a la vez (apoya H1) y la acción acepta variables (H6).
+- La primera ejecución de un atajo de retorno muestra un aviso de iOS («Allow … to output 1 app?»); el tutorial ya lo explica.
+- Se añadió Apple News al catálogo (`applenews://`), útil además porque existe en el simulador.
+- Interruptores solo de desarrollo: `EXPO_PUBLIC_DEV_IOS_PAUSES` y `EXPO_PUBLIC_DEV_IOS_HOME_ON_CANCEL`.
 
 ### Pendiente fuera de este trabajo
 

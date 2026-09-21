@@ -30,10 +30,10 @@ function deps(overrides: Partial<LeaveToHomeDeps> = {}) {
 }
 
 describe("leaving to the iOS Home Screen", () => {
-  it("builds the helper shortcut URL with the middle dot encoded", () => {
-    expect(HOME_SHORTCUT_NAME).toBe("Still · Inicio");
+  it("builds the helper shortcut URL from a name that can be typed on iOS", () => {
+    expect(HOME_SHORTCUT_NAME).toBe("Still - Inicio");
     expect(homeShortcutUrl()).toBe(
-      "shortcuts://run-shortcut?name=Still%20%C2%B7%20Inicio",
+      "shortcuts://run-shortcut?name=Still%20-%20Inicio",
     );
   });
 

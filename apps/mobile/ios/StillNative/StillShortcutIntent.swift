@@ -191,7 +191,9 @@ enum ShortcutInterventionState {
   private static let pendingKey = "shortcutIntervention.pending"
   private static let allowancesKey = "shortcutIntervention.allowances"
   private static let contextLifetime: TimeInterval = 10 * 60
-  private static let returnShortcutPrefix = "Still · "
+  // Typed by the user in Shortcuts: keep it to characters on the stock iOS
+  // keyboard. Must match `returnShortcutName` in src/lib/shortcut-targets.ts.
+  private static let returnShortcutPrefix = "Still - "
 
   static func prepare(appName: String) throws -> ShortcutInterventionContext? {
     let requestedName = appName.trimmingCharacters(in: .whitespacesAndNewlines)

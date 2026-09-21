@@ -1,4 +1,4 @@
-export const HOME_SHORTCUT_NAME = "Still · Inicio";
+export const HOME_SHORTCUT_NAME = "Still - Inicio";
 
 export type LeaveToHomeOutcome = "suspended" | "shortcut" | "manual";
 

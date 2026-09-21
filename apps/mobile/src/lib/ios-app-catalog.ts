@@ -55,6 +55,7 @@ export const IOS_APP_CATALOG: readonly CatalogApp[] = [
     aliases: ["Mercado Livre"],
     scheme: "meli",
   },
+  { id: "apple-news", name: "News", aliases: ["Apple News"], scheme: "applenews" },
   { id: "chrome", name: "Chrome", aliases: ["Google Chrome"], scheme: "googlechrome" },
   { id: "gmail", name: "Gmail", aliases: [], scheme: "googlegmail" },
   { id: "roblox", name: "Roblox", aliases: [], scheme: "roblox" },

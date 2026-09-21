@@ -22,7 +22,7 @@ export const IOS_SINGLE_AUTOMATION_ENABLED = false;
 export const IOS_HOME_SHORTCUT_IMPORT_URL = "";
 
 /** Name of the imported shortcut, used to deep-link into it for edits and repairs. */
-export const PAUSE_SHORTCUT_NAME = "Still · Pausa";
+export const PAUSE_SHORTCUT_NAME = "Still - Pausa";
 
 /** How long Still waits for the automation to fire before calling a test failed. */
 export const SETUP_PROBE_GRACE_MS = 6_000;
@@ -86,7 +86,7 @@ export function resolveSetupTier(input: {
 
 /**
  * `needsReturnShortcut` is true when at least one chosen app has no URL scheme
- * Still can open, so the user must also create its `Still · <App>` shortcut.
+ * Still can open, so the user must also create its `Still - <App>` shortcut.
  */
 export function setupSteps(
   tier: SetupTier,

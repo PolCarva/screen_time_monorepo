@@ -209,6 +209,12 @@ describe("committed native production configuration", () => {
       expect(restrictionEngine).toContain(`@objc func ${method}(`);
       expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);
     }
+    // Swift and JavaScript must derive the same return shortcut name, and it
+    // must be typeable: the user creates that shortcut by hand.
+    expect(shortcutIntent).toContain('returnShortcutPrefix = "Still - "');
+    expect(
+      nativeFile("src/lib/shortcut-targets.ts"),
+    ).toContain("return `Still - ${appName}`;");
     expect(restrictionEngine).toContain('"fallbackReturnUrl"');
     expect(restrictionEngine).toContain('"shortcuts_not_verified"');
     expect(restrictionEngine).not.toContain('"engineActive": true,');

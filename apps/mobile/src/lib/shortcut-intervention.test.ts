@@ -68,7 +68,7 @@ describe("iOS Shortcut return orchestration", () => {
     const unlockShortcut = vi.fn(async () => {
       order.push("allowance");
       return {
-        returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+        returnUrl: "shortcuts://run-shortcut?name=Still%20-%20YouTube",
       };
     });
     const onUnlockActivated = vi.fn(() => {
@@ -92,7 +92,7 @@ describe("iOS Shortcut return orchestration", () => {
     expect(order).toEqual([
       "allowance",
       "record",
-      "open:shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+      "open:shortcuts://run-shortcut?name=Still%20-%20YouTube",
     ]);
   });
 
@@ -113,7 +113,7 @@ describe("iOS Shortcut return orchestration", () => {
 
   it("uses an existing pass without claiming a fresh reward", async () => {
     const unlockShortcut = vi.fn(async () => ({
-      returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+      returnUrl: "shortcuts://run-shortcut?name=Still%20-%20YouTube",
     }));
 
     await completeShortcutAndReturn({
@@ -138,7 +138,7 @@ describe("iOS Shortcut return orchestration", () => {
       unlockShortcut: vi.fn(async () => ({
         returnUrl: "instagram://",
         fallbackReturnUrl:
-          "shortcuts://run-shortcut?name=Still%20%C2%B7%20Instagram",
+          "shortcuts://run-shortcut?name=Still%20-%20Instagram",
       })),
       onPrimaryReturnFailed,
       openUrl,
@@ -146,7 +146,7 @@ describe("iOS Shortcut return orchestration", () => {
 
     expect(opened).toEqual([
       "instagram://",
-      "shortcuts://run-shortcut?name=Still%20%C2%B7%20Instagram",
+      "shortcuts://run-shortcut?name=Still%20-%20Instagram",
     ]);
     expect(onPrimaryReturnFailed).toHaveBeenCalledTimes(1);
   });
@@ -158,7 +158,7 @@ describe("iOS Shortcut return orchestration", () => {
       completeShortcutAndReturn({
         contextId: "youtube-context",
         unlockShortcut: vi.fn(async () => ({
-          returnUrl: "shortcuts://run-shortcut?name=Still%20%C2%B7%20YouTube",
+          returnUrl: "shortcuts://run-shortcut?name=Still%20-%20YouTube",
         })),
         onPrimaryReturnFailed,
         openUrl: vi.fn(async () => {

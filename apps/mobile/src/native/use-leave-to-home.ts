@@ -29,7 +29,7 @@ export function useLeaveToHome() {
       ),
       resetNavigation: () => router.replace("/(tabs)/(today)"),
       suspendToHome: () => restrictionEngine.suspendToHome(),
-      openUrl: Linking.openURL,
+      openUrl: (url) => Linking.openURL(url),
       showManualExit: () => router.push("/leave"),
     });
     capture("intervention_left", { outcome, trigger: "ios_shortcut" });

@@ -40,7 +40,7 @@ Turning it on is an explicit operator action in `/admin`.
       list. There is nothing to type.
 
    Apps outside the catalog have no URL scheme Still can open, so they need one
-   more step: a shortcut named exactly `Still · [App name]` with a single
+   more step: a shortcut named exactly `Still - [App name]` with a single
    **Open App** action.
 
 3. **Test it.** Tapping **Test** arms a two-minute probe and opens the app.
@@ -74,7 +74,7 @@ section 10 of the plan; no other code changes are needed.
    Closing the ad early returns to the gate with no penalty and no reward.
 7. **I want to go in** records the unlock, starts the app-scoped allowance and
    opens `youtube://`. If that scheme fails, Still runs
-   `shortcuts://run-shortcut?name=Still · YouTube` instead and stops offering
+   `shortcuts://run-shortcut?name=Still - YouTube` instead and stops offering
    the scheme on that device. YouTube's automation fires again, sees the
    allowance and does not reopen Still until it expires. An unlock earned with
    the 15-second pause lasts five minutes, spends nothing and is not reported.
@@ -82,7 +82,7 @@ section 10 of the plan; no other code changes are needed.
    avoided open. A reward already earned is kept as a stored pass. Still then
    leaves to the Home Screen through a fallback chain: the native suspend call
    when the remote `iosHomeOnCancelEnabled` flag is on, else the helper shortcut
-   `Still · Inicio` when the user installed it, else a hint to swipe up.
+   `Still - Inicio` when the user installed it, else a hint to swipe up.
 
 The same flow is specified as a pure state machine in
 `apps/mobile/src/lib/intervention-flow.ts`.
@@ -111,9 +111,47 @@ pnpm --filter mobile acceptance:ios-shortcuts -- /absolute/path/to/Still.app
 
 This build gate complements rather than replaces the device test below.
 
+## Testing in the iOS Simulator
+
+The simulator can exercise everything **after** the trigger, but never the
+trigger itself: Shortcuts registers the "App is opened" automation with
+CoreDuet, and the simulator does not run the `contextstored` / `coreduetd`
+daemons that publish which app is in focus, so the automation never fires
+there. Stand in for it with a plain shortcut that runs the same action.
+
+1. Production keeps the iOS pause off. In `apps/mobile/.env.local` set
+   `EXPO_PUBLIC_DEV_IOS_PAUSES=1` (and `EXPO_PUBLIC_DEV_IOS_HOME_ON_CANCEL=1`
+   to exercise the Home Screen exit). Both are ignored outside `__DEV__`.
+   The server still rejects unlock reports while its own flag is off; they
+   queue locally and do not affect the flow.
+2. Build for the simulator **with** signing (`xcodebuild … -sdk iphonesimulator
+   -destination 'platform=iOS Simulator,id=…'`, without
+   `CODE_SIGNING_ALLOWED=NO`). An unsigned build has no Keychain entitlement
+   and the session cannot be stored.
+3. In Still choose **News** (catalog app present in the simulator, returns
+   through `applenews://`) and add **Fitness** by name (returns through the
+   `Still - Fitness` shortcut).
+4. In Shortcuts create `Test Still News` and `Test Still Fitness`, each with
+   the single action **Pause Before Opening** set to that app, plus the return
+   shortcut `Still - Fitness` (**Open App → Fitness**).
+5. Run `shortcuts://run-shortcut?name=Test%20Still%20News` (or tap the tile).
+   Still comes to the foreground exactly as it would from the automation.
+
+Observed this way on the iOS 26.0 simulator (2026-09-20): the action lists
+exactly the apps chosen in Still and accepts variables; Still foregrounds with
+no confirmation dialog; the ad, the confirmed claim and the two final options
+appear in that order; **I want to go in** returns to News directly and to
+Fitness through its return shortcut; the intent stays silent during the access
+window; a setup test shows the connected screen without counting an opening;
+**I don't want to go in anymore** lands on the Home Screen and the next launch
+opens on Today; counters are per app. The first run of a return shortcut shows
+an iOS prompt ("Allow … to output 1 app?"); **Always Allow** removes it.
+
 ## Physical release acceptance
 
-None of these have been observed yet. Run the checklist on an iPhone after
+None of these have been observed on a device yet; the simulator run above
+covers points 2–4, 6–9 and 11 except for the automation trigger itself, which
+only a physical iPhone can prove. Run the checklist on an iPhone after
 installing the native build, with `iosRestrictionEnabled` on:
 
 1. Open Still once. Settings shows **Choose your apps** and `0/0 APPS`, not a
@@ -137,12 +175,12 @@ installing the native build, with `iosRestrictionEnabled` on:
    counter is 2 with one avoided open.
 9. With `iosHomeOnCancelEnabled` on, step 8 ends on the Home Screen, not in
    YouTube; reopening Still shows Today, not the old pause. With the flag off
-   it ends on the **Done. You stayed out.** screen (or runs `Still · Inicio`
+   it ends on the **Done. You stayed out.** screen (or runs `Still - Inicio`
    when that helper shortcut was marked as installed).
 10. In Airplane Mode with no stored pass and no Emergency Access, open YouTube:
     a 15-second countdown runs, the final options appear when it ends, and
     going in keeps YouTube open for five minutes only.
-11. Configure the app outside the catalog including its `Still · [App name]`
+11. Configure the app outside the catalog including its `Still - [App name]`
     return shortcut. After the ad, **I want to go in** returns through Shortcuts
     and its counter starts at 1 instead of inheriting YouTube's count.
 12. Remove YouTube in `/ios-apps` without touching Shortcuts and open YouTube:

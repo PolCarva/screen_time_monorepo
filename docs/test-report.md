@@ -41,12 +41,13 @@ Local evidence for the unreleased iOS pause (`ios-shortcuts.md`). The rows above
 
 | Check | Result |
 | --- | --- |
-| `pnpm check` | Passed: lint, TypeScript and 172 unit tests (contracts 15, web 29, mobile 128). |
+| `pnpm check` | Passed: lint, TypeScript and 179 unit tests (contracts 15, web 29, mobile 135). |
 | `pnpm build` | Passed, including the Next.js production build. |
 | `supabase test db` | Passed 25 pgTAP invariants on the local stack after `supabase migration up --local` applied `202609050001` and `202609200001`. Not applied to production. |
 | `supabase db lint --local` | No errors; the same intentional unused-parameter warnings as before. |
 | iOS simulator build | `xcodebuild` Debug / iphonesimulator with signing disabled succeeded on Xcode 26.0.1 for Still and its four extensions, with no warnings in `StillNative`. |
 | `acceptance:ios-shortcuts` | Passed against that build: the action is discoverable, does not open Still unconditionally, keeps dynamic foregrounding, offers the chosen apps as options, and carries the production iOS AdMob app id. |
+| iOS 26.0 simulator walkthrough | Passed for everything after the trigger, driven by shortcuts that run Still's action (recipe and observations in `ios-shortcuts.md`). It found and fixed two bugs: the return to the app always failed because `Linking.openURL` was passed unbound, and one failed open disabled an app's URL scheme for good. "App is opened" automations cannot fire in the simulator, so the trigger itself is unproven. |
 | Physical iPhone | **Not run.** The twelve-point checklist in `ios-shortcuts.md` and hypotheses H1–H9 are pending. Nothing about automation timing, foregrounding without a dialog, URL-scheme return, the Home Screen exit or ad delivery on iOS has been observed. |
 
 Use the acceptance matrix in `native-feasibility.md` before promoting beyond a closed beta.

@@ -17,6 +17,7 @@ import {
   disableTargetScheme,
   hydrateTargets,
   mergeNativeTargets,
+  restoreTargetScheme,
   setTargetSelected,
   toNativeTargets,
 } from "@/lib/shortcut-targets";
@@ -39,6 +40,7 @@ type ShortcutTargetsValue = {
     name: string,
   ): Promise<{ id?: string; error?: AddCustomTargetError }>;
   disableScheme(id: string): Promise<void>;
+  restoreScheme(id: string): Promise<void>;
   refresh(): Promise<void>;
 };
 
@@ -136,6 +138,13 @@ export function ShortcutTargetsProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const restoreScheme = useCallback(
+    async (id: string) => {
+      await persist(restoreTargetScheme(current.current, id));
+    },
+    [persist],
+  );
+
   const value = useMemo(
     () => ({
       ready,
@@ -144,9 +153,19 @@ export function ShortcutTargetsProvider({ children }: { children: ReactNode }) {
       setSelected,
       addCustom,
       disableScheme,
+      restoreScheme,
       refresh,
     }),
-    [addCustom, disableScheme, health, ready, refresh, setSelected, targets],
+    [
+      addCustom,
+      disableScheme,
+      health,
+      ready,
+      refresh,
+      restoreScheme,
+      setSelected,
+      targets,
+    ],
   );
 
   return (

@@ -54,7 +54,7 @@ function ShortcutBadge({ label, tone }: { label: string; tone: "blue" | "red" | 
 function ReturnShortcutVisual({ appName }: { appName: string }) {
   return (
     <>
-      <Chrome title={`Still · ${appName}`} />
+      <Chrome title={`Still - ${appName}`} />
       <View style={styles.actionCard}>
         <ShortcutBadge label="↗" tone="blue" />
         <View style={styles.actionCopy}>
@@ -132,7 +132,7 @@ function ImportVisual() {
       <View style={styles.actionCard}>
         <ShortcutBadge label="S" tone="still" />
         <View style={styles.actionCopy}>
-          <Text style={styles.actionTitle}>Still · Pausa</Text>
+          <Text style={styles.actionTitle}>Still - Pausa</Text>
           <Text style={styles.fieldLabel}>
             {localize("1 automation · 1 action", "1 automatización · 1 acción")}
           </Text>
@@ -150,7 +150,7 @@ function ImportVisual() {
 function ToggleVisual() {
   return (
     <>
-      <Chrome title="Still · Pausa" />
+      <Chrome title="Still - Pausa" />
       <View style={styles.actionCard}>
         <ShortcutBadge label="▶" tone="red" />
         <View style={styles.actionCopy}>

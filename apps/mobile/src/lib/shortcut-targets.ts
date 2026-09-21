@@ -190,6 +190,30 @@ export function disableTargetScheme(
   );
 }
 
+/** The return scheme this build's catalog knows for a target, even if disabled. */
+export function catalogSchemeFor(
+  target: Pick<ShortcutTarget, "id" | "origin">,
+): string | null {
+  if (target.origin !== "catalog") return null;
+  const app = IOS_APP_CATALOG.find((entry) => entry.id === target.id);
+  return app ? catalogUrl(app) : null;
+}
+
+/**
+ * Undoes `disableTargetScheme` once the scheme is seen working again, so one
+ * transient failure does not cost the direct return forever.
+ */
+export function restoreTargetScheme(
+  targets: readonly ShortcutTarget[],
+  id: string,
+): ShortcutTarget[] {
+  return targets.map((target) =>
+    target.id === id
+      ? { ...target, urlScheme: catalogSchemeFor(target) ?? target.urlScheme }
+      : target,
+  );
+}
+
 export function toNativeTargets(
   targets: readonly ShortcutTarget[],
 ): NativeShortcutTarget[] {
@@ -199,6 +223,11 @@ export function toNativeTargets(
   }));
 }
 
+/**
+ * The user types this name in Shortcuts, so it only uses characters that exist
+ * on the stock iOS keyboard. An earlier middle dot (U+00B7) could not be typed.
+ * Must match `returnShortcutPrefix` in StillShortcutIntent.swift.
+ */
 export function returnShortcutName(appName: string): string {
-  return `Still · ${appName}`;
+  return `Still - ${appName}`;
 }

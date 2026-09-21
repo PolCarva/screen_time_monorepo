@@ -26,7 +26,7 @@ Paste into App Store Connect → App Review Information → Notes, and attach a 
 When the user declines, the intended ending is the iOS Home Screen. iOS has no public API for that. Still can do it by sending `suspend` to `UIApplication`, the same effect as a Home press, but that selector is undocumented and App Review may object to it.
 
 - It ships **disabled**, behind the remote `iosHomeOnCancelEnabled` flag, and no review build should have it on unless the decision to defend it has been made.
-- With the flag off Still uses public API only: an optional user-created shortcut (`Still · Inicio`, one "Go to Home Screen" action) or a screen that asks the user to swipe up.
+- With the flag off Still uses public API only: an optional user-created shortcut (`Still - Inicio`, one "Go to Home Screen" action) or a screen that asks the user to swipe up.
 - If a submission is rejected for it, switch the flag off in `/admin`; no new build is needed. Remove `suspendToHome` from `StillRestrictionEngine.swift` before resubmitting if the reviewer asks for the code to go.
 
 ## Google Play

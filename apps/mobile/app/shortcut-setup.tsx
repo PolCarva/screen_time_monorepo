@@ -32,6 +32,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   type ShortcutTarget,
   activeTargets,
+  catalogSchemeFor,
   returnShortcutName,
 } from "@/lib/shortcut-targets";
 import { restrictionEngine } from "@/native/restriction-engine";
@@ -61,8 +62,8 @@ function stepCopy(
           "Toca «Añadir a Atajos» aquí abajo y luego «Añadir atajo». Ya trae todo lo que Still necesita.",
         ),
         visualLabel: localize(
-          "Image of the Add Shortcut sheet for Still · Pausa.",
-          "Imagen de la hoja Añadir atajo para Still · Pausa.",
+          "Image of the Add Shortcut sheet for Still - Pausa.",
+          "Imagen de la hoja Añadir atajo para Still - Pausa.",
         ),
       };
     case "import_choose_apps":
@@ -187,8 +188,8 @@ function stepCopy(
         visual: "return",
         title: localize("Create the return shortcut", "Crea el atajo de retorno"),
         body: localize(
-          `Still cannot reopen ${schemelessName} by itself. Create a shortcut named exactly “${returnShortcutName(schemelessName)}” with one action: Open App → ${schemelessName}.`,
-          `Still no puede reabrir ${schemelessName} por sí solo. Crea un atajo llamado exactamente «${returnShortcutName(schemelessName)}» con una sola acción: Abrir app → ${schemelessName}.`,
+          `Still cannot reopen ${schemelessName} by itself. Create a shortcut named exactly “${returnShortcutName(schemelessName)}” with one action: Open App → ${schemelessName}. The first time it runs, iOS asks whether the shortcut may output an app: choose “Always Allow”.`,
+          `Still no puede reabrir ${schemelessName} por sí solo. Crea un atajo llamado exactamente «${returnShortcutName(schemelessName)}» con una sola acción: Abrir app → ${schemelessName}. La primera vez que se ejecute, iOS preguntará si el atajo puede devolver una app: elige «Permitir siempre».`,
         ),
         visualLabel: localize(
           `Image of a shortcut named ${returnShortcutName(schemelessName)} with one Open App action.`,
@@ -223,7 +224,8 @@ export default function ShortcutSetupScreen() {
     tested?: string;
     onboarding?: string;
   }>();
-  const { targets, health, refresh, disableScheme } = useShortcutTargets();
+  const { targets, health, refresh, disableScheme, restoreScheme } =
+    useShortcutTargets();
   const { config } = useAppState();
   const pausesEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const [probe, setProbe] = useState<{ id: string; startedAt: number } | null>(
@@ -284,13 +286,17 @@ export default function ShortcutSetupScreen() {
       .catch(() => undefined);
     setProbe({ id: target.id, startedAt: Date.now() });
     setNow(Date.now());
-    if (target.urlScheme) {
+    // A test also retries a scheme that was switched off earlier, so one
+    // transient failure does not cost the direct return forever.
+    const scheme = target.urlScheme ?? catalogSchemeFor(target);
+    if (scheme) {
       try {
-        await Linking.openURL(target.urlScheme);
+        await Linking.openURL(scheme);
+        if (!target.urlScheme) await restoreScheme(target.id);
         return;
       } catch {
         // This scheme does not open here: return through the shortcut instead.
-        await disableScheme(target.id);
+        if (target.urlScheme) await disableScheme(target.id);
       }
     }
     Alert.alert(

@@ -114,8 +114,8 @@ describe("iOS Shortcuts setup steps", () => {
   });
 
   it("deep-links into the imported shortcut by name", () => {
-    expect(shortcutsOpenUrl("Still · Pausa")).toBe(
-      "shortcuts://open-shortcut?name=Still%20%C2%B7%20Pausa",
+    expect(shortcutsOpenUrl("Still - Pausa")).toBe(
+      "shortcuts://open-shortcut?name=Still%20-%20Pausa",
     );
   });
 });
