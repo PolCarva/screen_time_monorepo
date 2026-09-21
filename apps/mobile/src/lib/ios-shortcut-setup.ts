@@ -14,9 +14,16 @@ export const IOS_SHORTCUT_IMPORT_URL = "";
 
 /**
  * H1. One automation for every app, using "Get Current App" (iOS 18.2+) to
- * tell Still which app was opened. false = tier disabled.
+ * tell Still which app was opened. This is what lets the user pick from their
+ * real apps in Shortcuts' own chooser instead of typing a name in Still.
+ *
+ * Verified on the iOS 26.0 simulator: the trigger accepts several apps and the
+ * "Current App" variable hands Still the app's real display name, which the
+ * intent adopts. Not yet observed on a device: that the variable names the app
+ * that fired the trigger. If it does not, set this to false (everyone falls
+ * back to one automation per app) or let users switch from the setup screen.
  */
-export const IOS_SINGLE_AUTOMATION_ENABLED = false;
+export const IOS_SINGLE_AUTOMATION_ENABLED = true;
 
 /** iCloud link of the one-action helper shortcut "Go to Home Screen". Optional. */
 export const IOS_HOME_SHORTCUT_IMPORT_URL = "";
@@ -33,11 +40,12 @@ export type SetupStepId =
   | "import_add"
   | "import_choose_apps"
   | "import_enable"
-  | "automation_new"
-  | "automation_pick_apps"
-  | "automation_run_immediately"
-  | "action_current_app"
-  | "action_pause_current"
+  // Single-automation tier: the app comes from Shortcuts' "Current App".
+  | "select_all_apps"
+  | "add_current_app"
+  | "open_variables"
+  | "pick_current_app"
+  | "check_result"
   // Per-app tier: one step per tap, each backed by a real capture of Shortcuts.
   | "pick_app_trigger"
   | "tap_choose"
@@ -102,7 +110,10 @@ export function resolveSetupTier(input: {
   iosVersion: string | number;
   importUrl?: string;
   singleAutomationEnabled?: boolean;
+  /** The user asked for one automation per app, e.g. because the other tier failed. */
+  preferPerApp?: boolean;
 }): SetupTier {
+  if (input.preferPerApp) return "per_app";
   const { major, minor } = parseIosVersion(input.iosVersion);
   const importUrl = input.importUrl ?? IOS_SHORTCUT_IMPORT_URL;
   const single = input.singleAutomationEnabled ?? IOS_SINGLE_AUTOMATION_ENABLED;
@@ -122,6 +133,20 @@ const PER_APP_STEPS: readonly GuideStep[] = [
   { id: "add_still_action", image: "auto-07-pick-action", link: "resume" },
   { id: "pick_app_name", image: "auto-08-pick-name", link: "resume" },
   { id: "save_automation", image: "auto-09-save", link: "resume" },
+];
+
+const SINGLE_AUTOMATION_STEPS: readonly GuideStep[] = [
+  { id: "pick_app_trigger", image: "auto-01-app-trigger", link: "create_automation" },
+  { id: "tap_choose", image: "auto-02-choose", link: "resume" },
+  { id: "select_all_apps", image: "auto-03-pick-app", link: "resume" },
+  { id: "run_immediately", image: "auto-04-run-immediately", link: "resume" },
+  { id: "create_new_shortcut", image: "auto-05-create-new", link: "resume" },
+  { id: "add_current_app", image: "single-01-current-app", link: "resume" },
+  { id: "search_actions", image: "auto-06-search-actions", link: "resume" },
+  { id: "add_still_action", image: "auto-07-pick-action", link: "resume" },
+  { id: "open_variables", image: "single-02-variables", link: "resume" },
+  { id: "pick_current_app", image: "single-03-pick-current-app", link: "resume" },
+  { id: "check_result", image: "single-04-result", link: "resume" },
 ];
 
 const RETURN_SHORTCUT_STEPS: readonly GuideStep[] = [
@@ -146,13 +171,7 @@ export function guideSteps(
           { id: "import_enable", image: null, link: "resume" },
         ]
       : tier === "single_automation"
-        ? [
-            { id: "automation_new", image: null, link: "create_automation" },
-            { id: "automation_pick_apps", image: null, link: "resume" },
-            { id: "automation_run_immediately", image: null, link: "resume" },
-            { id: "action_current_app", image: null, link: "resume" },
-            { id: "action_pause_current", image: null, link: "resume" },
-          ]
+        ? [...SINGLE_AUTOMATION_STEPS]
         : [...PER_APP_STEPS];
   return options.needsReturnShortcut
     ? [...steps, ...RETURN_SHORTCUT_STEPS]

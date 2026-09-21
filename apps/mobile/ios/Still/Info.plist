@@ -80,6 +80,21 @@
 		<string>aliexpress</string>
 		<string>meli</string>
 		<string>applenews</string>
+		<string>photos-redirect</string>
+		<string>maps</string>
+		<string>fitnessapp</string>
+		<string>x-apple-health</string>
+		<string>calshow</string>
+		<string>x-apple-reminderkit</string>
+		<string>shareddocuments</string>
+		<string>shoebox</string>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+		<string>slack</string>
+		<string>sgnl</string>
+		<string>duolingo</string>
+		<string>soundcloud</string>
+		<string>shazam</string>
 		<string>googlechrome</string>
 		<string>googlegmail</string>
 		<string>roblox</string>

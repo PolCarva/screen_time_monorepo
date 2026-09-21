@@ -14,7 +14,11 @@ import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
-import { type RelativeAge, relativeAge } from "@/lib/ios-shortcut-setup";
+import {
+  type RelativeAge,
+  relativeAge,
+  resolveSetupTier,
+} from "@/lib/ios-shortcut-setup";
 import {
   MAX_APP_NAME_LENGTH,
   type ShortcutTarget,
@@ -82,6 +86,10 @@ export default function IosAppsScreen() {
   }, [installed, targets]);
 
   const chosen = activeTargets(targets);
+  // With one automation for every app, any app is added from Shortcuts' own
+  // list of installed apps. iOS never gives that list to Still.
+  const pickInShortcuts =
+    resolveSetupTier({ iosVersion: Platform.Version }) === "single_automation";
 
   async function submitCustom() {
     const result = await addCustom(customName);
@@ -94,6 +102,15 @@ export default function IosAppsScreen() {
     if (result.error === "too_long") {
       setCustomError(
         localize("That name is too long.", "Ese nombre es demasiado largo."),
+      );
+      return;
+    }
+    if (result.error === "reserved") {
+      setCustomError(
+        localize(
+          "Still and Shortcuts cannot be paused.",
+          "Still y Atajos no se pueden pausar.",
+        ),
       );
       return;
     }
@@ -191,12 +208,44 @@ export default function IosAppsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Eyebrow>{localize("ANOTHER APP", "OTRA APP")}</Eyebrow>
+        <Eyebrow>{localize("ANY OTHER APP", "CUALQUIER OTRA APP")}</Eyebrow>
+        {pickInShortcuts ? (
+          <View style={styles.pickCard}>
+            <Body style={styles.pickTitle}>
+              {localize(
+                "Pick it from your real apps, no typing",
+                "Elígela entre tus apps reales, sin escribir",
+              )}
+            </Body>
+            <Body style={styles.lede}>
+              {localize(
+                "iOS does not let any app see what you have installed, but Shortcuts can show you the list. Check your apps there and each one appears here by itself the first time you open it.",
+                "iOS no deja que ninguna app vea lo que tienes instalado, pero Atajos sí puede mostrarte la lista. Marca tus apps allí y cada una aparece aquí sola la primera vez que la abras.",
+              )}
+            </Body>
+            <PrimaryButton
+              onPress={() =>
+                router.push({
+                  pathname: "/shortcut-setup",
+                  params: onboarding ? { onboarding } : {},
+                })
+              }
+              variant="secondary"
+            >
+              {localize("Pick from my apps", "Elegir de mis apps")}
+            </PrimaryButton>
+          </View>
+        ) : null}
         <Body style={styles.lede}>
-          {localize(
-            "Type its name exactly as it appears under its icon.",
-            "Escribe su nombre tal como aparece debajo de su icono.",
-          )}
+          {pickInShortcuts
+            ? localize(
+                "Or type its name exactly as it appears under its icon.",
+                "O escribe su nombre tal como aparece debajo de su icono.",
+              )
+            : localize(
+                "Type its name exactly as it appears under its icon.",
+                "Escribe su nombre tal como aparece debajo de su icono.",
+              )}
         </Body>
         <View style={styles.customRow}>
           <TextInput
@@ -232,7 +281,7 @@ export default function IosAppsScreen() {
 
       <View style={styles.actions}>
         <PrimaryButton
-          disabled={chosen.length === 0}
+          disabled={chosen.length === 0 && !pickInShortcuts}
           onPress={() =>
             router.push({
               pathname: "/shortcut-setup",
@@ -241,7 +290,9 @@ export default function IosAppsScreen() {
           }
           variant="signal"
         >
-          {chosen.length === 0
+          {chosen.length === 0 && pickInShortcuts
+            ? localize("Continue to Shortcuts", "Continuar a Atajos")
+            : chosen.length === 0
             ? localize("Choose at least one app", "Elige al menos una app")
             : localize(
                 `Continue · ${chosen.length} ${chosen.length === 1 ? "app" : "apps"}`,
@@ -270,6 +321,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 30, lineHeight: 33 },
   lede: { color: colors.graphiteSoft },
   section: { gap: spacing.sm },
+  pickCard: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.chalkRaised,
+  },
+  pickTitle: { fontFamily: fonts.brandSemiBold, fontSize: 16 },
   row: {
     minHeight: 56,
     paddingVertical: spacing.sm,

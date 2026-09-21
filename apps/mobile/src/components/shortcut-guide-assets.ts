@@ -108,6 +108,35 @@ export const SHORTCUT_GUIDE_IMAGES = {
       { left: 0.2137, top: 0.0672, width: 0.5903, height: 0.1642 },
     ],
   },
+  "single-01-current-app": {
+    source: require("../../assets/shortcut-guide/single-01-current-app.jpg"),
+    aspectRatio: 2.0051,
+    highlights: [
+      { left: 0.0509, top: 0.0969, width: 0.7303, height: 0.2245 },
+      { left: 0.0509, top: 0.6837, width: 0.8982, height: 0.2602 },
+    ],
+  },
+  "single-02-variables": {
+    source: require("../../assets/shortcut-guide/single-02-variables.jpg"),
+    aspectRatio: 2.9328,
+    highlights: [
+      { left: 0.3613, top: 0.4776, width: 0.6005, height: 0.3134 },
+    ],
+  },
+  "single-03-pick-current-app": {
+    source: require("../../assets/shortcut-guide/single-03-pick-current-app.jpg"),
+    aspectRatio: 1.8028,
+    highlights: [
+      { left: 0.3613, top: 0.7248, width: 0.6005, height: 0.2018 },
+    ],
+  },
+  "single-04-result": {
+    source: require("../../assets/shortcut-guide/single-04-result.jpg"),
+    aspectRatio: 2.2849,
+    highlights: [
+
+    ],
+  },
 } satisfies Record<string, GuideImage>;
 
 export type GuideImageId = keyof typeof SHORTCUT_GUIDE_IMAGES;

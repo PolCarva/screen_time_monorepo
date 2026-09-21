@@ -193,6 +193,10 @@ describe("committed native production configuration", () => {
       'guard SharedRestrictionState.restrictionsEnabled, target.state != "removed"',
     );
     expect(shortcutIntent).toContain("consumeSetupProbe(for: targetKey)");
+    // "Current App" names Shortcuts when run by hand; never pause it or Still.
+    expect(shortcutIntent).toContain(
+      "guard !ShortcutTargetStore.isReserved(requestedName) else { return nil }",
+    );
     // Only a bare `scheme://` may ever be stored as a way back.
     expect(shortcutIntent).toContain('candidate == "\\(scheme)://"');
     expect(shortcutIntent).toContain('"still", "shortcuts", "http", "https"');

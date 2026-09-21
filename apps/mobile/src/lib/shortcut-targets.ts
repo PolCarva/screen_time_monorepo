@@ -29,7 +29,28 @@ export type NativeShortcutTarget = Omit<ShortcutTarget, "aliases"> & {
   matchKeys: string[];
 };
 
-export type AddCustomTargetError = "empty" | "too_long" | "duplicate";
+export type AddCustomTargetError =
+  | "empty"
+  | "too_long"
+  | "duplicate"
+  | "reserved";
+
+/**
+ * Still itself and Apple's Shortcuts app can never be paused: "Current App"
+ * reports Shortcuts when a shortcut is run by hand, and pausing either one
+ * would lock the user out of the setup. Mirrored in StillShortcutIntent.swift.
+ */
+const RESERVED_APP_KEYS = new Set([
+  "still",
+  "stilldevelopment",
+  "stillpreview",
+  "shortcuts",
+  "atajos",
+]);
+
+export function isReservedAppName(name: string): boolean {
+  return RESERVED_APP_KEYS.has(normalizeAppName(name));
+}
 
 export const MAX_APP_NAME_LENGTH = 80;
 
@@ -82,6 +103,7 @@ export function hydrateTargets(stored: readonly ShortcutTarget[]): ShortcutTarge
   const others: ShortcutTarget[] = [];
   for (const target of stored) {
     if (catalogIds.has(target.id) || target.origin === "catalog") continue;
+    if (isReservedAppName(target.name)) continue;
     const twin = catalog.findIndex((entry) => sharesKey(entry, target));
     if (twin < 0) {
       others.push({ ...target, urlScheme: null });
@@ -120,6 +142,7 @@ export function addCustomTarget(
   if (!name) return { targets: [...targets], error: "empty" };
   if (name.length > MAX_APP_NAME_LENGTH)
     return { targets: [...targets], error: "too_long" };
+  if (isReservedAppName(name)) return { targets: [...targets], error: "reserved" };
 
   const candidate = { name, aliases: [] };
   const existing = targets.find((target) => sharesKey(target, candidate));
@@ -164,7 +187,8 @@ export function mergeNativeTargets(
         merged[index] = { ...current, state: "active" };
       continue;
     }
-    if (incoming.origin !== "detected") continue;
+    if (incoming.origin !== "detected" || isReservedAppName(incoming.name))
+      continue;
     merged = [
       ...merged,
       {

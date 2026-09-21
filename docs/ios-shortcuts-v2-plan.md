@@ -255,7 +255,7 @@ Orden: **0 → 1 → 2 → 3 → 4 → 5**. Las fases 1–3 no dependen de los r
 
 | Hipótesis | Resultado | Notas |
 |---|---|---|
-| H1 App actual en automatización multi-app | ⏳ | |
+| H1 App actual en automatización multi-app | 🟡 simulador | El trigger admite varias apps y la variable «Current App» entrega a Still el nombre real de la app, que el intent adopta. Falta confirmar en dispositivo que nombra la app que disparó el trigger. Nivel activado (`IOS_SINGLE_AUTOMATION_ENABLED = true`) con retorno a «una por app» desde la propia pantalla. |
 | H2 Importación por enlace con trigger | ⏳ | |
 | H3 Primer plano sin diálogo en iOS 27 | 🟡 simulador | Confirmado en el simulador de iOS 26.0: `continueInForeground` trae Still al frente sin diálogo. Falta iOS 27 y dispositivo. |
 | H4 `suspend` → Home | 🟡 simulador | Confirmado en el simulador de iOS 26.0: aterriza en el Home y al reabrir Still se ve Hoy. Falta dispositivo. |
@@ -302,6 +302,10 @@ Se montó y recorrió el flujo en el simulador de iOS 26.0 (receta en `docs/ios-
 El tutorial dibujado no bastaba: en la prueba real una automatización quedó guardada con «No actions» (faltó añadir la acción de Still). Ahora el nivel «por app» se explica toque a toque con **capturas reales de Atajos** y el control exacto rodeado con un anillo. Cada imagen es un botón; los enlaces verificados en iOS 26.0 son `shortcuts://create-automation` (lista de triggers), `shortcuts://create-shortcut`, `shortcuts://automations` (pestaña Automatización) y `shortcuts://` (reanuda donde se dejó). No existe URL para el interior de la hoja «nueva automatización», así que los pasos intermedios reanudan Atajos en vez de saltar. Detalles y regeneración en `docs/ios-shortcuts.md`.
 
 Siguiente mejora posible, no hecha: un vídeo en Picture-in-Picture que flote sobre Atajos mientras el usuario configura, para no tener que alternar entre apps.
+
+### Elegir entre las apps reales, sin escribir (2026-09-21)
+
+iOS no entrega a ninguna app la lista de apps instaladas; one sec tampoco la tiene (su lista es un catálogo propio y lo demás se escribe con su URL scheme). Lo más cercano que permite iOS, ya implementado: (1) el catálogo creció a 48 apps y las detectadas en el dispositivo por su URL scheme aparecen primero; (2) cualquier otra app se marca en la lista real de Atajos y llega a Still mediante «Current App», sin teclear. Still y Atajos quedan reservados y nunca se pausan. El atajo de retorno `Still - <App>` pasa a ser opcional: sin él, tras el anuncio Still ofrece ir a la pantalla de inicio y la app se abre ya sin pausa.
 
 ### Pendiente fuera de este trabajo
 

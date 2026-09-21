@@ -24,14 +24,25 @@ import {
 const importUrl = "https://www.icloud.com/shortcuts/0123456789abcdef";
 
 describe("iOS Shortcuts setup tiers", () => {
-  it("ships with the unvalidated tiers switched off", () => {
-    // Flip these only after H1/H2 are recorded as validated in
-    // docs/ios-shortcuts-v2-plan.md section 10.
+  it("keeps the import tier off until its link exists, and uses one automation where iOS allows", () => {
+    // H2 (shared shortcut with a trigger) has no link yet.
     expect(IOS_SHORTCUT_IMPORT_URL).toBe("");
-    expect(IOS_SINGLE_AUTOMATION_ENABLED).toBe(false);
     expect(IOS_HOME_SHORTCUT_IMPORT_URL).toBe("");
-    expect(resolveSetupTier({ iosVersion: "27.0" })).toBe("per_app");
-    expect(resolveSetupTier({ iosVersion: "18.4" })).toBe("per_app");
+    // H1: "Current App" hands Still the real app name (verified in the
+    // simulator), so picking from the installed apps needs no typing.
+    expect(IOS_SINGLE_AUTOMATION_ENABLED).toBe(true);
+    expect(resolveSetupTier({ iosVersion: "27.0" })).toBe("single_automation");
+    expect(resolveSetupTier({ iosVersion: "18.2" })).toBe("single_automation");
+    expect(resolveSetupTier({ iosVersion: "18.1" })).toBe("per_app");
+  });
+
+  it("lets the user fall back to one automation per app", () => {
+    expect(resolveSetupTier({ iosVersion: "26.0", preferPerApp: true })).toBe(
+      "per_app",
+    );
+    expect(
+      resolveSetupTier({ iosVersion: "27.0", importUrl, preferPerApp: true }),
+    ).toBe("per_app");
   });
 
   it("parses the versions React Native reports", () => {
@@ -42,12 +53,18 @@ describe("iOS Shortcuts setup tiers", () => {
   });
 
   it("offers the one-tap import only on iOS 27+ with a trusted link", () => {
-    expect(resolveSetupTier({ iosVersion: "27.1", importUrl })).toBe("import");
-    expect(resolveSetupTier({ iosVersion: "26.4", importUrl })).toBe("per_app");
+    const off = { singleAutomationEnabled: false };
+    expect(resolveSetupTier({ iosVersion: "27.1", importUrl, ...off })).toBe(
+      "import",
+    );
+    expect(resolveSetupTier({ iosVersion: "26.4", importUrl, ...off })).toBe(
+      "per_app",
+    );
     expect(
       resolveSetupTier({
         iosVersion: "27.0",
         importUrl: "https://evil.example/shortcuts/abc",
+        ...off,
       }),
     ).toBe("per_app");
   });
@@ -123,9 +140,21 @@ describe("iOS Shortcuts setup steps", () => {
 
   it("uses the current app instead of a typed name in the single automation", () => {
     const steps = setupSteps("single_automation", { needsReturnShortcut: false });
-    expect(steps).toContain("action_current_app");
-    expect(steps).toContain("action_pause_current");
-    expect(steps).not.toContain("action_pause_named");
+    expect(steps).toEqual([
+      "pick_app_trigger",
+      "tap_choose",
+      "select_all_apps",
+      "run_immediately",
+      "create_new_shortcut",
+      "add_current_app",
+      "search_actions",
+      "add_still_action",
+      "open_variables",
+      "pick_current_app",
+      "check_result",
+    ]);
+    // Nothing in this tier asks the user to type or pick an app name in Still's action.
+    expect(steps).not.toContain("pick_app_name");
   });
 
   it("lists repair causes with the most likely one first", () => {
@@ -231,7 +260,8 @@ describe("guide pictures and jump links", () => {
       "utf8",
     );
 
-    for (const step of perApp) {
+    const single = guideSteps("single_automation", { needsReturnShortcut: false });
+    for (const step of [...perApp, ...single]) {
       expect(step.image, step.id).not.toBeNull();
       expect(specIds.has(step.image!), step.id).toBe(true);
       expect(manifest).toContain(`"${step.image}": {`);

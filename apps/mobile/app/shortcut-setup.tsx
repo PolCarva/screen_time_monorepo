@@ -39,10 +39,13 @@ import {
   catalogSchemeFor,
   returnShortcutName,
 } from "@/lib/shortcut-targets";
+import { getJson, setJson } from "@/lib/storage";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, spacing } from "@/theme/tokens";
+
+const PREFER_PER_APP_KEY = "iosSetupPreferPerApp";
 
 type StepCopy = {
   title: string;
@@ -97,69 +100,64 @@ function stepCopy(
           "Imagen del interruptor de la automatización activado.",
         ),
       };
-    case "automation_new":
+    case "select_all_apps":
       return {
-        visual: "trigger",
-        title: localize("Create an automation", "Crea una automatización"),
+        title: localize("Check every app you want", "Marca todas las apps que quieras"),
         body: localize(
-          "In Shortcuts, open the Automation tab, tap + and choose “App”.",
-          "En Atajos, abre la pestaña Automatización, toca + y elige «App».",
+          "This is the list of the apps really installed on your iPhone. Check as many as you like (the picture shows one), then tap the blue check mark. Nothing to type: each app shows up in Still by itself the first time you open it.",
+          "Esta es la lista de las apps realmente instaladas en tu iPhone. Marca todas las que quieras (la imagen muestra una) y toca el check azul. No hay que escribir nada: cada app aparece sola en Still la primera vez que la abras.",
         ),
         visualLabel: localize(
-          `Image of a personal automation that runs when ${appName} is opened.`,
-          `Imagen de una automatización personal que se ejecuta al abrir ${appName}.`,
+          "Shortcuts' Choose App list with an app checked and the confirm button highlighted.",
+          "Lista Choose App de Atajos con una app marcada y el botón de confirmar resaltado.",
         ),
       };
-    case "automation_pick_apps":
+    case "add_current_app":
       return {
-        visual: "trigger-multi",
-        title: localize("Pick all your apps", "Marca todas tus apps"),
+        title: localize("Add “Get Current App”", "Añade «Get Current App»"),
         body: localize(
-          "Select every app you chose in Still and keep “Is Opened” checked. One automation covers them all.",
-          "Marca todas las apps que elegiste en Still y deja «Se abre» seleccionado. Una sola automatización las cubre todas.",
+          "Tap “Search Actions”, type Get Current App and tap it. It tells Still which of your apps was opened.",
+          "Toca «Search Actions», escribe Get Current App y tócala. Le dice a Still cuál de tus apps se abrió.",
         ),
         visualLabel: localize(
-          "Image of an automation trigger listing your chosen apps.",
-          "Imagen de un disparador de automatización con tus apps elegidas.",
+          "Shortcuts' action search with Get Current App typed and its result highlighted.",
+          "Búsqueda de acciones de Atajos con Get Current App escrito y su resultado resaltado.",
         ),
       };
-    case "automation_run_immediately":
+    case "open_variables":
       return {
-        visual: "trigger",
-        title: localize("Run Immediately", "Ejecutar inmediatamente"),
+        title: localize("Tap “App name”, then “Variables…”", "Toca «App name» y luego «Variables…»"),
         body: localize(
-          "Choose “Run Immediately” and turn off “Notify When Run”, then tap Next.",
-          "Elige «Ejecutar inmediatamente», apaga «Notificar al ejecutar» y toca Siguiente.",
+          "Do not pick an app from the list here. Tap “Variables…” at the top of the menu.",
+          "Aquí no elijas una app de la lista. Toca «Variables…», arriba del menú.",
         ),
         visualLabel: localize(
-          "Image of an automation set to Run Immediately.",
-          "Imagen de una automatización configurada para ejecutarse inmediatamente.",
+          "Still's action with its App name menu open and Variables highlighted.",
+          "Acción de Still con el menú App name abierto y Variables resaltado.",
         ),
       };
-    case "action_current_app":
+    case "pick_current_app":
       return {
-        visual: "current-app",
-        title: localize("Add “Get Current App”", "Añade «Obtener app actual»"),
+        title: localize("Choose “Current App”", "Elige «Current App»"),
         body: localize(
-          "Create a new shortcut for the automation and search for “Get Current App”. It tells Still which app you opened.",
-          "Crea un atajo nuevo para la automatización y busca «Obtener app actual». Le dice a Still qué app abriste.",
+          "It is the last item, with the purple icon.",
+          "Es el último elemento, con el icono morado.",
         ),
         visualLabel: localize(
-          "Image of the Get Current App action.",
-          "Imagen de la acción Obtener app actual.",
+          "The variables menu with Current App highlighted.",
+          "Menú de variables con Current App resaltado.",
         ),
       };
-    case "action_pause_current":
+    case "check_result":
       return {
-        visual: "pause-current",
-        title: localize("Add Still's action", "Añade la acción de Still"),
+        title: localize("Check it and save", "Compruébalo y guarda"),
         body: localize(
-          "Search for “Still”, add “Pause Before Opening”, and set App name to the “Current App” variable.",
-          "Busca «Still», añade «Pause Before Opening» y pon en Nombre de app la variable «App actual».",
+          "It must look exactly like this: “Get Current app” and, below it, “Pause before opening Current App”. Then tap the blue check mark at the top right and come back to Still.",
+          "Debe verse exactamente así: «Get Current app» y, debajo, «Pause before opening Current App». Después toca el check azul de arriba a la derecha y vuelve a Still.",
         ),
         visualLabel: localize(
-          "Image of Still's action using the Current App variable.",
-          "Imagen de la acción de Still usando la variable App actual.",
+          "The finished automation: Get Current App followed by Pause before opening Current App.",
+          "La automatización terminada: Get Current App seguido de Pause before opening Current App.",
         ),
       };
     case "pick_app_trigger":
@@ -277,8 +275,8 @@ function stepCopy(
           `Un camino de vuelta a ${schemelessName}`,
         ),
         body: localize(
-          `Still cannot reopen ${schemelessName} by itself, so it needs one small shortcut. Tap the picture to start a new shortcut, then tap “Open App”.`,
-          `Still no puede reabrir ${schemelessName} por sí solo, así que necesita un atajo pequeño. Toca la imagen para empezar un atajo nuevo y luego toca «Open App».`,
+          `Optional. Still cannot reopen ${schemelessName} by itself: without this, after the ad it sends you to the Home Screen and you open ${schemelessName} yourself, with no pause. With this small shortcut it opens for you. Tap the picture to start a new shortcut, then tap “Open App”.`,
+          `Opcional. Still no puede reabrir ${schemelessName} por sí solo: sin esto, tras el anuncio te lleva a la pantalla de inicio y abres ${schemelessName} tú, ya sin pausa. Con este atajo pequeño se abre sola. Toca la imagen para empezar un atajo nuevo y luego toca «Open App».`,
         ),
         visualLabel: localize(
           "Shortcuts' action list with Open App highlighted.",
@@ -346,8 +344,8 @@ function tierLede(tier: SetupTier) {
       );
     case "single_automation":
       return localize(
-        "One automation covers every app. It takes about two minutes and stays on this iPhone.",
-        "Una sola automatización cubre todas las apps. Lleva unos dos minutos y se queda en este iPhone.",
+        "One automation covers every app, and you pick them from the real apps on your iPhone inside Shortcuts. Every step below is a real picture with the button to tap marked; tap a picture to jump there, and use “◀ Still” at the top left of Shortcuts to come back.",
+        "Una sola automatización cubre todas las apps, y las eliges entre las apps reales de tu iPhone dentro de Atajos. Cada paso de abajo es una foto real con el botón marcado; toca una foto para saltar allí y usa «◀ Still», arriba a la izquierda en Atajos, para volver.",
       );
     case "per_app":
       return localize(
@@ -373,7 +371,14 @@ export default function ShortcutSetupScreen() {
 
   const chosen = activeTargets(targets);
   const schemeless = chosen.filter((target) => !target.urlScheme);
-  const tier = resolveSetupTier({ iosVersion: Platform.Version });
+  const [preferPerApp, setPreferPerApp] = useState(false);
+  useEffect(() => {
+    void getJson<boolean>(PREFER_PER_APP_KEY, false)
+      .then(setPreferPerApp)
+      .catch(() => undefined);
+  }, []);
+  const bestTier = resolveSetupTier({ iosVersion: Platform.Version });
+  const tier = resolveSetupTier({ iosVersion: Platform.Version, preferPerApp });
   const steps = guideSteps(tier, {
     needsReturnShortcut: schemeless.length > 0,
   });
@@ -523,7 +528,7 @@ export default function ShortcutSetupScreen() {
         </View>
       ) : null}
 
-      {chosen.length === 0 ? (
+      {chosen.length === 0 && tier === "per_app" ? (
         <View style={styles.note}>
           <Eyebrow>{localize("FIRST", "PRIMERO")}</Eyebrow>
           <Body style={styles.stepBody}>
@@ -602,6 +607,14 @@ export default function ShortcutSetupScreen() {
                 "iOS no puede decirle a Still si una automatización existe, así que la única prueba es abrir la app. Una prueba nunca cuenta como apertura ni muestra anuncios.",
               )}
             </Body>
+            {chosen.length === 0 ? (
+              <Body style={styles.stepBody}>
+                {localize(
+                  "Nothing to test yet. Once the automation is saved, open one of the apps you checked: it appears here by itself.",
+                  "Todavía no hay nada que probar. Cuando guardes la automatización, abre una de las apps que marcaste: aparecerá aquí sola.",
+                )}
+              </Body>
+            ) : null}
             {chosen.map((target) => {
               const state = status(target);
               return (
@@ -661,6 +674,25 @@ export default function ShortcutSetupScreen() {
       </View>
 
       <View style={styles.actions}>
+        {bestTier === "single_automation" ? (
+          <PrimaryButton
+            onPress={() => {
+              setPreferPerApp(!preferPerApp);
+              void setJson(PREFER_PER_APP_KEY, !preferPerApp);
+            }}
+            variant="quiet"
+          >
+            {preferPerApp
+              ? localize(
+                  "Use one automation for all apps",
+                  "Usar una sola automatización para todas",
+                )
+              : localize(
+                  "It didn't work? Set up one app at a time",
+                  "¿No funcionó? Configurar una app a la vez",
+                )}
+          </PrimaryButton>
+        ) : null}
         <PrimaryButton
           onPress={() => router.push("/ios-apps")}
           variant="secondary"

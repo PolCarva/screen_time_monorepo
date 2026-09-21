@@ -69,8 +69,8 @@ function noticeCopy(notice: InterventionNotice, appLabel: string) {
       );
     case "return_failed":
       return localize(
-        `Access is active, but Still could not open ${appLabel}. Open it from your Home Screen; Still will not interrupt during this window.`,
-        `El acceso está activo, pero Still no pudo abrir ${appLabel}. Ábrela desde tu pantalla de inicio; Still no interrumpirá durante este período.`,
+        `Access is active. Still cannot open ${appLabel} by itself, so open it from your Home Screen: it will not be paused during this window.`,
+        `El acceso está activo. Still no puede abrir ${appLabel} por sí solo, así que ábrela desde tu pantalla de inicio: no tendrá pausa durante este período.`,
       );
   }
 }
@@ -420,9 +420,11 @@ export function ShortcutIntervention({
 
       <View style={styles.actions}>
         {finished ? (
+          // Reached when the app has no URL scheme and no return shortcut: the
+          // allowance is running, so the Home Screen is the way in.
           <FilledButton
-            label={localize("Go to Today", "Ir a Hoy")}
-            onPress={() => router.replace("/(tabs)/(today)")}
+            label={localize("Go to the Home Screen", "Ir a la pantalla de inicio")}
+            onPress={() => void onLeave()}
           />
         ) : (
           <>

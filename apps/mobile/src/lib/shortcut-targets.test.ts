@@ -9,6 +9,7 @@ import {
   catalogTargets,
   disableTargetScheme,
   hydrateTargets,
+  isReservedAppName,
   mergeNativeTargets,
   restoreTargetScheme,
   returnShortcutName,
@@ -138,6 +139,33 @@ describe("shortcut targets", () => {
     });
     expect(find(merged, "reddit").state).toBe("active");
     expect(mergeNativeTargets(merged, native)).toEqual(merged);
+  });
+
+  it("never pauses Still itself or Apple's Shortcuts app", () => {
+    // "Current App" reports Shortcuts when a shortcut is run by hand.
+    expect(isReservedAppName("Shortcuts")).toBe(true);
+    expect(isReservedAppName(" atajos ")).toBe(true);
+    expect(isReservedAppName("Still")).toBe(true);
+    expect(isReservedAppName("Stillwater")).toBe(false);
+    expect(addCustomTarget(hydrateTargets([]), "Shortcuts").error).toBe(
+      "reserved",
+    );
+
+    const junk: NativeShortcutTarget = {
+      id: "detected:shortcuts",
+      name: "Shortcuts",
+      matchKeys: ["shortcuts"],
+      urlScheme: null,
+      origin: "detected",
+      state: "active",
+    };
+    const merged = mergeNativeTargets(hydrateTargets([]), [junk]);
+    expect(merged.some((target) => target.name === "Shortcuts")).toBe(false);
+    // One that slipped into storage before the rule existed is dropped too.
+    const stored = [{ ...junk, aliases: [] as string[] }];
+    expect(
+      hydrateTargets(stored).some((target) => target.name === "Shortcuts"),
+    ).toBe(false);
   });
 
   it("never lets the intent resurrect an app the user removed", () => {

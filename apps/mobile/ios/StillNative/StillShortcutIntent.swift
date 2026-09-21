@@ -36,6 +36,15 @@ enum ShortcutTargetStore {
     "still", "shortcuts", "http", "https", "tel", "sms", "mailto", "file", "javascript",
   ]
 
+  // Still itself and Apple's Shortcuts app are never paused: "Current App"
+  // reports Shortcuts when a shortcut is run by hand. Mirrored in
+  // src/lib/shortcut-targets.ts.
+  private static let reservedKeys: Set<String> = [
+    "still", "stilldevelopment", "stillpreview", "shortcuts", "atajos",
+  ]
+
+  static func isReserved(_ name: String) -> Bool { reservedKeys.contains(normalize(name)) }
+
   private struct SetupProbe: Codable {
     let targetKey: String
     let startedAt: Date
@@ -167,6 +176,7 @@ enum ShortcutTargetStore {
   private static func sanitize(_ target: ShortcutTarget) -> ShortcutTarget? {
     let name = target.name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !target.id.isEmpty, target.id.count <= 120, !name.isEmpty, name.count <= 80,
+      !isReserved(name),
       states.contains(target.state), origins.contains(target.origin)
     else { return nil }
     let keys = target.matchKeys.filter { !$0.isEmpty && $0.count <= 80 }
@@ -202,6 +212,7 @@ enum ShortcutInterventionState {
     }
 
     SharedRestrictionState.setShortcutModeEnabled(true)
+    guard !ShortcutTargetStore.isReserved(requestedName) else { return nil }
     // "Twitter" and "X" are one app. Resolving first gives every alias the
     // same allowance, the same counter and the same way back.
     let target = ShortcutTargetStore.resolve(appName: requestedName)

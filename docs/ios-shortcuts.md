@@ -19,17 +19,24 @@ Turning it on is an explicit operator action in `/admin`.
 
 ## What the user does
 
-1. **Choose apps in Still** (`/ios-apps`). Catalog apps that are installed are
-   listed first; any other app can be added by name. The choice never leaves
-   the device.
+1. **Choose apps in Still** (`/ios-apps`). iOS gives no app the list of
+   installed apps (one sec does not get it either: its list is its own catalog,
+   and anything else is typed in with a URL scheme). Still gets as close as iOS
+   allows in two ways. Catalog apps found on the device through their URL
+   scheme are listed first under **On this iPhone**. Any other app is picked,
+   without typing, from the real app list inside Shortcuts' trigger: the
+   automation passes **Current App** to Still, and the intent adopts whatever
+   name arrives, so the app shows up in Still the first time it is opened.
+   Typing a name remains as a fallback. Still and Shortcuts themselves are
+   reserved and never paused. The choice never leaves the device.
 2. **Connect Shortcuts** (`/shortcut-setup`). Still picks the easiest tier the
    device supports:
 
    | Tier | iOS | Steps | Status |
    | --- | --- | --- | --- |
    | Import | 27+ | Add a shared shortcut, pick the apps in its trigger, flip its switch | Off until H2 is validated |
-   | Single automation | 18.2–26 | One automation for every app using **Get Current App** | Off until H1 is validated |
-   | Per app | 16.4+ | One automation per app | **Active** |
+   | Single automation | 18.2+ | One automation for every app using **Get Current App** | **Active**; trigger semantics still to be confirmed on a device |
+   | Per app | 16.4+ | One automation per app | **Active** below 18.2, and as the user's fallback |
 
    The per-app tier is shown one tap at a time, each step with a **real
    capture of Shortcuts** and the control to tap ringed (and numbered when
@@ -61,9 +68,11 @@ Turning it on is an explicit operator action in `/admin`.
    verified on iOS 26.0 and fall back to `shortcuts://` if they ever stop
    opening. The user comes back with iOS's own "◀ Still" breadcrumb.
 
-   Apps outside the catalog have no URL scheme Still can open, so they need one
-   more step: a shortcut named exactly `Still - [App name]` with a single
-   **Open App** action.
+   Apps outside the catalog have no URL scheme Still can open. By default,
+   after the ad Still starts the access window and offers the Home Screen, and
+   the user opens the app, now without a pause. Optionally, a shortcut named
+   exactly `Still - [App name]` with a single **Open App** action lets Still
+   reopen it directly.
 
 3. **Test it.** Tapping **Test** arms a two-minute probe and opens the app.
    When the automation fires, Still comes back with a "connected" screen. A
