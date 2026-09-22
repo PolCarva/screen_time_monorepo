@@ -2,25 +2,25 @@ import { impactWeekSchema } from "@screen-time/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import {
+  closeAction,
+  notNowAction,
+  retryAction,
+  useStillSheet,
+} from "@/components/still-sheet";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
 import { openExternalBrowser } from "@/lib/external-browser";
-import { getLinkedIdentityProviders } from "@/lib/identity";
+import { getLinkedIdentityProviders, linkIdentity } from "@/lib/identity";
 import { isMissingImpactWeekError } from "@/lib/impact-errors";
 import { ensureAnonymousSession } from "@/lib/supabase";
 import { useAppState } from "@/state/app-state";
@@ -59,6 +59,7 @@ function StateNotice({
 export default function ImpactScreen() {
   const queryClient = useQueryClient();
   const { config } = useAppState();
+  const sheet = useStillSheet();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const query = useQuery({
@@ -107,35 +108,66 @@ export default function ImpactScreen() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["impact-current"] });
-      Alert.alert(
-        localize("Vote saved", "Voto guardado"),
-        localize(
-          "You can change it until the weekly close.",
-          "Puedes cambiarlo hasta el cierre semanal.",
+      sheet.toast({
+        message: localize(
+          "Vote saved. You can change it until the week closes.",
+          "Voto guardado. Puedes cambiarlo hasta el cierre de la semana.",
         ),
-      );
+      });
     },
     onError: (error) => {
       if (__DEV__) console.warn("Impact vote failed", error);
       const accountRequired =
         (error instanceof ApiError && error.code === "account_required") ||
         (error instanceof Error && error.message === "account_required");
-      Alert.alert(
-        accountRequired
-          ? localize("Link your account", "Vincula tu cuenta")
-          : localize("Could not vote", "No se pudo votar"),
-        accountRequired
-          ? localize(
-              "Link Google in Settings to participate.",
-              "Vincula Google desde Ajustes para participar.",
-            )
-          : localize(
-              "Check your connection and try again.",
-              "Revisa tu conexión e inténtalo otra vez.",
-            ),
-      );
+      if (accountRequired) {
+        void sheet.show({
+          title: localize("Connect Google to vote", "Conecta Google para votar"),
+          message: localize(
+            "Your vote is saved as soon as you connect, and you can change it until the week closes.",
+            "Tu voto se guarda apenas conectes, y puedes cambiarlo hasta el cierre de la semana.",
+          ),
+          actions: [
+            {
+              label: localize("Continue with Google", "Continuar con Google"),
+              variant: "signal",
+              onPress: () => connectGoogleAndVote(),
+            },
+            notNowAction(),
+          ],
+        });
+        return;
+      }
+      void sheet.show({
+        title: localize("Your vote wasn't saved", "No se guardó tu voto"),
+        message: localize("Check your connection.", "Revisa tu conexión."),
+        actions: [retryAction(() => submitVote.current()), closeAction()],
+      });
     },
   });
+  // The sheets act after they close; a ref keeps them on the latest mutation.
+  const submitVote = useRef(() => vote.mutate());
+  submitVote.current = () => vote.mutate();
+
+  async function connectGoogleAndVote() {
+    try {
+      const linked = await linkIdentity("google");
+      const providers = await getLinkedIdentityProviders();
+      const connected = linked || providers.includes("google");
+      setGoogleConnected(connected);
+      if (connected) submitVote.current();
+    } catch (error) {
+      if (__DEV__) console.warn("Google identity link failed", error);
+      void sheet.show({
+        title: localize("Google didn't connect", "No se conectó Google"),
+        message: localize(
+          "Check your connection and try again.",
+          "Revisa tu conexión y vuelve a intentarlo.",
+        ),
+        actions: [retryAction(() => connectGoogleAndVote()), closeAction()],
+      });
+    }
+  }
 
   const amount = week
     ? new Intl.NumberFormat(undefined, {
@@ -154,13 +186,14 @@ export default function ImpactScreen() {
     try {
       await openExternalBrowser(url);
     } catch {
-      Alert.alert(
-        localize("Could not open the link", "No se pudo abrir el enlace"),
-        localize(
-          "Copy it from the public Impact page or try again later.",
-          "Cópialo desde la página pública de Impacto o inténtalo más tarde.",
+      void sheet.show({
+        title: localize("The link didn't open", "No se abrió el enlace"),
+        message: localize(
+          "Try again in a moment.",
+          "Vuelve a intentarlo en un momento.",
         ),
-      );
+        actions: [retryAction(() => openExternal(url)), closeAction()],
+      });
     }
   }
 
@@ -320,6 +353,7 @@ export default function ImpactScreen() {
               const filled = Math.round(candidate.percentage / 10);
               return (
                 <Pressable
+                  accessibilityLabel={`${candidate.charity.name}, ${candidate.percentage}%`}
                   accessibilityRole="radio"
                   accessibilityState={{
                     checked: selected,

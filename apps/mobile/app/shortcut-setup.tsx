@@ -1,17 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  AppState,
-  Linking,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
+import { AppState, Linking, Platform, StyleSheet, View } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import { gotItAction, useStillSheet } from "@/components/still-sheet";
 import type { GuideImageId } from "@/components/shortcut-guide-assets";
 import { ShortcutGuideImage } from "@/components/shortcut-guide-image";
 import {
@@ -40,6 +34,7 @@ import {
   returnShortcutName,
 } from "@/lib/shortcut-targets";
 import { getJson, setJson } from "@/lib/storage";
+import { offerShortcutsInstall } from "@/lib/shortcuts-app";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
@@ -363,6 +358,7 @@ export default function ShortcutSetupScreen() {
   const { targets, health, refresh, disableScheme, restoreScheme } =
     useShortcutTargets();
   const { config } = useAppState();
+  const sheet = useStillSheet();
   const pausesEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const [probe, setProbe] = useState<{ id: string; startedAt: number } | null>(
     null,
@@ -422,15 +418,9 @@ export default function ShortcutSetupScreen() {
         return;
       }
     } catch {
-      // Fall through to the manual instruction.
+      // Shortcuts itself does not open: it was removed from this iPhone.
     }
-    Alert.alert(
-      localize("Could not open Shortcuts", "No se pudo abrir Atajos"),
-      localize(
-        "Open Apple's Shortcuts app and select Automation.",
-        "Abre la app Atajos de Apple y elige Automatización.",
-      ),
-    );
+    await offerShortcutsInstall(sheet);
   }
 
   async function test(target: ShortcutTarget) {
@@ -452,13 +442,14 @@ export default function ShortcutSetupScreen() {
         if (target.urlScheme) await disableScheme(target.id);
       }
     }
-    Alert.alert(
-      localize(`Now open ${target.name}`, `Ahora abre ${target.name}`),
-      localize(
-        `Go to your Home Screen and open ${target.name}. If the automation works, Still comes back by itself.`,
-        `Ve a tu pantalla de inicio y abre ${target.name}. Si la automatización funciona, Still vuelve solo.`,
+    void sheet.show({
+      title: localize(`Now open ${target.name}`, `Ahora abre ${target.name}`),
+      message: localize(
+        `Go to your Home Screen and open ${target.name}. If you see Still's pause, it is connected.`,
+        `Ve a tu pantalla de inicio y abre ${target.name}. Si ves la pausa de Still, quedó conectada.`,
       ),
-    );
+      actions: [gotItAction()],
+    });
   }
 
   function status(target: ShortcutTarget) {

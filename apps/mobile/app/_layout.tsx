@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/recursive";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo, useRef } from "react";
@@ -14,7 +14,14 @@ import { StatusBar } from "expo-status-bar";
 import { AppState, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import {
+  notNowAction,
+  StillSheetProvider,
+  useStillSheet,
+} from "@/components/still-sheet";
+import { localize } from "@/i18n";
 import { initializeObservability } from "@/lib/analytics";
+import { getJson, setJson } from "@/lib/storage";
 import {
   restrictionEngine,
   restrictionEvents,
@@ -36,23 +43,65 @@ Notifications.setNotificationHandler({
   }),
 });
 
+/** "Not now" on the notice prompt holds it back for a week. */
+const NOTIFICATION_PROMPT_SNOOZE_KEY = "notificationPromptSnoozedUntil";
+const NOTIFICATION_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1_000;
+
 function Navigation() {
   const router = useRouter();
+  const segments = useSegments();
+  // Groups vanish from the pathname, so Today and onboarding are both "/".
+  const onToday = segments[0] === "(tabs)" && segments[1] === "(today)";
+  const sheet = useStillSheet();
   const { onboarded, walletHydrated } = useAppState();
   const lastRechargeNavigation = useRef(0);
   const lastShortcutIntervention = useRef<string | null>(null);
+  const noticePromptShown = useRef(false);
 
+  // Only iOS posts a notice (the second an access window ends), so only iOS
+  // asks, and only after saying what it is for. Asked on Today, once setup is
+  // behind the user.
   useEffect(() => {
-    if (!onboarded || Platform.OS === "web") return;
+    if (!onboarded || Platform.OS !== "ios" || !onToday) return;
+    if (noticePromptShown.current) return;
+    noticePromptShown.current = true;
     void (async () => {
       const current = await Notifications.getPermissionsAsync();
-      if (current.status === "undetermined") {
+      if (current.status !== "undetermined") return;
+      const snoozedUntil = await getJson<number>(
+        NOTIFICATION_PROMPT_SNOOZE_KEY,
+        0,
+      );
+      if (Date.now() < snoozedUntil) return;
+      const choice = await sheet.show({
+        title: localize(
+          "We'll tell you when your time is up",
+          "Te avisamos cuando termina tu tiempo",
+        ),
+        message: localize(
+          "A notice the exact second the pause comes back.",
+          "Un aviso en el segundo exacto en que vuelve la pausa.",
+        ),
+        actions: [
+          {
+            label: localize("Turn on notices", "Activar avisos"),
+            variant: "signal",
+          },
+          notNowAction(),
+        ],
+      });
+      if (choice === 0) {
         await Notifications.requestPermissionsAsync({
           ios: { allowAlert: true, allowSound: true },
         });
+      } else {
+        await setJson(
+          NOTIFICATION_PROMPT_SNOOZE_KEY,
+          Date.now() + NOTIFICATION_PROMPT_SNOOZE_MS,
+        );
       }
-    })();
-  }, [onboarded]);
+    })().catch(() => undefined);
+  }, [onboarded, onToday, sheet]);
 
   useEffect(() => {
     if (!walletHydrated) return;
@@ -183,8 +232,10 @@ export default function RootLayout() {
         <AppStateProvider>
           <RewardAdProvider>
             <ShortcutTargetsProvider>
-              <StatusBar style="dark" />
-              <Navigation />
+              <StillSheetProvider>
+                <StatusBar style="dark" />
+                <Navigation />
+              </StillSheetProvider>
             </ShortcutTargetsProvider>
           </RewardAdProvider>
         </AppStateProvider>

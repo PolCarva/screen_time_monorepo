@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatAccessDuration } from "@screen-time/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { z } from "zod";
 
 import { apiFetch } from "@/lib/api";
@@ -11,6 +11,11 @@ import { DurationSlider } from "@/components/duration-slider";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
+import {
+  closeAction,
+  retryAction,
+  useStillSheet,
+} from "@/components/still-sheet";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { useAppState } from "@/state/app-state";
@@ -38,6 +43,7 @@ export default function TokensScreen() {
     unlockCurrent,
   } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
+  const sheet = useStillSheet();
   const [busy, setBusy] = useState(false);
   const [earnedForRecharge, setEarnedForRecharge] = useState<string | null>(
     null,
@@ -80,20 +86,42 @@ export default function TokensScreen() {
         if (rechargeRequest) setEarnedForRecharge(rechargeRequest);
         return true;
       } catch {
-        Alert.alert(
-          localize("Reward unavailable", "Recompensa no disponible"),
-          localize(
-            "You can always use an Emergency Unlock.",
-            "Siempre puedes usar un desbloqueo de emergencia.",
-          ),
-        );
+        const emergency = wallet.emergencyRemaining;
+        void sheet.show({
+          title: localize("The ad didn't load", "El anuncio no cargó"),
+          message:
+            emergency > 0
+              ? localize(
+                  `Try again in a moment. You have ${emergency} emergency ${emergency === 1 ? "access" : "accesses"} for today.`,
+                  `Prueba otra vez en un momento. Tienes ${emergency} ${emergency === 1 ? "acceso" : "accesos"} de emergencia para hoy.`,
+                )
+              : localize(
+                  "Try again in a moment.",
+                  "Prueba otra vez en un momento.",
+                ),
+          actions: [
+            retryAction(() => {
+              void earn(rechargeRequest);
+            }),
+            closeAction(),
+          ],
+        });
         return false;
       } finally {
         setBusy(false);
         retry();
       }
     },
-    [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared],
+    [
+      addProvisionalToken,
+      busy,
+      deviceId,
+      refresh,
+      retry,
+      sheet,
+      showPrepared,
+      wallet.emergencyRemaining,
+    ],
   );
   const balanceCapped = wallet.rewardedBalance >= config.maxRewardTokenBalance;
   // Nothing is decided in advance: the window is chosen once the pass exists.
@@ -146,17 +174,23 @@ export default function TokensScreen() {
       });
     } catch {
       autoUnlockInFlight.current = false;
-      Alert.alert(
-        localize("Could not unlock", "No se pudo desbloquear"),
-        localize(
-          "Your token is still available. Return to the restricted app and try again.",
-          "Tu pase sigue disponible. Vuelve a la app restringida e inténtalo de nuevo.",
+      void sheet.show({
+        title: localize("The app didn't open", "No se abrió la app"),
+        message: localize(
+          "Your pass is still saved.",
+          "Tu pase sigue guardado.",
         ),
-      );
+        actions: [
+          retryAction(() => {
+            void openForChosenWindow();
+          }),
+          closeAction(),
+        ],
+      });
     } finally {
       setBusy(false);
     }
-  }, [busy, rememberAccessDuration, unlockCurrent, windowSeconds]);
+  }, [busy, rememberAccessDuration, sheet, unlockCurrent, windowSeconds]);
   const buttonLabel = busy
     ? localize("Preparing the ad…", "Preparando el anuncio…")
     : !rewardsEnabled

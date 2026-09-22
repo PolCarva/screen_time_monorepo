@@ -1,10 +1,11 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Linking, Platform, StyleSheet, Switch, View } from "react-native";
+import { Linking, Platform, StyleSheet, Switch, View } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import { useStillSheet } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import {
@@ -22,6 +23,7 @@ import {
   shortcutsOpenUrl,
 } from "@/lib/ios-shortcut-setup";
 import { HOME_SHORTCUT_NAME } from "@/lib/leave-to-home";
+import { offerShortcutsInstall } from "@/lib/shortcuts-app";
 import {
   getHomeShortcutInstalled,
   setHomeShortcutInstalled,
@@ -117,6 +119,7 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
 
 export default function ShortcutRepairScreen() {
   const { config } = useAppState();
+  const sheet = useStillSheet();
   const tier = resolveSetupTier({ iosVersion: Platform.Version });
   const [homeShortcut, setHomeShortcut] = useState(false);
 
@@ -139,15 +142,9 @@ export default function ShortcutRepairScreen() {
         return;
       }
     } catch {
-      // Fall through to the manual instruction.
+      // Shortcuts itself does not open: it was removed from this iPhone.
     }
-    Alert.alert(
-      localize("Could not open Shortcuts", "No se pudo abrir Atajos"),
-      localize(
-        "Open Apple's Shortcuts app and select Automation.",
-        "Abre la app Atajos de Apple y elige Automatización.",
-      ),
-    );
+    await offerShortcutsInstall(sheet);
   }
 
   return (

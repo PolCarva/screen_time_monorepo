@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,6 +13,11 @@ import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import {
+  closeAction,
+  retryAction,
+  useStillSheet,
+} from "@/components/still-sheet";
 import { Body, Display, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
@@ -81,6 +85,7 @@ export default function OnboardingScreen() {
   const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const { config, setOnboarded } = useAppState();
+  const sheet = useStillSheet();
   const current = steps[step]!;
   const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const currentTitle =
@@ -138,13 +143,11 @@ export default function OnboardingScreen() {
       await setOnboarded(true);
       router.replace("/android-setup");
     } catch {
-      Alert.alert(
-        localize("Setup paused", "Configuración en pausa"),
-        localize(
-          "Nothing changed. Try again whenever you are ready.",
-          "Nada cambió. Inténtalo de nuevo cuando quieras.",
-        ),
-      );
+      void sheet.show({
+        title: localize("We couldn't continue", "No pudimos continuar"),
+        message: localize("Try again.", "Vuelve a intentarlo."),
+        actions: [retryAction(() => next()), closeAction()],
+      });
     } finally {
       setBusy(false);
     }

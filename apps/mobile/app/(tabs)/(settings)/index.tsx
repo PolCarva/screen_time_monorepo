@@ -3,7 +3,6 @@ import { type UpdateUserPreferencesRequest } from "@screen-time/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   Share,
@@ -16,6 +15,12 @@ import {
 import { PrimaryButton } from "@/components/primary-button";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
+import {
+  closeAction,
+  gotItAction,
+  retryAction,
+  useStillSheet,
+} from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
@@ -123,6 +128,7 @@ export default function SettingsScreen() {
     syncStatus,
   } = useAppState();
   const shortcutTargets = useShortcutTargets();
+  const sheet = useStillSheet();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
     [],
@@ -169,21 +175,16 @@ export default function SettingsScreen() {
     setPreferencesBusy(true);
     try {
       await savePreferences(draftPreferences);
-      Alert.alert(
-        localize("Limits saved", "Límites guardados"),
-        localize(
-          "New passes will use these limits on all your devices.",
-          "Los nuevos pases usarán estos límites en todos tus dispositivos.",
-        ),
-      );
+      sheet.toast({ message: localize("Limits saved.", "Límites guardados.") });
     } catch {
-      Alert.alert(
-        localize("Could not save limits", "No se pudieron guardar los límites"),
-        localize(
-          "Check your connection and try again.",
-          "Revisa tu conexión e inténtalo otra vez.",
+      void sheet.show({
+        title: localize(
+          "Your limits weren't saved",
+          "No se guardaron tus límites",
         ),
-      );
+        message: localize("Check your connection.", "Revisa tu conexión."),
+        actions: [retryAction(() => persistPreferences()), closeAction()],
+      });
     } finally {
       setPreferencesBusy(false);
     }
@@ -200,42 +201,49 @@ export default function SettingsScreen() {
       const linked = await linkIdentity(provider);
       if (linked) {
         setLinkedIdentities(await getLinkedIdentityProviders());
-        Alert.alert(
-          localize("Google connected", "Google conectado"),
-          localize(
-            "Your identity is ready for voting and account recovery.",
-            "Tu identidad está lista para votar y recuperar la cuenta.",
-          ),
-        );
+        showGoogleConnected();
       }
     } catch (error) {
       try {
         const providers = await getLinkedIdentityProviders();
         if (providers.includes(provider)) {
           setLinkedIdentities(providers);
-          Alert.alert(
-            localize("Google connected", "Google conectado"),
-            localize(
-              "Your identity is ready for voting and account recovery.",
-              "Tu identidad está lista para votar y recuperar la cuenta.",
-            ),
-          );
+          showGoogleConnected();
           return;
         }
       } catch {
         // Preserve the original OAuth error below when reconciliation fails.
       }
       if (__DEV__) console.warn("Google identity link failed", error);
-      Alert.alert(
-        localize("Could not link", "No se pudo vincular"),
-        localize(
-          "Google sign-in could not be completed. Check your connection and try again.",
-          "No se pudo completar el acceso con Google. Revisa tu conexión e inténtalo otra vez.",
+      void sheet.show({
+        title: localize("Google didn't connect", "No se conectó Google"),
+        message: localize(
+          "Check your connection and try again.",
+          "Revisa tu conexión y vuelve a intentarlo.",
         ),
-      );
+        actions: [retryAction(() => link(provider)), closeAction()],
+      });
     } finally {
       setIdentityBusy(null);
     }
+  }
+
+  function showGoogleConnected() {
+    void sheet.show({
+      title: localize("Google connected", "Google conectado"),
+      message: localize(
+        "You can now vote for this week's project.",
+        "Ya puedes votar por el proyecto de esta semana.",
+      ),
+      actions: [
+        {
+          label: localize("Go vote", "Ir a votar"),
+          variant: "signal",
+          onPress: () => router.push("/(tabs)/(impact)" as never),
+        },
+        { label: localize("Done", "Listo"), variant: "quiet" },
+      ],
+    });
   }
 
   async function toggleAnalytics(value: boolean) {
@@ -254,13 +262,14 @@ export default function SettingsScreen() {
         title: "Still data export",
       });
     } catch {
-      Alert.alert(
-        localize("Could not export", "No se pudo exportar"),
-        localize(
-          "Check your connection and try again.",
-          "Revisa tu conexión e inténtalo otra vez.",
+      void sheet.show({
+        title: localize(
+          "Your data wasn't downloaded",
+          "No se descargaron tus datos",
         ),
-      );
+        message: localize("Check your connection.", "Revisa tu conexión."),
+        actions: [retryAction(() => exportData()), closeAction()],
+      });
     }
   }
 
@@ -268,68 +277,77 @@ export default function SettingsScreen() {
     try {
       await AdsConsent.showPrivacyOptionsForm();
     } catch {
-      Alert.alert(
-        localize(
-          "Privacy options unavailable",
-          "Opciones de privacidad no disponibles",
+      void sheet.show({
+        title: localize(
+          "The ad options didn't load",
+          "Las opciones de anuncios no cargaron",
         ),
-        localize(
-          "Try again when the advertising service is available.",
-          "Inténtalo de nuevo cuando el servicio publicitario esté disponible.",
+        message: localize(
+          "Try again in a moment.",
+          "Vuelve a intentarlo en un momento.",
         ),
-      );
+        actions: [
+          retryAction(() => showAdvertisingPrivacyOptions()),
+          closeAction(),
+        ],
+      });
+    }
+  }
+
+  async function deleteAccount() {
+    try {
+      await apiRequest("/api/v1/privacy/delete", { method: "POST" });
+      const signOutResult = await supabase?.auth.signOut({
+        scope: "local",
+      });
+      let cleanupIncomplete = Boolean(signOutResult?.error);
+      try {
+        await clearLocalData();
+      } catch {
+        cleanupIncomplete = true;
+      }
+      router.replace("/(onboarding)" as never);
+      if (cleanupIncomplete) {
+        void sheet.show({
+          title: localize("Account deleted", "Cuenta eliminada"),
+          message: localize(
+            "To also erase what is saved on this phone, uninstall Still.",
+            "Para borrar también lo guardado en este teléfono, desinstala Still.",
+          ),
+          actions: [gotItAction()],
+        });
+      }
+    } catch {
+      void sheet.show({
+        title: localize(
+          "Your account wasn't deleted",
+          "No se eliminó tu cuenta",
+        ),
+        message: localize(
+          "Your data is as it was.",
+          "Tus datos siguen como estaban.",
+        ),
+        actions: [retryAction(() => deleteAccount()), closeAction()],
+      });
     }
   }
 
   function confirmDeletion() {
-    Alert.alert(
-      localize("Delete account and data", "Eliminar cuenta y datos"),
-      localize(
-        "This deletes your profile, devices, and wellbeing data. The financial ledger is retained only in pseudonymized form.",
-        "Esta acción elimina tu perfil, dispositivos y datos de bienestar. El ledger financiero se conserva solo pseudonimizado.",
+    void sheet.show({
+      title: localize("Delete your account?", "¿Eliminar tu cuenta?"),
+      message: localize(
+        "Your account, your passes and your history are erased. The donation record is kept without anything that identifies you. This is permanent.",
+        "Se borran tu cuenta, tus pases y tu historial. El registro de donaciones se conserva sin datos que te identifiquen. Es definitivo.",
       ),
-      [
-        { text: localize("Cancel", "Cancelar"), style: "cancel" },
+      actions: [
         {
-          text: localize("Delete permanently", "Eliminar definitivamente"),
-          style: "destructive",
-          onPress: () => {
-            void (async () => {
-              try {
-                await apiRequest("/api/v1/privacy/delete", { method: "POST" });
-                const signOutResult = await supabase?.auth.signOut({
-                  scope: "local",
-                });
-                let cleanupIncomplete = Boolean(signOutResult?.error);
-                try {
-                  await clearLocalData();
-                } catch {
-                  cleanupIncomplete = true;
-                }
-                router.replace("/(onboarding)" as never);
-                if (cleanupIncomplete) {
-                  Alert.alert(
-                    localize("Account deleted", "Cuenta eliminada"),
-                    localize(
-                      "The server data was deleted, but some local data could not be cleared. Reinstall Still before giving this device to someone else.",
-                      "Los datos del servidor se eliminaron, pero algunos datos locales no pudieron borrarse. Reinstala Still antes de entregar este dispositivo a otra persona.",
-                    ),
-                  );
-                }
-              } catch {
-                Alert.alert(
-                  localize("Could not delete", "No se pudo eliminar"),
-                  localize(
-                    "Your data was not changed. Try again.",
-                    "Tus datos no se modificaron. Inténtalo otra vez.",
-                  ),
-                );
-              }
-            })();
-          },
+          label: localize("Delete permanently", "Eliminar definitivamente"),
+          variant: "danger",
+          onPress: () => deleteAccount(),
         },
+        { label: localize("Cancel", "Cancelar"), variant: "quiet" },
       ],
-    );
+    });
   }
 
   const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);

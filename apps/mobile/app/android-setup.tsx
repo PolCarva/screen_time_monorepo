@@ -1,12 +1,19 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
 import { AndroidGuideImage } from "@/components/android-guide-image";
 import type { AndroidGuideId } from "@/components/android-guide-assets";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import {
+  closeAction,
+  notNowAction,
+  retryAction,
+  type SheetApi,
+  useStillSheet,
+} from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
@@ -78,32 +85,59 @@ function formatLastPause(iso: string | undefined, locale: "en" | "es"): string {
     : `last pause: ${hours} h ago`;
 }
 
-function confirmAccessibilityDisclosure(): Promise<boolean> {
-  return new Promise((resolve) => {
-    Alert.alert(
-      localize("Accessibility access", "Acceso de Accesibilidad"),
+/**
+ * Google Play's prominent disclosure: what the permission detects, what it is
+ * for, what it never collects and how to turn it off. The content is required;
+ * only its presentation is Still's. It cannot be swiped away as consent.
+ */
+async function confirmAccessibilityDisclosure(sheet: SheetApi): Promise<boolean> {
+  const choice = await sheet.show({
+    title: localize("Still uses Accessibility", "Still usa Accesibilidad"),
+    message: localize(
+      "To show you the pause, Still needs to know which app you open.",
+      "Para mostrarte la pausa, Still necesita saber qué app abres.",
+    ),
+    bullets: [
       localize(
-        "Still uses Android Accessibility to detect which chosen app comes to the foreground, to show a pause for it, and to close a floating video window that would cover the pause. It does not type for you, and it does not collect, store, or share your screen content, messages, or app history. Selected apps and per-app counters stay on this device. You can turn this access off at any time in Android Settings.",
-        "Still usa la Accesibilidad de Android para detectar qué app elegida pasa a primer plano, mostrar una pausa para ella y cerrar una ventana de video flotante que taparía la pausa. No escribe por ti, y no recopila, guarda ni comparte el contenido de tu pantalla, tus mensajes ni tu historial de apps. Las apps elegidas y los contadores por app permanecen en este dispositivo. Puedes desactivar este acceso en cualquier momento desde los Ajustes de Android.",
+        "It detects when you open one of your chosen apps.",
+        "Detecta cuándo abres una de tus apps elegidas.",
       ),
-      [
-        {
-          text: localize("Not now", "Ahora no"),
-          style: "cancel",
-          onPress: () => resolve(false),
-        },
-        {
-          text: localize("I agree and continue", "Aceptar y continuar"),
-          onPress: () => resolve(true),
-        },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) },
-    );
+      localize(
+        "It shows the pause on top of that app.",
+        "Muestra la pausa encima de esa app.",
+      ),
+      localize(
+        "It closes a floating video that would cover the pause.",
+        "Cierra el video flotante que taparía la pausa.",
+      ),
+      localize(
+        "It does not type for you or read your messages, and it does not store or share what is on your screen.",
+        "No escribe por ti ni lee tus mensajes, y no guarda ni comparte lo que hay en tu pantalla.",
+      ),
+      localize(
+        "Your apps and your counts stay on this phone.",
+        "Tus apps y tus conteos se quedan en este teléfono.",
+      ),
+      localize(
+        "You can remove the permission at any time in Settings.",
+        "Puedes quitar el permiso cuando quieras en Ajustes.",
+      ),
+    ],
+    actions: [
+      {
+        label: localize("I agree and continue", "Aceptar y continuar"),
+        variant: "signal",
+      },
+      notNowAction(),
+    ],
+    dismissible: false,
   });
+  return choice === 0;
 }
 
 export default function AndroidSetupScreen() {
   const { config, health, refresh } = useAppState();
+  const sheet = useStillSheet();
   const [localHealth, setLocalHealth] = useState<RestrictionHealth>(health);
   const [appsState, setAppsState] = useState<SelectedAppState[]>([]);
   const [restrictedSettings, setRestrictedSettings] = useState(false);
@@ -134,31 +168,51 @@ export default function AndroidSetupScreen() {
     }, [refreshHealth]),
   );
 
-  async function runRequiredSetup() {
-    if (Platform.OS !== "android") {
-      router.replace("/shortcut-setup");
-      return;
-    }
+  function showSetupFailed() {
+    void sheet.show({
+      title: localize("We couldn't finish", "No pudimos terminar"),
+      message: localize(
+        "Your chosen apps are still saved.",
+        "Tus apps elegidas siguen guardadas.",
+      ),
+      actions: [retryAction(() => runRequiredSetup()), closeAction()],
+    });
+  }
+
+  function showStillInactive() {
+    void sheet.show({
+      title: localize("Still isn't on yet", "Falta activar Still"),
+      message: localize(
+        "In Accessibility, tap Still and turn on “Use Still”. Then come back here.",
+        "En Accesibilidad, toca Still y activa «Usar Still». Después vuelve aquí.",
+      ),
+      actions: [
+        {
+          label: localize("Open Accessibility", "Abrir Accesibilidad"),
+          variant: "signal",
+          onPress: () => {
+            void restrictionEngine.openAccessibilitySettings?.();
+          },
+        },
+        ...(restrictedSettings
+          ? [
+              {
+                label: localize("Open Still's app info", "Abrir información de Still"),
+                variant: "secondary" as const,
+                onPress: () => {
+                  void restrictionEngine.openAppInfo?.();
+                },
+              },
+            ]
+          : []),
+        notNowAction(),
+      ],
+    });
+  }
+
+  async function chooseApps() {
     setSetupBusy(true);
     try {
-      let authorization = localHealth.authorization;
-      if (authorization !== "authorized") {
-        const consented = await confirmAccessibilityDisclosure();
-        if (!consented) return;
-        authorization = await restrictionEngine.requestAuthorization();
-      }
-      if (authorization !== "authorized") {
-        Alert.alert(
-          localize("Still is not active yet", "Still todavía no está activo"),
-          localize(
-            "Find Still in the list, switch it on, then come back. Still takes it from there.",
-            "Busca Still en la lista, actívalo y vuelve. Still sigue desde ahí.",
-          ),
-        );
-        await refreshHealth();
-        return;
-      }
-
       const selection = await restrictionEngine.presentAppPicker();
       if (selection.count > 0) {
         await restrictionEngine.applyRestrictions(selection);
@@ -166,25 +220,54 @@ export default function AndroidSetupScreen() {
       await refreshHealth();
       void refresh();
       if (selection.count === 0) {
-        Alert.alert(
-          localize("Choose at least one app", "Elige al menos una app"),
-          localize(
-            "Nothing is paused until you select an app.",
-            "No se mostrará ninguna pausa hasta que selecciones una app.",
+        void sheet.show({
+          title: localize("Choose your apps", "Elige tus apps"),
+          message: localize(
+            "Check the apps where you want to see the pause.",
+            "Marca las apps donde quieres ver la pausa.",
           ),
-        );
+          actions: [
+            {
+              label: localize("Choose apps", "Elegir apps"),
+              variant: "signal",
+              onPress: () => chooseApps(),
+            },
+            notNowAction(),
+          ],
+        });
       }
     } catch {
-      Alert.alert(
-        localize("Could not finish setup", "No se pudo terminar"),
-        localize(
-          "No selection was lost. Try the setup button again.",
-          "No se perdió ninguna selección. Prueba otra vez el botón de configuración.",
-        ),
-      );
+      showSetupFailed();
     } finally {
       setSetupBusy(false);
     }
+  }
+
+  async function runRequiredSetup() {
+    if (Platform.OS !== "android") {
+      router.replace("/shortcut-setup");
+      return;
+    }
+    let authorization = localHealth.authorization;
+    if (authorization !== "authorized") {
+      const consented = await confirmAccessibilityDisclosure(sheet);
+      if (!consented) return;
+      setSetupBusy(true);
+      try {
+        authorization = await restrictionEngine.requestAuthorization();
+      } catch {
+        showSetupFailed();
+        return;
+      } finally {
+        setSetupBusy(false);
+      }
+    }
+    if (authorization !== "authorized") {
+      await refreshHealth();
+      showStillInactive();
+      return;
+    }
+    await chooseApps();
   }
 
   async function enableRealStats() {
@@ -193,30 +276,32 @@ export default function AndroidSetupScreen() {
       const status = await restrictionEngine.requestWellbeingAuthorization();
       await refreshHealth();
       if (status !== "authorized") {
-        Alert.alert(
-          localize(
+        void sheet.show({
+          title: localize(
             "Real stats remain off",
             "Las estadísticas reales siguen apagadas",
           ),
-          localize(
+          message: localize(
             "It is optional. Pauses and your per-app counts work without it.",
             "Es opcional. Las pausas y tus conteos por app funcionan sin esto.",
           ),
-        );
+          actions: [retryAction(() => enableRealStats()), closeAction()],
+        });
       } else {
         void refresh();
       }
     } catch {
-      Alert.alert(
-        localize(
+      void sheet.show({
+        title: localize(
           "Couldn't open that screen",
           "No se pudo abrir esa pantalla",
         ),
-        localize(
+        message: localize(
           "You can turn it on later from Settings.",
           "Puedes activarlo más tarde desde Ajustes.",
         ),
-      );
+        actions: [retryAction(() => enableRealStats()), closeAction()],
+      });
     } finally {
       setStatsBusy(false);
     }
