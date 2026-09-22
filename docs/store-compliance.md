@@ -36,7 +36,9 @@ When the user declines, the intended ending is the iOS Home Screen. iOS has no p
 - Declare package visibility only through the launcher `<queries>` intent. Do not add `QUERY_ALL_PACKAGES` without a new policy review.
 - Keep Usage Access limited to local wellbeing statistics and verification.
 
-Suggested disclosure: “Still uses Accessibility to detect when you open only the apps you selected and show an intentional pause. It does not read screen content, type, or collect the names of your selected apps. Processing stays on this device. You can disable access at any time in Android Settings.”
+Suggested disclosure: “Still uses Accessibility to detect when you open only the apps you selected, show an intentional pause, and close a floating video window that would cover that pause. It does not type for you and does not collect, store, or share your screen content, messages, or the names of your selected apps. Processing stays on this device. You can disable access at any time in Android Settings.”
+
+> Note: closing a floating (Picture-in-Picture) video requires `canRetrieveWindowContent="true"` plus `flagRetrieveInteractiveWindows`. Still uses this only to locate and dismiss the offending PiP window; it never reads, stores, or transmits screen content. Reflect this in the Play Console declaration and the demo video.
 
 ## Ads and impact
 

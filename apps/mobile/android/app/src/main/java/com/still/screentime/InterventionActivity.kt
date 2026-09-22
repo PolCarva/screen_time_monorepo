@@ -47,6 +47,9 @@ class InterventionActivity : Activity() {
   private var durationSeconds = 600
   private var durationLabel = "10 min"
   private var busy = false
+  // True only while the rewarded ad is on top, so the shield is not finished
+  // when it goes to the background for the ad.
+  private var adShowing = false
   private var pauseSecondsLeft = PAUSE_SECONDS
   private val pauseHandler = Handler(Looper.getMainLooper())
   private var pauseTick: Runnable? = null
@@ -178,8 +181,10 @@ class InterventionActivity : Activity() {
   private fun startAd() {
     if (busy) return
     busy = true
+    adShowing = true
     val shown = StillRewardedAdManager.show(this) { outcome ->
       busy = false
+      adShowing = false
       if (outcome.earned) {
         renderDecision(EnterSource.FRESH_AD)
       } else {
@@ -189,6 +194,7 @@ class InterventionActivity : Activity() {
     }
     if (!shown) {
       busy = false
+      adShowing = false
       renderByGate()
     }
   }
@@ -363,6 +369,18 @@ class InterventionActivity : Activity() {
     // inherits the previous app's label, count, or actions.
     stopPause()
     recreate()
+  }
+
+  override fun onStop() {
+    super.onStop()
+    // If the shield is backgrounded without being resolved (the user pressed
+    // Home, or the chosen app slipped in front), finish it so the next open
+    // creates a fresh shield. Bringing a stale, backgrounded shield to the front
+    // from the service is blocked on some OEMs (e.g. MIUI); a fresh launch is not.
+    // Never finish while the rewarded ad is on top.
+    if (!adShowing && !isFinishing) {
+      finish()
+    }
   }
 
   override fun onDestroy() {

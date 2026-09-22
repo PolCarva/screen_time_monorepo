@@ -1,6 +1,6 @@
 # Still Android · Paridad del flujo de pausa con iOS — investigación y plan
 
-Fecha: 2026-09-21 (impl. 2026-09-22) · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–7 implementadas; fase 8 validada en emulador API 34 y API 36 (Android 16), solo pendiente el OEM real (Xiaomi/MIUI)** (ver §10). La propuesta original de `/goal` está en §8.
+Fecha: 2026-09-21 (impl. 2026-09-22) · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–8 completas; validado en emulador (API 34/36) y en Xiaomi real (Android 16/MIUI), con dos fallos de dispositivo hallados y corregidos** (ver §10–§11). La propuesta original de `/goal` está en §8.
 
 Objetivo único y no negociable: **el shield y el anuncio son una sola pantalla**.
 Abrir app elegida → shield de Still (dice cuántas veces se abrió hoy, ofrece
@@ -535,7 +535,7 @@ El único cambio previo no relacionado es `ios/…project.pbxproj`.
 | 5 · Guía con capturas reales (D9) | ✅ | Pipeline `android-guide/build.mjs` + capturas reales de Accesibilidad; anillo dibujado por la app; UI falsa retirada. Anillo verificado sobre cada control. |
 | 6 · Voz de producto (D10) | ✅ | Copy de onboarding reescrito; Still es el sujeto; sin "Android" salvo la divulgación legal. |
 | 7 · Restricted Settings + reparación + OEM | ✅ | `getInstallEnvironment` (heurística de install source), `openAppInfo`/`openAccessibilitySettings`, `android-oem.ts` (con tests) y `app/android-repair.tsx` con causas en orden. |
-| 8 · Validación en dispositivo | ⏳ casi completa | Validado en **API 34** y en **API 36 (Android 16, imagen Play Store)**, la misma versión que corre el Xiaomi. En ambas: "abrir app → shield → anuncio visible" cumplido y `acceptance:shield` verde. En API 36 el rewarded se reprodujo a pantalla completa dentro de `com.still.screentime` y el shield se lanzó desde background sin bloqueo (exención BAL confirmada en Android 16, el hueco que la investigación había dejado). **Pendiente solo el OEM real:** el Xiaomi (MIUI) se conectó un instante y se desconectó; el comportamiento OEM (autostart, matar en background, "ventanas emergentes") requiere ese teléfono conectado. |
+| 8 · Validación en dispositivo | ✅ (incl. OEM real) | Validado en emulador API 34 / API 36 y en el **Xiaomi real (Android 16 / MIUI)**: "abrir app → shield" +65 ms, anuncio a pantalla completa dentro de `com.still.screentime`, `acceptance:shield` verde, exención BAL confirmada. En el Xiaomi se hallaron y corrigieron dos fallos reales (ver §11) y se documentaron los bloqueos de adb de MIUI (no deja `settings put`/`input`) y que el force-stop revoca la accesibilidad. |
 
 ### Medido en el emulador (build de esta rama, no el prototipo)
 
@@ -577,3 +577,43 @@ eventos de ventana al abrir su `WelcomeTourActivity` y el conteo marca 2 en vez
 de 1; es un artefacto del emulador (no del conteo, que es correcto con apps de una
 sola Activity y en dispositivo real). El gate se corre en el emulador con
 `Clock=Reloj` + `YouTube`, y con su default Gmail+YouTube en el teléfono físico.
+
+---
+
+## 11. Hallazgos y arreglos en el Xiaomi real (2026-09-22)
+
+Probando en el teléfono del usuario (Xiaomi 2407FPN8EG, Android 16 / MIUI)
+aparecieron cosas que ni el emulador ni la investigación mostraban. Todo
+corregido y re-verificado en el dispositivo.
+
+- **Bypass por Picture-in-Picture.** YouTube (y cualquier app con PiP) dejaba una
+  ventana flotante de video **por encima** del shield; el usuario podía verla o
+  expandirla y saltarse la pausa. Android dibuja las ventanas PiP sobre las
+  Activities normales, así que el shield (una Activity) no puede taparla. **Arreglo
+  (decisión del usuario):** el `AccessibilityService` detecta la ventana PiP de una
+  app bloqueada (`getWindows()` + `isInPictureInPictureMode`) y la cierra
+  (`ACTION_DISMISS`, con click en el botón de cerrar como respaldo). Requirió
+  `canRetrieveWindowContent="true"` + `flagRetrieveInteractiveWindows`; se usa solo
+  para localizar y cerrar la PiP, nunca para leer/guardar contenido, y se
+  actualizó la divulgación de privacidad en consecuencia.
+- **Reapertura en caliente no mostraba el shield.** Al reabrir una app ya cargada,
+  MIUI no traía al frente la instancia del shield que había quedado en background
+  (a diferencia de crear una nueva). **Arreglo:** la detección pasa a resolver la
+  app en primer plano con `getWindows()` (más robusta que el paquete del evento,
+  ahora que se leen ventanas) y añade `typeWindowsChanged`; además el shield **se
+  cierra solo al pasar a segundo plano sin resolver** (salvo mientras muestra el
+  anuncio), de modo que cada apertura crea una instancia fresca que sí sube al
+  frente.
+- **Bloqueos de adb en MIUI.** MIUI rechaza `adb shell settings put secure`
+  (WRITE_SECURE_SETTINGS) y `adb shell input` (INJECT_EVENTS) sin la opción
+  "Depuración USB (ajustes de seguridad)". Por eso la accesibilidad se activa a
+  mano y `acceptance:shield` (que inyecta toques) no corre por adb en MIUI; el
+  shield en sí y su latencia sí se verificaron.
+- **force-stop revoca la accesibilidad.** En MIUI, matar la app (force-stop, o la
+  gestión agresiva de background) deja `enabled_accessibility_services` en `null`;
+  el servicio no se recupera solo hasta reactivarlo. Refuerza la necesidad de la
+  pantalla de reparación y de los textos por OEM (§7).
+
+Medido en el Xiaomi: abrir app → shield **+65 ms**; el rewarded precargado se
+muestra dentro de `com.still.screentime`; la PiP se cierra sola; la reapertura en
+caliente vuelve a mostrar el shield.

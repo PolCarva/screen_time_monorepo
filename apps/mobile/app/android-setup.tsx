@@ -83,8 +83,8 @@ function confirmAccessibilityDisclosure(): Promise<boolean> {
     Alert.alert(
       localize("Accessibility access", "Acceso de Accesibilidad"),
       localize(
-        "Still uses Android Accessibility to detect the identifier of the app that enters the foreground, only so it can show a pause for apps you choose. It cannot read screen content or type for you. Selected app identifiers and per-app counters stay on this device and are not collected or shared. You can turn this access off at any time in Android Settings.",
-        "Still usa la Accesibilidad de Android para detectar el identificador de la app que entra en primer plano, únicamente para mostrar una pausa en las apps que tú eliges. No puede leer el contenido de la pantalla ni escribir por ti. Los identificadores elegidos y los contadores por app permanecen en este dispositivo y no se recopilan ni comparten. Puedes desactivar este acceso en cualquier momento desde los Ajustes de Android.",
+        "Still uses Android Accessibility to detect which chosen app comes to the foreground, to show a pause for it, and to close a floating video window that would cover the pause. It does not type for you, and it does not collect, store, or share your screen content, messages, or app history. Selected apps and per-app counters stay on this device. You can turn this access off at any time in Android Settings.",
+        "Still usa la Accesibilidad de Android para detectar qué app elegida pasa a primer plano, mostrar una pausa para ella y cerrar una ventana de video flotante que taparía la pausa. No escribe por ti, y no recopila, guarda ni comparte el contenido de tu pantalla, tus mensajes ni tu historial de apps. Las apps elegidas y los contadores por app permanecen en este dispositivo. Puedes desactivar este acceso en cualquier momento desde los Ajustes de Android.",
       ),
       [
         {

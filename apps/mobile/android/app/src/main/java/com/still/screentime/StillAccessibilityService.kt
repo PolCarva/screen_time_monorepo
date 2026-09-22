@@ -6,6 +6,9 @@ import android.content.Intent
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -13,6 +16,7 @@ class StillAccessibilityService : AccessibilityService() {
   private val preferences by lazy { getSharedPreferences(StillRestrictionModule.PREFERENCES, Context.MODE_PRIVATE) }
   private var lastInterventionPackage: String? = null
   private var lastInterventionAt = 0L
+  private var lastPipSweepAt = 0L
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -23,25 +27,47 @@ class StillAccessibilityService : AccessibilityService() {
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-    val target = event.packageName?.toString() ?: return
-    if (StillSelfProtection.isOwnPackage(packageName, target)) {
-      StillSelfProtection.clearOwnTarget(preferences, packageName)
-      lastInterventionPackage = null
-      lastInterventionAt = 0L
+    val type = event?.eventType ?: return
+    if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+      type != AccessibilityEvent.TYPE_WINDOWS_CHANGED
+    ) {
       return
     }
+    // Close any Picture-in-Picture window a chosen app slipped above the shield.
+    closeLockedAppPictureInPicture()
+
     if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
+
+    // Resolve the foreground app from the window list rather than the event's
+    // package: a warm re-open only resumes the activity and may not carry the
+    // package on the event, which used to let the app slip through on reopen.
+    val target = currentForegroundApp() ?: event.packageName?.toString() ?: return
+
+    if (StillSelfProtection.isOwnPackage(packageName, target)) {
+      // The shield itself is in front; nothing to do.
+      return
+    }
     val selected = preferences.getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()
-    if (target !in selected || isTemporarilyUnlocked(target) || isExternalAuthBrowser(target)) return
+    if (target !in selected) {
+      // A non-chosen app is in front: forget the last target so the next open
+      // of a chosen app always re-shields.
+      if (preferences.getString(StillRestrictionModule.KEY_CURRENT_PACKAGE, null) != null &&
+        currentForegroundApp() != null
+      ) {
+        preferences.edit().remove(StillRestrictionModule.KEY_CURRENT_PACKAGE).apply()
+      }
+      lastInterventionPackage = null
+      return
+    }
+    if (isTemporarilyUnlocked(target) || isExternalAuthBrowser(target)) return
 
     val now = SystemClock.elapsedRealtime()
     val alreadyPending =
-      preferences.getString(StillRestrictionModule.KEY_CURRENT_PACKAGE, null) == target &&
-        lastInterventionPackage == target &&
-        now - lastInterventionAt < 1_200
+      lastInterventionPackage == target && now - lastInterventionAt < 1_200
+    if (alreadyPending) return
     lastInterventionPackage = target
     lastInterventionAt = now
+
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val attemptsKey = "open_attempts:$day"
     val appAttemptsKey = StillRestrictionModule.appMetricKey(
@@ -49,23 +75,14 @@ class StillAccessibilityService : AccessibilityService() {
       day,
       target,
     )
-    val attempts = if (alreadyPending) {
-      preferences.getInt(appAttemptsKey, 1).coerceAtLeast(1)
-    } else {
-      val nextAttempts = preferences.getInt(appAttemptsKey, 0) + 1
-      preferences.edit()
-        .putString(StillRestrictionModule.KEY_CURRENT_PACKAGE, target)
-        .putInt(attemptsKey, preferences.getInt(attemptsKey, 0) + 1)
-        .putInt(appAttemptsKey, nextAttempts)
-        .apply()
-      nextAttempts
-    }
-
-    // Record when Still last paused this app, for the per-app state in Settings.
+    val nextAttempts = preferences.getInt(appAttemptsKey, 0) + 1
     preferences.edit()
+      .putString(StillRestrictionModule.KEY_CURRENT_PACKAGE, target)
+      .putInt(attemptsKey, preferences.getInt(attemptsKey, 0) + 1)
+      .putInt(appAttemptsKey, nextAttempts)
       .putString(
         StillRestrictionModule.appStateKey(StillRestrictionModule.STATE_LAST_PAUSE_AT, target),
-        java.time.Instant.now().toString(),
+        Instant.now().toString(),
       )
       .apply()
 
@@ -73,11 +90,87 @@ class StillAccessibilityService : AccessibilityService() {
     // ready in time the shield falls back to pass / emergency / timed pause.
     StillRewardedAdManager.preload(applicationContext, "intervention")
 
-    startActivity(Intent(this, InterventionActivity::class.java).apply {
-      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
-      putExtra(InterventionActivity.EXTRA_TARGET_PACKAGE, target)
-      putExtra(InterventionActivity.EXTRA_TARGET_ATTEMPTS, attempts)
-    })
+    launchShield(target, nextAttempts)
+  }
+
+  private fun launchShield(target: String, attempts: Int) {
+    runCatching {
+      startActivity(Intent(this, InterventionActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        putExtra(InterventionActivity.EXTRA_TARGET_PACKAGE, target)
+        putExtra(InterventionActivity.EXTRA_TARGET_ATTEMPTS, attempts)
+      })
+    }
+  }
+
+  /**
+   * The package of the app currently in front, from the window list. Ignores the
+   * shield itself and floating Picture-in-Picture windows, so it reports the real
+   * foreground app even when it was only resumed (warm re-open).
+   */
+  private fun currentForegroundApp(): String? {
+    val wins = runCatching { windows }.getOrNull() ?: return null
+    val appWindows = wins.filter {
+      it.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+        !runCatching { it.isInPictureInPictureMode }.getOrDefault(false)
+    }
+    val focused = appWindows.firstOrNull { it.isFocused }
+    val candidate = focused ?: appWindows.maxByOrNull { it.layer } ?: return null
+    val root = runCatching { candidate.root }.getOrNull() ?: return null
+    return root.packageName?.toString()
+  }
+
+  /**
+   * Finds any Picture-in-Picture window that belongs to a chosen, not-unlocked
+   * app and closes it, so a floating video cannot sit above the shield. Window
+   * content is used only to locate and dismiss the PiP, never read or stored.
+   */
+  private fun closeLockedAppPictureInPicture() {
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
+    val now = SystemClock.elapsedRealtime()
+    if (now - lastPipSweepAt < 300) return
+    lastPipSweepAt = now
+    val selected = preferences.getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet()) ?: return
+    if (selected.isEmpty()) return
+
+    val currentWindows = runCatching { windows }.getOrNull() ?: return
+    for (window in currentWindows) {
+      if (!runCatching { window.isInPictureInPictureMode }.getOrDefault(false)) continue
+      val root = runCatching { window.root }.getOrNull() ?: continue
+      val pkg = root.packageName?.toString()
+      if (pkg == null ||
+        pkg !in selected ||
+        StillSelfProtection.isOwnPackage(packageName, pkg) ||
+        isTemporarilyUnlocked(pkg)
+      ) {
+        continue
+      }
+      val dismissed = runCatching {
+        root.performAction(AccessibilityNodeInfo.ACTION_DISMISS)
+      }.getOrDefault(false)
+      if (!dismissed) clickCloseControl(root)
+    }
+  }
+
+  /** Depth-first search for a clickable "close" control inside a PiP window. */
+  private fun clickCloseControl(root: AccessibilityNodeInfo): Boolean {
+    val stack = ArrayDeque<AccessibilityNodeInfo>()
+    stack.addLast(root)
+    var visited = 0
+    while (stack.isNotEmpty() && visited < 200) {
+      val node = stack.removeLast()
+      visited += 1
+      val label = ((node.contentDescription ?: node.text)?.toString() ?: "").lowercase()
+      if (node.isClickable && CLOSE_LABELS.any { label.contains(it) }) {
+        if (runCatching { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }.getOrDefault(false)) {
+          return true
+        }
+      }
+      for (index in 0 until node.childCount) {
+        node.getChild(index)?.let(stack::addLast)
+      }
+    }
+    return false
   }
 
   private fun isTemporarilyUnlocked(packageName: String): Boolean {
@@ -110,4 +203,8 @@ class StillAccessibilityService : AccessibilityService() {
   }
 
   override fun onInterrupt() = Unit
+
+  companion object {
+    private val CLOSE_LABELS = listOf("close", "cerrar", "descartar", "dismiss")
+  }
 }
