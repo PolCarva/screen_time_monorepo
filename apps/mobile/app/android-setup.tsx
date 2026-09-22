@@ -2,10 +2,8 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 
-import {
-  AndroidSetupVisual,
-  type AndroidSetupVisualVariant,
-} from "@/components/android-setup-visual";
+import { AndroidGuideImage } from "@/components/android-guide-image";
+import type { AndroidGuideId } from "@/components/android-guide-assets";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
@@ -21,11 +19,6 @@ import { colors, spacing } from "@/theme/tokens";
 
 const steps = [
   {
-    visual: "accessibility" satisfies AndroidSetupVisualVariant,
-    visualLabel: localize(
-      "Image showing Still switched on, with the toggle to turn it on circled.",
-      "Imagen que muestra Still activado, con el interruptor para activarlo rodeado.",
-    ),
     title: localize("Give Still permission", "Dale permiso a Still"),
     body: localize(
       "One permission lets Still step in with a calm pause before the apps you choose.",
@@ -33,11 +26,6 @@ const steps = [
     ),
   },
   {
-    visual: "apps" satisfies AndroidSetupVisualVariant,
-    visualLabel: localize(
-      "Image showing YouTube and Instagram chosen in Still's private app list.",
-      "Imagen que muestra YouTube e Instagram elegidas en la lista privada de apps de Still.",
-    ),
     title: localize("Choose your apps", "Elige tus apps"),
     body: localize(
       "Pick the ones that pull you in. Your choice stays on this phone, only yours.",
@@ -45,11 +33,6 @@ const steps = [
     ),
   },
   {
-    visual: "return" satisfies AndroidSetupVisualVariant,
-    visualLabel: localize(
-      "Image showing an app opening, Still pausing for an ad, and the app opening right after.",
-      "Imagen que muestra una app abriéndose, Still con una pausa y anuncio, y la app abriéndose justo después.",
-    ),
     title: localize("You're back in a tap", "Vuelves en un toque"),
     body: localize(
       "Open an app, watch a short ad or use a pass, and Still opens it for the time you chose.",
@@ -57,6 +40,24 @@ const steps = [
     ),
   },
 ] as const;
+
+// Real captures of Android's Accessibility settings, shown under the first step
+// with the exact control ringed by the app (see AndroidGuideImage). Tapping one
+// runs the same disclosure-then-open flow as the main button.
+const permissionGuide: { id: AndroidGuideId; label: string }[] = [
+  {
+    id: "accessibility-find-still",
+    label: localize("Find Still in the list", "Busca Still en la lista"),
+  },
+  {
+    id: "accessibility-turn-on",
+    label: localize("Turn Still on", "Activa Still"),
+  },
+  {
+    id: "accessibility-allow",
+    label: localize("Tap Allow to confirm", "Toca Permitir para confirmar"),
+  },
+];
 
 function confirmAccessibilityDisclosure(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -258,10 +259,19 @@ export default function AndroidSetupScreen() {
             <View style={styles.stepCopy}>
               <Heading style={styles.stepTitle}>{step.title}</Heading>
               <Body style={styles.stepBody}>{step.body}</Body>
-              <AndroidSetupVisual
-                accessibilityLabel={step.visualLabel}
-                variant={step.visual}
-              />
+              {index === 0 ? (
+                <View style={styles.guide}>
+                  {permissionGuide.map((frame) => (
+                    <AndroidGuideImage
+                      key={frame.id}
+                      accessibilityLabel={frame.label}
+                      actionLabel={frame.label}
+                      image={frame.id}
+                      onPress={() => void runRequiredSetup()}
+                    />
+                  ))}
+                </View>
+              ) : null}
             </View>
           </View>
         ))}
@@ -342,6 +352,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   steps: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.fog },
+  guide: { gap: spacing.md, marginTop: spacing.sm },
   step: {
     paddingVertical: spacing.lg,
     flexDirection: "row",
