@@ -23,37 +23,37 @@ const steps = [
   {
     visual: "accessibility" satisfies AndroidSetupVisualVariant,
     visualLabel: localize(
-      "Image showing Still switched on in Android Accessibility settings.",
-      "Imagen que muestra Still activado en los ajustes de Accesibilidad de Android.",
+      "Image showing Still switched on, with the toggle to turn it on circled.",
+      "Imagen que muestra Still activado, con el interruptor para activarlo rodeado.",
     ),
-    title: localize("Enable Still once", "Activa Still una vez"),
+    title: localize("Give Still permission", "Dale permiso a Still"),
     body: localize(
-      "Android asks for Accessibility permission so Still can notice only when a selected app opens and place the pause in front.",
-      "Android pide permiso de Accesibilidad para que Still detecte únicamente cuándo se abre una app elegida y ponga la pausa delante.",
+      "One permission lets Still step in with a calm pause before the apps you choose.",
+      "Un permiso deja que Still aparezca con una pausa serena antes de las apps que elijas.",
     ),
   },
   {
     visual: "apps" satisfies AndroidSetupVisualVariant,
     visualLabel: localize(
-      "Image showing YouTube and Instagram selected in Still's private Android app picker.",
-      "Imagen que muestra YouTube e Instagram seleccionadas en el selector privado de apps de Still para Android.",
+      "Image showing YouTube and Instagram chosen in Still's private app list.",
+      "Imagen que muestra YouTube e Instagram elegidas en la lista privada de apps de Still.",
     ),
-    title: localize("Choose the apps", "Elige las apps"),
+    title: localize("Choose your apps", "Elige tus apps"),
     body: localize(
-      "Pick them in Still. The package names and per-app activity remain on this device.",
-      "Elígelas en Still. Los identificadores y la actividad por app permanecen en este dispositivo.",
+      "Pick the ones that pull you in. Your choice stays on this phone, only yours.",
+      "Elige las que te absorben. Tu elección se queda en este teléfono, solo tuya.",
     ),
   },
   {
     visual: "return" satisfies AndroidSetupVisualVariant,
     visualLabel: localize(
-      "Diagram showing YouTube opening, Still pausing for an ad, and Android returning directly to YouTube.",
-      "Diagrama que muestra cómo se abre YouTube, Still hace una pausa con anuncio y Android vuelve directamente a YouTube.",
+      "Image showing an app opening, Still pausing for an ad, and the app opening right after.",
+      "Imagen que muestra una app abriéndose, Still con una pausa y anuncio, y la app abriéndose justo después.",
     ),
-    title: localize("Android returns for you", "Android vuelve por ti"),
+    title: localize("You're back in a tap", "Vuelves en un toque"),
     body: localize(
-      "Open an app, choose Watch ad or use a pass, and Still reopens that exact app for the configured time. No Shortcut or browser is involved.",
-      "Abre una app, elige Ver anuncio o usa un pase, y Still reabre esa app exacta durante el tiempo configurado. No intervienen Atajos ni el navegador.",
+      "Open an app, watch a short ad or use a pass, and Still opens it for the time you chose.",
+      "Abre una app, mira un anuncio corto o usa un pase, y Still la abre por el tiempo que elijas.",
     ),
   },
 ] as const;
@@ -123,8 +123,8 @@ export default function AndroidSetupScreen() {
         Alert.alert(
           localize("Still is not active yet", "Still todavía no está activo"),
           localize(
-            "In Accessibility, open Still, switch it on, then return. Android will continue setup automatically.",
-            "En Accesibilidad, abre Still, actívalo y vuelve. Android continuará la configuración automáticamente.",
+            "Find Still in the list, switch it on, then come back. Still takes it from there.",
+            "Busca Still en la lista, actívalo y vuelve. Still sigue desde ahí.",
           ),
         );
         await refreshHealth();
@@ -171,8 +171,8 @@ export default function AndroidSetupScreen() {
             "Las estadísticas reales siguen apagadas",
           ),
           localize(
-            "This is optional. Pauses and per-app opening counts still work without Usage Access.",
-            "Esto es opcional. Las pausas y los conteos de aperturas por app siguen funcionando sin Acceso al uso.",
+            "It is optional. Pauses and your per-app counts work without it.",
+            "Es opcional. Las pausas y tus conteos por app funcionan sin esto.",
           ),
         );
       } else {
@@ -181,12 +181,12 @@ export default function AndroidSetupScreen() {
     } catch {
       Alert.alert(
         localize(
-          "Could not open Usage Access",
-          "No se pudo abrir Acceso al uso",
+          "Couldn't open that screen",
+          "No se pudo abrir esa pantalla",
         ),
         localize(
-          "You can enable it later from Android Settings.",
-          "Puedes activarlo más tarde desde los Ajustes de Android.",
+          "You can turn it on later from Settings.",
+          "Puedes activarlo más tarde desde Ajustes.",
         ),
       );
     } finally {
@@ -208,37 +208,35 @@ export default function AndroidSetupScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>
-          {localize("ANDROID / SETUP", "ANDROID / CONFIGURACIÓN")}
-        </Eyebrow>
+        <Eyebrow>{localize("GET STARTED", "EMPEZAR")}</Eyebrow>
       </View>
 
       <View style={styles.header}>
         <Heading style={styles.title}>
           {localize(
-            "Two steps once. Then Android does the rest.",
-            "Dos pasos una vez. Luego Android hace el resto.",
+            "A moment of setup, then Still takes it from here.",
+            "Un momento de setup y Still se encarga del resto.",
           )}
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "The main button opens the right Android screen, waits for you to return, and continues to app selection automatically.",
-            "El botón principal abre la pantalla correcta de Android, espera a que vuelvas y continúa automáticamente con la selección de apps.",
+            "Tap once. Still walks you through it and brings you right back.",
+            "Toca una vez. Still te guía y te trae de vuelta enseguida.",
           )}
         </Body>
       </View>
 
       <View style={styles.status}>
         <View style={styles.statusRow}>
-          <Mono>{localize("ACCESSIBILITY", "ACCESIBILIDAD")}</Mono>
+          <Mono>{localize("PERMISSION", "PERMISO")}</Mono>
           <Mono>
             {localHealth.authorization === "authorized"
               ? localize("READY", "LISTO")
-              : localize("REQUIRED", "REQUERIDO")}
+              : localize("NEEDED", "FALTA")}
           </Mono>
         </View>
         <View style={styles.statusRow}>
-          <Mono>{localize("SELECTED APPS", "APPS ELEGIDAS")}</Mono>
+          <Mono>{localize("YOUR APPS", "TUS APPS")}</Mono>
           <Mono>{localHealth.selectedCount}</Mono>
         </View>
       </View>
@@ -249,7 +247,7 @@ export default function AndroidSetupScreen() {
         variant={ready ? "secondary" : "signal"}
       >
         {setupBusy
-          ? localize("Waiting for Android…", "Esperando a Android…")
+          ? localize("One moment…", "Un momento…")
           : requiredAction}
       </PrimaryButton>
 
@@ -272,7 +270,7 @@ export default function AndroidSetupScreen() {
       <View style={styles.optional}>
         <View style={styles.statusRow}>
           <Eyebrow>
-            {localize("OPTIONAL / REAL TIME", "OPCIONAL / TIEMPO REAL")}
+            {localize("OPTIONAL", "OPCIONAL")}
           </Eyebrow>
           <Mono>
             {statsEnabled
@@ -282,8 +280,8 @@ export default function AndroidSetupScreen() {
         </View>
         <Body style={styles.stepBody}>
           {localize(
-            "Usage Access adds Android's real foreground-time totals. It is not required for pauses, ads, returns, or individual opening counts.",
-            "Acceso al uso añade los totales reales de tiempo en primer plano de Android. No es necesario para las pausas, anuncios, retornos ni conteos individuales de aperturas.",
+            "See your real screen-time totals next to Still's own counts. Everything else works without it.",
+            "Mira tus totales reales de tiempo de pantalla junto a los conteos de Still. Todo lo demás funciona sin esto.",
           )}
         </Body>
         {!statsEnabled ? (
@@ -293,10 +291,10 @@ export default function AndroidSetupScreen() {
             variant="quiet"
           >
             {statsBusy
-              ? localize("Waiting for Android…", "Esperando a Android…")
+              ? localize("One moment…", "Un momento…")
               : localize(
-                  "Enable real screen-time stats",
-                  "Activar estadísticas reales",
+                  "Show my real screen time",
+                  "Mostrar mi tiempo real",
                 )}
           </PrimaryButton>
         ) : null}
