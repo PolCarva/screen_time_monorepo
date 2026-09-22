@@ -257,6 +257,96 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(null)
   }
 
+  /**
+   * React Native mirrors the reward eligibility it already computes
+   * (`canRequestReward` + kill switch) and the resolved ad unit into native
+   * storage, so the shield's ad manager can preload without duplicating that
+   * logic. Passing `adsEligible = false` stops preloading and drops any held ad.
+   */
+  @ReactMethod
+  fun syncRewardConfig(
+    adsEligible: Boolean,
+    adUnitId: String,
+    rewardProvider: String,
+    promise: Promise,
+  ) {
+    preferences.edit()
+      .putBoolean(KEY_ADS_ELIGIBLE, adsEligible)
+      .putString(KEY_ADMOB_REWARDED_UNIT, adUnitId)
+      .putString(KEY_REWARD_PROVIDER, rewardProvider)
+      .apply()
+    StillRewardedAdManager.preload(context, "sync-reward-config")
+    promise.resolve(null)
+  }
+
+  /**
+   * React Native drops a small buffer of pre-signed reward intents here while it
+   * is in the foreground. The shield consumes one to attach SSV before showing
+   * the ad, so the ad flow never has to reach the network mid-intervention.
+   */
+  @ReactMethod
+  fun setPresignedRewardIntents(intents: com.facebook.react.bridge.ReadableArray, promise: Promise) {
+    val array = org.json.JSONArray()
+    for (index in 0 until intents.size()) {
+      val item = intents.getMap(index) ?: continue
+      val id = item.getString("id") ?: continue
+      val customData = item.getString("customData") ?: continue
+      val expiresAt = item.getString("expiresAt") ?: continue
+      array.put(
+        org.json.JSONObject()
+          .put("id", id)
+          .put("customData", customData)
+          .put("userId", if (item.hasKey("userId")) item.getString("userId") else "anonymous")
+          .put("expiresAt", expiresAt),
+      )
+    }
+    preferences.edit().putString(KEY_PRESIGNED_INTENTS, array.toString()).apply()
+    promise.resolve(null)
+  }
+
+  /**
+   * Earned rewards recorded by the shield while React Native was not running.
+   * React Native claims each one on foreground and then acknowledges it.
+   */
+  @ReactMethod
+  fun getPendingAdResults(promise: Promise) {
+    val raw = preferences.getString(KEY_AD_OUTBOX, null)
+    val results = Arguments.createArray()
+    runCatching {
+      if (raw != null) {
+        val array = org.json.JSONArray(raw)
+        for (index in 0 until array.length()) {
+          val item = array.optJSONObject(index) ?: continue
+          results.pushMap(Arguments.createMap().apply {
+            putString("clientEventId", item.optString("clientEventId"))
+            putString("intentId", item.optString("intentId"))
+            putString("earnedAt", item.optString("earnedAt"))
+          })
+        }
+      }
+    }
+    promise.resolve(results)
+  }
+
+  @ReactMethod
+  fun acknowledgeAdResult(clientEventId: String, promise: Promise) {
+    val raw = preferences.getString(KEY_AD_OUTBOX, null)
+    if (raw == null) {
+      promise.resolve(null)
+      return
+    }
+    val remaining = org.json.JSONArray()
+    runCatching {
+      val array = org.json.JSONArray(raw)
+      for (index in 0 until array.length()) {
+        val item = array.optJSONObject(index) ?: continue
+        if (item.optString("clientEventId") != clientEventId) remaining.put(item)
+      }
+    }
+    preferences.edit().putString(KEY_AD_OUTBOX, remaining.toString()).apply()
+    promise.resolve(null)
+  }
+
   @ReactMethod
   fun getPendingUnlockEvents(promise: Promise) = promise.resolve(Arguments.createArray())
 
@@ -424,6 +514,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"
     const val KEY_RESTRICTIONS_ENABLED = "restrictions_enabled"
+    const val KEY_ADS_ELIGIBLE = "ads_eligible"
+    const val KEY_ADMOB_REWARDED_UNIT = "admob_rewarded_unit"
+    const val KEY_REWARD_PROVIDER = "reward_provider"
+    const val KEY_PRESIGNED_INTENTS = "presigned_reward_intents"
+    const val KEY_AD_OUTBOX = "ad_result_outbox"
+    const val KEY_UNLOCK_OUTBOX = "unlock_report_outbox"
     const val KEY_EXTERNAL_AUTH_BYPASS_PACKAGES = "external_auth_bypass_packages"
     const val KEY_EXTERNAL_AUTH_BYPASS_UNTIL = "external_auth_bypass_until"
     const val KEY_EXTERNAL_AUTH_BYPASS_BOOT = "external_auth_bypass_boot"

@@ -7,6 +7,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.provider.Settings
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -14,8 +16,12 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.text.NumberFormat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.UUID
+import org.json.JSONArray
+import org.json.JSONObject
 
 class InterventionActivity : Activity() {
   private val graphite = Color.rgb(36, 40, 38)
@@ -23,8 +29,20 @@ class InterventionActivity : Activity() {
   private val mineral = Color.rgb(105, 127, 140)
   private val mineralLight = Color.rgb(167, 181, 186)
   private val peach = Color.rgb(211, 154, 131)
+
+  private var spanish = false
+  private var appLabel = ""
+  private var attempts = 1
+  private var durationSeconds = 600
+  private var durationLabel = "10 min"
+  private var busy = false
+
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
+
+  private val preferences by lazy {
+    getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -32,27 +50,26 @@ class InterventionActivity : Activity() {
     window.navigationBarColor = graphite
     window.decorView.systemUiVisibility = 0
 
-    val spanish = resources.configuration.locales[0].language == "es"
+    spanish = resources.configuration.locales[0].language == "es"
     val targetPackage = currentTargetPackage
     if (StillSelfProtection.isOwnPackage(packageName, targetPackage)) {
-      val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
       StillSelfProtection.clearOwnTarget(preferences, packageName)
       finish()
       return
     }
-    val appLabel = targetPackage?.let {
-      runCatching {
-        packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
-      }.getOrNull()
-    } ?: if (spanish) "App seleccionada" else "Selected app"
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
-    val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
     if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) {
       goHome(recordAvoidedOpen = false)
       return
     }
 
-    val attempts = intent.getIntExtra(EXTRA_TARGET_ATTEMPTS, 0).takeIf { it > 0 }
+    appLabel = targetPackage?.let {
+      runCatching {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
+      }.getOrNull()
+    } ?: if (spanish) "App seleccionada" else "Selected app"
+
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    attempts = intent.getIntExtra(EXTRA_TARGET_ATTEMPTS, 0).takeIf { it > 0 }
       ?: targetPackage?.let {
         preferences.getInt(
           StillRestrictionModule.appMetricKey(
@@ -63,17 +80,25 @@ class InterventionActivity : Activity() {
           1,
         )
       }?.coerceAtLeast(1) ?: 1
-    val durationSeconds = preferences
+    durationSeconds = preferences
       .getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600)
       .coerceIn(60, 86400)
-    val durationLabel = when {
+    durationLabel = when {
       durationSeconds >= 86400 -> if (spanish) "todo el día" else "all day"
       durationSeconds >= 3600 -> if (spanish) "1 hora" else "1 hour"
       else -> (durationSeconds / 60.0).toInt().coerceAtLeast(1).toString() + " min"
     }
-    val hasAvailablePass =
-      preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0 ||
-        preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) > 0
+
+    renderShield()
+  }
+
+  /**
+   * The gate the user meets first: how many times the app opened today, and how
+   * to move on. `acceptance:shield` asserts this heading and the Go back / Volver
+   * control, so their text stays stable.
+   */
+  private fun renderShield() {
+    busy = false
     val attemptLabel = when {
       spanish && attempts == 1 -> "una vez"
       spanish -> "$attempts veces"
@@ -90,83 +115,157 @@ class InterventionActivity : Activity() {
     } else {
       if (spanish) "¿Qué quieres de los próximos $durationLabel?" else "What do you want from the next $durationLabel?"
     }
-    val secondaryAction = when {
+
+    val hasAvailablePass =
+      preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0 ||
+        preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) > 0
+    val adReady = StillRewardedAdManager.isAdReady()
+
+    val secondaryLabel = when {
+      adReady && spanish -> "Ver anuncio"
+      adReady -> "Watch ad"
       hasAvailablePass && spanish -> "Usar 1 pase · $durationLabel"
       hasAvailablePass -> "Use 1 pass · $durationLabel"
       spanish -> "Abrir Still · Ver anuncio"
       else -> "Open Still · Watch ad"
     }
+    val secondaryEnabled = adReady || hasAvailablePass || true
 
-    val root = LinearLayout(this).apply {
-      orientation = LinearLayout.VERTICAL
-      gravity = Gravity.CENTER_HORIZONTAL
-      setPadding(dp(28), dp(44), dp(28), dp(28))
-      setBackgroundColor(graphite)
-    }
-    root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1.2f))
+    val root = column()
+    root.addView(spacer(1.2f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
-    root.addView(TextView(this).apply {
-      text = observedFact
-      gravity = Gravity.CENTER
-      textSize = 22f
-      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      setLineSpacing(0f, 1.08f)
-      setTextColor(chalk)
-      contentDescription = observedFact
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-      topMargin = dp(24)
-    })
-    root.addView(TextView(this).apply {
-      text = question + "\n\n" + impactSummary(spanish, targetPackage, appLabel)
-      gravity = Gravity.CENTER
-      textSize = 15f
-      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-      setLineSpacing(dp(3).toFloat(), 1f)
-      setTextColor(mineralLight)
-      contentDescription = text
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-      topMargin = dp(16)
-    })
-    root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-
-    root.addView(TextView(this).apply {
-      text = if (spanish) "Volver" else "Go back"
-      gravity = Gravity.CENTER
-      textSize = 16f
-      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      setTextColor(graphite)
-      background = GradientDrawable().apply {
-        setColor(chalk)
-        cornerRadius = dp(6).toFloat()
-      }
-      isClickable = true
-      isFocusable = true
-      contentDescription = text
-      setOnClickListener { goHome() }
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)))
-    root.addView(TextView(this).apply {
-      text = secondaryAction
-      gravity = Gravity.CENTER
-      textSize = 15f
-      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      setTextColor(if (hasAvailablePass) chalk else mineralLight)
-      isClickable = true
-      isFocusable = true
-      contentDescription = text
-      setOnClickListener {
-        val uri = Uri.Builder()
-          .scheme("still")
-          .authority("intervention")
-          .appendQueryParameter("app", appLabel)
-          .appendQueryParameter("attempts", attempts.toString())
-          .build()
-        startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
-        finish()
-      }
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
-      topMargin = dp(6)
-    })
+    root.addView(headline(observedFact))
+    root.addView(subtext(question + "\n\n" + impactSummary(spanish, currentTargetPackage, appLabel)))
+    root.addView(spacer(1f))
+    root.addView(filledButton(if (spanish) "Volver" else "Go back") { goHome() })
+    root.addView(
+      textButton(secondaryLabel, if (adReady || hasAvailablePass) chalk else mineralLight, secondaryEnabled) {
+        if (adReady) startAd() else legacyOpenStill()
+      },
+    )
     setContentView(root)
+  }
+
+  /** Shows the preloaded ad in this same window, then the decision (D2). */
+  private fun startAd() {
+    if (busy) return
+    busy = true
+    val shown = StillRewardedAdManager.show(this) { outcome ->
+      busy = false
+      if (outcome.earned) {
+        renderDecision(earnedByAd = true)
+      } else {
+        // Closed early or could not show: no penalty, back to the gate.
+        renderShield()
+      }
+    }
+    if (!shown) {
+      busy = false
+      // No ad was ready after all: keep today's behaviour until Phase 3 adds the
+      // pass / emergency / timed-pause fallback natively.
+      legacyOpenStill()
+    }
+  }
+
+  /** After the ad completes: enter the app, or leave. Order is ad → decision. */
+  private fun renderDecision(earnedByAd: Boolean) {
+    val root = column()
+    root.addView(spacer(1.2f))
+    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
+    root.addView(
+      headline(
+        if (spanish) "¿Sigues queriendo abrir $appLabel?"
+        else "Do you still want to open $appLabel?",
+      ),
+    )
+    root.addView(
+      subtext(
+        if (spanish) "Si entras, $appLabel queda abierta durante $durationLabel."
+        else "Going in keeps $appLabel open for $durationLabel.",
+      ),
+    )
+    root.addView(spacer(1f))
+    root.addView(
+      filledButton(if (spanish) "Quiero entrar" else "I want to go in") {
+        enterTarget(earnedByAd)
+      },
+    )
+    root.addView(
+      textButton(
+        if (spanish) "Ya no quiero entrar" else "I don't want to go in anymore",
+        chalk,
+        enabled = true,
+      ) { goHome() },
+    )
+    setContentView(root)
+  }
+
+  /**
+   * Grant the access window for the exact package, queue the unlock report for
+   * React Native, and relaunch the app. Mirrors StillRestrictionModule.startUnlock
+   * for the case where the shield resolves the whole flow itself.
+   */
+  private fun enterTarget(earnedByAd: Boolean) {
+    if (busy) return
+    val target = currentTargetPackage ?: return goHome(recordAvoidedOpen = false)
+    val launch = packageManager.getLaunchIntentForPackage(target)
+    if (launch == null) {
+      // The app is gone; do not spend anything, just leave.
+      goHome(recordAvoidedOpen = false)
+      return
+    }
+    busy = true
+    val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val unlocksKey = "unlocks:$day"
+    val appUnlocksKey = StillRestrictionModule.appMetricKey(
+      StillRestrictionModule.METRIC_APP_UNLOCKS,
+      day,
+      target,
+    )
+    preferences.edit()
+      .putLong("unlocked:$target", SystemClock.elapsedRealtime() + durationSeconds * 1_000L)
+      .putInt("unlocked_boot:$target", boot)
+      .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
+      .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
+      .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
+      .apply()
+
+    enqueueUnlockReport(if (earnedByAd) "rewarded" else "emergency")
+
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+    runCatching { startActivity(launch) }
+    finish()
+  }
+
+  /** Records a unlock the shield performed so React Native can report it on foreground. */
+  private fun enqueueUnlockReport(source: String) {
+    val raw = preferences.getString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, null)
+    val array = runCatching { if (raw != null) JSONArray(raw) else JSONArray() }.getOrDefault(JSONArray())
+    array.put(
+      JSONObject()
+        .put("clientSessionId", UUID.randomUUID().toString())
+        .put("source", source)
+        .put("durationSeconds", durationSeconds)
+        .put("startedAt", Instant.now().toString()),
+    )
+    preferences.edit().putString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, array.toString()).apply()
+  }
+
+  /**
+   * The pre-A2 path: hand the intervention to React Native through the deep link
+   * so the ad can be shown there. Kept for wallet passes and as a safety net
+   * until Phase 3 makes every branch native.
+   */
+  private fun legacyOpenStill() {
+    val uri = Uri.Builder()
+      .scheme("still")
+      .authority("intervention")
+      .appendQueryParameter("app", appLabel)
+      .appendQueryParameter("attempts", attempts.toString())
+      .build()
+    startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
+    finish()
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -175,6 +274,112 @@ class InterventionActivity : Activity() {
     // This activity is singleTop. Recreate it so a new blocked app never
     // inherits the previous app's label, count, or actions.
     recreate()
+  }
+
+  override fun onBackPressed() = goHome()
+
+  private fun goHome(recordAvoidedOpen: Boolean = true) {
+    if (recordAvoidedOpen) {
+      val day = LocalDate.now(ZoneOffset.UTC).toString()
+      val totalKey = "avoided_opens:$day"
+      val editor = preferences.edit()
+        .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
+        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
+      currentTargetPackage?.let { packageName ->
+        val appKey = StillRestrictionModule.appMetricKey(
+          StillRestrictionModule.METRIC_APP_AVOIDED_OPENS,
+          day,
+          packageName,
+        )
+        editor.putInt(appKey, preferences.getInt(appKey, 0) + 1)
+      }
+      editor.apply()
+    }
+    startActivity(
+      Intent(Intent.ACTION_MAIN)
+        .addCategory(Intent.CATEGORY_HOME)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    )
+    finish()
+  }
+
+  // --- View helpers -------------------------------------------------------
+
+  private fun column() = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    gravity = Gravity.CENTER_HORIZONTAL
+    setPadding(dp(28), dp(44), dp(28), dp(28))
+    setBackgroundColor(graphite)
+  }
+
+  private fun spacer(weight: Float) = View(this).also {
+    it.layoutParams = LinearLayout.LayoutParams(1, 0, weight)
+  }
+
+  private fun headline(value: String) = TextView(this).apply {
+    text = value
+    gravity = Gravity.CENTER
+    textSize = 22f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    setLineSpacing(0f, 1.08f)
+    setTextColor(chalk)
+    contentDescription = value
+    layoutParams = LinearLayout.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+    ).apply { topMargin = dp(24) }
+  }
+
+  private fun subtext(value: String) = TextView(this).apply {
+    text = value
+    gravity = Gravity.CENTER
+    textSize = 15f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+    setLineSpacing(dp(3).toFloat(), 1f)
+    setTextColor(mineralLight)
+    contentDescription = value
+    layoutParams = LinearLayout.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+    ).apply { topMargin = dp(16) }
+  }
+
+  private fun filledButton(label: String, onClick: () -> Unit) = TextView(this).apply {
+    text = label
+    gravity = Gravity.CENTER
+    textSize = 16f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    setTextColor(graphite)
+    background = GradientDrawable().apply {
+      setColor(chalk)
+      cornerRadius = dp(6).toFloat()
+    }
+    isClickable = true
+    isFocusable = true
+    contentDescription = label
+    setOnClickListener { onClick() }
+    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54))
+  }
+
+  private fun textButton(
+    label: String,
+    color: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+  ) = TextView(this).apply {
+    text = label
+    gravity = Gravity.CENTER
+    textSize = 15f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    setTextColor(color)
+    isClickable = enabled
+    isFocusable = enabled
+    alpha = if (enabled) 1f else 0.42f
+    contentDescription = label
+    setOnClickListener { if (enabled) onClick() }
+    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
+      topMargin = dp(6)
+    }
   }
 
   private fun createFieldIcon(): View {
@@ -216,36 +421,7 @@ class InterventionActivity : Activity() {
     }
   }
 
-  override fun onBackPressed() = goHome()
-
-  private fun goHome(recordAvoidedOpen: Boolean = true) {
-    if (recordAvoidedOpen) {
-      val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
-      val day = LocalDate.now(ZoneOffset.UTC).toString()
-      val totalKey = "avoided_opens:$day"
-      val editor = preferences.edit()
-        .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
-        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
-      currentTargetPackage?.let { packageName ->
-        val appKey = StillRestrictionModule.appMetricKey(
-          StillRestrictionModule.METRIC_APP_AVOIDED_OPENS,
-          day,
-          packageName,
-        )
-        editor.putInt(appKey, preferences.getInt(appKey, 0) + 1)
-      }
-      editor.apply()
-    }
-    startActivity(
-      Intent(Intent.ACTION_MAIN)
-        .addCategory(Intent.CATEGORY_HOME)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    )
-    finish()
-  }
-
   private fun impactSummary(spanish: Boolean, targetPackage: String?, appLabel: String): String {
-    val preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val avoidedOpens = targetPackage?.let {
       preferences.getInt(

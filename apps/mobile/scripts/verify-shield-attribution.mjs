@@ -352,18 +352,30 @@ async function run() {
 
   const connected = parseConnectedDevices(runAdb(["devices", "-l"]));
   const ready = connected.filter((device) => device.state === "device");
-  if (ready.length !== 1) {
-    const summary = connected.length
-      ? connected
-          .map((device) => `${device.serial} (${device.state})`)
-          .join(", ")
-      : "none";
-    throw new Error(
-      `Expected one authorized Android device; found ${summary}.`,
-    );
+  const summary = connected.length
+    ? connected.map((device) => `${device.serial} (${device.state})`).join(", ")
+    : "none";
+  // When more than one device is attached, honor ANDROID_SERIAL to pick the
+  // target, matching standard adb behavior. With a single device this is a
+  // no-op, so the strict default is unchanged.
+  const requestedSerial = process.env.ANDROID_SERIAL?.trim();
+  let serial;
+  if (requestedSerial) {
+    const match = ready.find((device) => device.serial === requestedSerial);
+    if (!match) {
+      throw new Error(
+        `ANDROID_SERIAL=${requestedSerial} is not an authorized device; found ${summary}.`,
+      );
+    }
+    serial = match.serial;
+  } else {
+    if (ready.length !== 1) {
+      throw new Error(
+        `Expected one authorized Android device; found ${summary}. Set ANDROID_SERIAL to choose one.`,
+      );
+    }
+    serial = ready[0].serial;
   }
-
-  const [{ serial }] = ready;
   ensureInstalled(serial, STILL_PACKAGE);
   for (const target of targets) ensureInstalled(serial, target.packageName);
 

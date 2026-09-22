@@ -17,6 +17,9 @@ class StillAccessibilityService : AccessibilityService() {
   override fun onServiceConnected() {
     super.onServiceConnected()
     StillSelfProtection.sanitizePreferences(preferences, packageName)
+    // Keep a rewarded ad ready in this process so the shield can show it the
+    // instant the user taps, with no jump to another screen.
+    StillRewardedAdManager.preload(applicationContext, "service-connected")
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -57,6 +60,10 @@ class StillAccessibilityService : AccessibilityService() {
         .apply()
       nextAttempts
     }
+
+    // Refresh the ad if it expired since the last intervention. If it is not
+    // ready in time the shield falls back to pass / emergency / timed pause.
+    StillRewardedAdManager.preload(applicationContext, "intervention")
 
     startActivity(Intent(this, InterventionActivity::class.java).apply {
       addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)

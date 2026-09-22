@@ -95,6 +95,15 @@ export interface RestrictionEngine {
     unlockDurationSeconds: number,
     restrictionsEnabled: boolean,
   ): Promise<void>;
+  /**
+   * Android only. Mirrors reward eligibility and the ad unit so the native
+   * shield can preload a rewarded ad without duplicating `canRequestReward`.
+   */
+  syncRewardConfig?(
+    adsEligible: boolean,
+    adUnitId: string,
+    rewardProvider: string,
+  ): Promise<void>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
@@ -139,6 +148,7 @@ const unavailable: RestrictionEngine = {
     issue: "native_module_missing",
   }),
   syncWallet: async () => undefined,
+  syncRewardConfig: async () => undefined,
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,

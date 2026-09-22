@@ -27,6 +27,14 @@ const configuredAdUnit = Platform.select({
   ios: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS,
   android: process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID,
 });
+
+/**
+ * The Android rewarded unit the native shield preloads. In development it must
+ * match the test unit the JS provider uses, so a debug build shows the same ads.
+ */
+export const androidRewardedAdUnitId = __DEV__
+  ? TestIds.REWARDED
+  : (process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID ?? "");
 let initialization: Promise<"ready" | "unavailable"> | null = null;
 let loadedAd: { intentId: string; ad: ReturnType<typeof createAd> } | null =
   null;

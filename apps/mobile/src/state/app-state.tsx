@@ -1,4 +1,5 @@
 import {
+  canRequestReward,
   defaultRemoteConfig,
   remoteConfigSchema,
   unlockDurationSecondsSchema,
@@ -27,6 +28,7 @@ import { z } from "zod";
 import { apiFetch, apiRequest } from "@/lib/api";
 import { applyDevConfigOverrides } from "@/lib/dev-config";
 import { PAUSE_ALLOWANCE_SECONDS } from "@/lib/intervention-flow";
+import { androidRewardedAdUnitId } from "@/native/reward-provider";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import {
@@ -386,6 +388,15 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         preferences.unlockDurationSeconds,
         restrictionsEnabled,
       );
+      if (Platform.OS === "android") {
+        // Let the native shield preload a rewarded ad using the same
+        // eligibility React Native already computes.
+        await restrictionEngine.syncRewardConfig?.(
+          restrictionsEnabled && canRequestReward(wallet, config),
+          androidRewardedAdUnitId,
+          config.rewardProvider,
+        );
+      }
       setHealth(await restrictionEngine.getHealth());
     })().catch(() => undefined);
   }, [

@@ -155,6 +155,10 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    // The shield shows a rewarded ad in-process (Android parity plan §2, A2).
+    // Same SDK version react-native-google-mobile-ads bundles, referenced
+    // directly so InterventionActivity/StillRewardedAdManager can call it.
+    implementation("com.google.android.gms:play-services-ads:24.6.0")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
