@@ -33,8 +33,8 @@ const steps = [
       "Nota el segundo\nantes de entrar.",
     ),
     body: localize(
-      "Still appears before the apps you choose. It makes an automatic opening visible without deciding for you.",
-      "Still aparece antes de las apps que eliges. Hace visible una apertura automática sin decidir por ti.",
+      "Before you open an app you chose, Still gives you a second to decide.",
+      "Antes de abrir una app que elegiste, Still te da un segundo para decidir.",
     ),
     action: localize("Continue", "Continuar"),
     mode: "intervention" as const,
@@ -53,14 +53,14 @@ const steps = [
     mode: "progress" as const,
   },
   {
-    label: localize("03 / ON DEVICE", "03 / EN EL DISPOSITIVO"),
+    label: localize("03 / ON YOUR PHONE", "03 / EN TU TELÉFONO"),
     title: localize(
       "App names and detail\nstay on your phone.",
       "Los nombres y el detalle\nse quedan en tu teléfono.",
     ),
     body: localize(
-      "Still shares general counts for passes and impact. It does not send your app selection or detailed activity history.",
-      "Still comparte conteos generales para pases e impacto. No envía tu selección de apps ni el historial detallado.",
+      "Your apps and your history stay on your phone. Still only shares general counts for your passes and the fund.",
+      "Tus apps y tu historial se quedan en tu teléfono. Solo compartimos conteos generales para tus pases y el fondo.",
     ),
     action: localize("Continue", "Continuar"),
     mode: "progress" as const,
@@ -72,8 +72,8 @@ const steps = [
       "Elige dónde debería\naparecer la pausa.",
     ),
     body: localize(
-      "Authorize Still and select the apps you tend to open automatically. You can change the selection later.",
-      "Autoriza Still y selecciona las apps que tiendes a abrir automáticamente. Puedes cambiar la selección después.",
+      "Turn on Still and choose the apps you open without thinking. You can change them anytime.",
+      "Activa Still y elige las apps que abres sin pensar. Puedes cambiarlas cuando quieras.",
     ),
     action: localize("Choose apps", "Elegir apps"),
     mode: "progress" as const,
@@ -91,8 +91,8 @@ export default function OnboardingScreen() {
   const currentTitle =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize(
-          "Pauses are temporarily\nunavailable.",
-          "Las pausas no están\ndisponibles temporalmente.",
+          "Pauses are\ncoming back soon.",
+          "Las pausas\nvuelven pronto.",
         )
       : step === steps.length - 1 && Platform.OS === "ios"
         ? localize("Choose your\napps.", "Elige tus\napps.")
@@ -105,8 +105,8 @@ export default function OnboardingScreen() {
   const currentBody =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize(
-          "You can finish setup now. Still will show the permission controls again when pauses are enabled for this platform.",
-          "Puedes terminar la configuración ahora. Still volverá a mostrar los controles de permisos cuando las pausas estén habilitadas para esta plataforma.",
+          "Finish now; when they're back, Still walks you through turning them on.",
+          "Termina ahora; cuando vuelvan, Still te guía para activarlas.",
         )
       : step === steps.length - 1 && Platform.OS === "ios"
         ? localize(

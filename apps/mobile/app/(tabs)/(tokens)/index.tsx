@@ -202,10 +202,7 @@ export default function TokensScreen() {
           : adReady
             ? localize("Get 1 pass", "Conseguir 1 pase")
             : adStatus === "unavailable"
-              ? localize(
-                  "Ad unavailable · retrying",
-                  "Anuncio no disponible · reintentando",
-                )
+              ? localize("Looking for an ad…", "Buscando un anuncio…")
               : localize("Preparing the ad…", "Preparando el anuncio…");
   return (
     <Screen contentContainerStyle={styles.screen}>
@@ -225,8 +222,8 @@ export default function TokensScreen() {
           </Heading>
           <Body style={styles.note}>
             {localize(
-              "Still pauses it again the moment the time is up, even if you never leave it.",
-              "Still la vuelve a pausar en el momento en que se cumpla el tiempo, aunque no salgas de ella.",
+              "When the time is up, the pause comes back.",
+              "Al terminar el tiempo, vuelve la pausa.",
             )}
           </Body>
           <DurationSlider
@@ -310,14 +307,14 @@ export default function TokensScreen() {
 
       <View style={styles.emergency}>
         <View style={styles.sectionTop}>
-          <Eyebrow>{localize("OFFLINE ACCESS", "ACCESO SIN CONEXIÓN")}</Eyebrow>
+          <Eyebrow>{localize("EMERGENCY", "EMERGENCIA")}</Eyebrow>
           <Data style={styles.emergencyCount}>{wallet.emergencyRemaining}</Data>
         </View>
         <Heading>{t("emergency")}</Heading>
         <Body style={styles.note}>
           {localize(
-            "Available today. They work even when an ad or connection doesn’t.",
-            "Disponibles hoy. Funcionan incluso cuando no hay anuncio o conexión.",
+            "To go in without an ad when you need it. They renew every day.",
+            "Para entrar sin anuncio cuando lo necesites. Se renuevan cada día.",
           )}
         </Body>
       </View>
@@ -334,8 +331,8 @@ export default function TokensScreen() {
         </View>
         <Body style={styles.policyBody}>
           {localize(
-            "Optional, limited ads fund Still. The platform allocates part of that revenue to the weekly fund; an individual ad is not a donation.",
-            "Los anuncios opcionales y limitados financian Still. La plataforma asigna parte de ese ingreso al fondo semanal; un anuncio individual no es una donación.",
+            "The ads you choose to watch fund Still. Part of that revenue goes to the weekly fund.",
+            "Los anuncios que eliges ver financian Still. Parte de ese ingreso va al fondo semanal.",
           )}
         </Body>
       </View>

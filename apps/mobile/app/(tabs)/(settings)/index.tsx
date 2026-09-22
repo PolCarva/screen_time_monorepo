@@ -22,7 +22,7 @@ import {
   useStillSheet,
 } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize } from "@/i18n";
+import { formatClockTime, formatDayAndTime, localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import {
@@ -49,11 +49,11 @@ function authorizationLabel(
     case "denied":
       return localize("Permission denied", "Permiso denegado");
     case "notDetermined":
-      return localize("Not set", "Sin configurar");
+      return localize("Still isn't on yet", "Falta activar Still");
     case "unavailable":
       return localize(
-        "Unavailable on this device",
-        "No disponible en este dispositivo",
+        "Unavailable on this phone",
+        "No disponible en este teléfono",
       );
     default:
       return localize("Checking", "Comprobando");
@@ -126,6 +126,7 @@ export default function SettingsScreen() {
     refresh,
     savePreferences,
     syncStatus,
+    wallet,
   } = useAppState();
   const shortcutTargets = useShortcutTargets();
   const sheet = useStillSheet();
@@ -368,39 +369,54 @@ export default function SettingsScreen() {
       ? localize("Choose apps", "Elegir apps")
       : localize("Apps with a pause", "Apps con pausa")
     : !restrictionsEnabled
-      ? localize(
-          "Pauses temporarily disabled",
-          "Pausas deshabilitadas temporalmente",
-        )
-      : health.authorization !== "authorized" || health.selectedCount === 0
-        ? localize("Set up Android", "Configurar Android")
-        : localize("Review Android setup", "Revisar configuración Android");
+      ? localize("Pauses are coming back soon", "Las pausas vuelven pronto")
+      : health.authorization !== "authorized"
+        ? localize("Turn on Still", "Activar Still")
+        : health.selectedCount === 0
+          ? localize("Choose apps", "Elegir apps")
+          : localize("Review apps and permission", "Revisar apps y permiso");
   const syncLabel =
     syncStatus === "online"
-      ? localize("SYNCED", "SINCRONIZADO")
+      ? localize("UP TO DATE", "ACTUALIZADO")
       : syncStatus === "syncing"
-        ? localize("SYNCING", "SINCRONIZANDO")
+        ? localize("UPDATING", "ACTUALIZANDO")
         : localize("OFFLINE", "SIN CONEXIÓN");
+  const syncDetail =
+    syncStatus === "offline"
+      ? localize(
+          "Your pauses keep working.",
+          "Tus pausas siguen funcionando.",
+        )
+      : lastSyncedAt
+        ? formatDayAndTime(new Date(lastSyncedAt))
+        : localize("Updating…", "Actualizando…");
+  // The server resets passes at UTC midnight; say when that is here.
+  const resetAt = new Date(wallet.resetAt);
+  const passesRenewal =
+    Number.isFinite(resetAt.getTime()) && resetAt.getTime() > 0
+      ? localize(
+          `Your passes renew every day at ${formatClockTime(resetAt)}.`,
+          `Tus pases se renuevan cada día a las ${formatClockTime(resetAt)}.`,
+        )
+      : localize(
+          "Your passes renew every day.",
+          "Tus pases se renuevan cada día.",
+        );
 
   return (
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>
-          {localize("SETTINGS / DEVICE", "AJUSTES / DISPOSITIVO")}
-        </Eyebrow>
+        <Eyebrow>{localize("SETTINGS", "AJUSTES")}</Eyebrow>
       </View>
       <View style={styles.header}>
         <Heading style={styles.pageTitle}>
-          {localize(
-            "On your device, on your terms.",
-            "En tu dispositivo, en tus términos.",
-          )}
+          {localize("Your pauses, your way.", "Tus pausas, a tu manera.")}
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "Choose where pauses appear, what leaves this device, and whether to link an identity.",
-            "Elige dónde aparecen las pausas, qué sale del dispositivo y si quieres vincular una identidad.",
+            "Your apps, your limits and your account.",
+            "Tus apps, tus límites y tu cuenta.",
           )}
         </Body>
       </View>
@@ -421,45 +437,57 @@ export default function SettingsScreen() {
               {restrictionHealthy
                 ? shortcutMode
                   ? localize(
-                      "Shortcut mode is active",
-                      "El modo Atajos está activo",
+                      `The pause is on in your ${chosenApps.length} ${chosenApps.length === 1 ? "app" : "apps"}`,
+                      `La pausa está activa en ${chosenApps.length === 1 ? "tu app" : `tus ${chosenApps.length} apps`}`,
                     )
-                  : localize("Still is active", "Still está activo")
+                  : localize("Still is on", "Still está activo")
                 : !restrictionsEnabled
                   ? localize(
-                      "Pauses are temporarily disabled",
-                      "Las pausas están deshabilitadas temporalmente",
+                      "Pauses are coming back soon",
+                      "Las pausas vuelven pronto",
                     )
                   : shortcutMode && chosenApps.length === 0
                     ? localize("Choose your apps", "Elige tus apps")
                     : shortcutMode && connectedApps.length === 0
                       ? localize(
-                          "Shortcuts is not connected yet",
-                          "Atajos todavía no está conectado",
+                          "Connect Shortcuts",
+                          "Falta conectar Atajos",
                         )
                       : shortcutMode
                         ? localize(
                             `${connectedApps.length} of ${chosenApps.length} apps connected`,
                             `${connectedApps.length} de ${chosenApps.length} apps conectadas`,
                           )
-                        : localize("Action needed", "Requiere atención")}
+                        : health.authorization !== "authorized"
+                          ? localize("Turn on Still", "Falta activar Still")
+                          : health.selectedCount === 0
+                            ? localize("Choose your apps", "Elige tus apps")
+                            : localize(
+                                "Check your setup",
+                                "Revisa la configuración",
+                              )}
             </Heading>
             <Body style={styles.muted}>
               {!restrictionsEnabled
                 ? localize(
-                    "Your on-device selection is preserved.",
-                    "Tu selección en el dispositivo se conserva.",
+                    "Your chosen apps are kept.",
+                    "Tus apps elegidas se conservan.",
                   )
                 : shortcutMode
                   ? restrictionHealthy
                     ? localize(
-                        "Your apps and automations stay private on this iPhone.",
-                        "Tus apps y automatizaciones permanecen privadas en este iPhone.",
+                        "Your apps stay on this iPhone.",
+                        "Tus apps se quedan en este iPhone.",
                       )
-                    : localize(
-                        "An app is connected once you test it from the Shortcuts setup.",
-                        "Una app queda conectada cuando la pruebas desde la configuración de Atajos.",
-                      )
+                    : chosenApps.length === 0
+                      ? localize(
+                          "Choose the apps where you want a pause.",
+                          "Elige las apps donde quieres una pausa.",
+                        )
+                      : localize(
+                          "Test each app to connect it.",
+                          "Prueba cada app para conectarla.",
+                        )
                   : authorizationLabel(health.authorization)}
             </Body>
           </View>
@@ -490,17 +518,7 @@ export default function SettingsScreen() {
         ) : null}
         <View style={styles.syncRow}>
           <Mono>{syncLabel}</Mono>
-          <Body style={styles.muted}>
-            {lastSyncedAt
-              ? new Intl.DateTimeFormat(undefined, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(new Date(lastSyncedAt))
-              : localize(
-                  "No successful sync yet",
-                  "Todavía no hubo una sincronización correcta",
-                )}
-          </Body>
+          <Body style={styles.muted}>{syncDetail}</Body>
         </View>
       </View>
 
@@ -512,12 +530,7 @@ export default function SettingsScreen() {
         <Heading style={styles.sectionTitle}>
           {localize("Choose your guardrails.", "Elige tus límites.")}
         </Heading>
-        <Body style={styles.muted}>
-          {localize(
-            "Passes reset at midnight UTC. Emergency access remains separate.",
-            "Los pases se reinician a medianoche UTC. Los accesos de emergencia se mantienen separados.",
-          )}
-        </Body>
+        <Body style={styles.muted}>{passesRenewal}</Body>
         <Stepper
           label={localize("Daily passes", "Pases diarios")}
           value={draftPreferences.dailyPassLimit}
@@ -530,12 +543,6 @@ export default function SettingsScreen() {
             }))
           }
         />
-        <Body style={styles.muted}>
-          {localize(
-            "How long each pass keeps an app open is chosen when you use it, not here: anything from 1 minute to the rest of the day.",
-            "Cuánto tiempo mantiene abierta una app cada pase se elige al usarlo, no aquí: desde 1 minuto hasta el resto del día.",
-          )}
-        </Body>
         <Stepper
           label={localize("Maximum ads", "Máximo de anuncios")}
           value={draftPreferences.maxRewardedAdsPerUtcDay}
@@ -561,19 +568,16 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>03 / {localize("IDENTITY", "IDENTIDAD")}</Eyebrow>
+          <Eyebrow>03 / {localize("ACCOUNT", "CUENTA")}</Eyebrow>
           <Mono>{localize("OPTIONAL", "OPCIONAL")}</Mono>
         </View>
         <Heading style={styles.sectionTitle}>
-          {localize(
-            "Link only when you need it.",
-            "Vincula solo cuando lo necesites.",
-          )}
+          {localize("Connect Google to vote", "Conecta Google para votar")}
         </Heading>
         <Body style={styles.muted}>
           {localize(
-            "Your anonymous session keeps the app private. Link Google only to vote and recover access.",
-            "Tu sesión anónima mantiene la app privada. Vincula Google solo para votar y recuperar acceso.",
+            "And to get your account back if you change phones.",
+            "Y para recuperar tu cuenta si cambias de teléfono.",
           )}
         </Body>
         <Pressable
@@ -601,10 +605,7 @@ export default function SettingsScreen() {
             {linkedIdentities.includes("google")
               ? localize("✓  Google connected", "✓  Google conectado")
               : !googleEnabled
-                ? localize(
-                    "G  Google setup pending",
-                    "G  Configuración de Google pendiente",
-                  )
+                ? localize("G  Google coming soon", "G  Google disponible pronto")
                 : identityBusy === "google"
                   ? localize("G  Opening Google…", "G  Abriendo Google…")
                   : localize(
@@ -625,7 +626,7 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>04 / {localize("DATA", "DATOS")}</Eyebrow>
+          <Eyebrow>04 / {localize("IMPROVE STILL", "MEJORAR STILL")}</Eyebrow>
           <Mono>
             {analyticsEnabled
               ? localize("ON", "ACTIVO")
@@ -635,12 +636,12 @@ export default function SettingsScreen() {
         <View style={styles.between}>
           <View style={styles.switchCopy}>
             <Heading style={styles.sectionTitle}>
-              {localize("Product analytics", "Analytics de producto")}
+              {localize("Help improve Still", "Ayudar a mejorar Still")}
             </Heading>
             <Body style={styles.muted}>
               {localize(
-                "General events and counts only. Never app names.",
-                "Solo eventos y conteos generales. Nunca nombres de apps.",
+                "Share general counts. Your app names stay on your phone.",
+                "Comparte conteos generales. Los nombres de tus apps se quedan en el teléfono.",
               )}
             </Body>
           </View>
@@ -660,25 +661,23 @@ export default function SettingsScreen() {
           onPress={() => void showAdvertisingPrivacyOptions()}
         >
           <Text style={styles.actionLabel}>
-            {localize(
-              "Advertising privacy options",
-              "Opciones de privacidad publicitaria",
-            )}
+            {localize("Ad privacy", "Privacidad de los anuncios")}
           </Text>
         </Pressable>
       </View>
 
       <View style={styles.section}>
-        <Eyebrow>
-          05 / {localize("PRIVACY BY DESIGN", "PRIVACIDAD POR DISEÑO")}
-        </Eyebrow>
+        <Eyebrow>05 / {localize("YOUR DATA", "TUS DATOS")}</Eyebrow>
         <Heading style={styles.sectionTitle}>
-          {localize("The names stay here.", "Los nombres se quedan aquí.")}
+          {localize(
+            "Your data, whenever you want it.",
+            "Tus datos, cuando los quieras.",
+          )}
         </Heading>
         <Body style={styles.privacyBody}>
           {localize(
-            "Selected apps and detailed history stay on your device. Export or delete account data from here.",
-            "Las apps elegidas y el historial detallado permanecen en el dispositivo. Exporta o elimina los datos de la cuenta desde aquí.",
+            "Download a copy or delete your account.",
+            "Descarga una copia o elimina tu cuenta.",
           )}
         </Body>
         <Pressable
@@ -690,7 +689,7 @@ export default function SettingsScreen() {
           onPress={exportData}
         >
           <Text style={styles.actionLabel}>
-            {localize("Export my data", "Exportar mis datos")}
+            {localize("Download my data", "Descargar mis datos")}
           </Text>
         </Pressable>
         <Pressable

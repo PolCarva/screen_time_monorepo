@@ -7,7 +7,7 @@ import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize } from "@/i18n";
+import { formatClockTime, localize } from "@/i18n";
 import { colors, spacing } from "@/theme/tokens";
 
 export default function UnlockReadyScreen() {
@@ -22,9 +22,7 @@ export default function UnlockReadyScreen() {
         formatAccessDuration((end.getTime() - Date.now()) / 1_000, "es"),
       )
     : localize("the chosen window", "el tiempo elegido");
-  const endTime = endValid
-    ? end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null;
+  const endTime = endValid ? formatClockTime(end) : null;
 
   return (
     <Screen contentContainerStyle={styles.screen}>
@@ -51,26 +49,26 @@ export default function UnlockReadyScreen() {
       <View style={styles.copy}>
         <Heading style={styles.title}>
           {localize(
-            "The app is open for a fixed amount of time.",
-            "La app está abierta durante un tiempo definido.",
+            `The app is open for ${durationLabel}.`,
+            `La app está abierta por ${durationLabel}.`,
           )}
         </Heading>
         <Body style={styles.body}>
           {Platform.OS === "ios"
             ? localize(
-                "Return with the previous-app shortcut or the app switcher. Still cannot see or relaunch the app by name.",
-                "Vuelve con el acceso a la app anterior o el selector de apps. Still no puede ver ni abrir la app por su nombre.",
+                "Go back to the app from the app switcher.",
+                "Vuelve a la app desde el selector de apps.",
               )
             : localize(
-                "Still reopened the app you chose. The pause returns the moment this window ends, even if you are still inside it.",
-                "Still volvió a abrir la app que elegiste. La pausa regresa en el momento en que termine este período, aunque sigas dentro.",
+                "Still reopened the app you chose. When the time is up, the pause comes back.",
+                "Still volvió a abrir la app que elegiste. Al terminar el tiempo, vuelve la pausa.",
               )}
         </Body>
       </View>
 
       <View style={styles.status}>
         <View style={styles.statusCopy}>
-          <Eyebrow>{localize("NEXT STATE", "SIGUIENTE ESTADO")}</Eyebrow>
+          <Eyebrow>{localize("THEN", "DESPUÉS")}</Eyebrow>
           <Mono>{localize("PAUSE RETURNS", "VUELVE LA PAUSA")}</Mono>
         </View>
         <Mono>

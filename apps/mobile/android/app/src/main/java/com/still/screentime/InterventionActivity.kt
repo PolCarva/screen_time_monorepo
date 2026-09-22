@@ -153,10 +153,11 @@ class InterventionActivity : Activity() {
       "$appLabel opened $attemptLabel today."
     }
     val question = if (spanish) {
-      "Tú decides cuánto dura el acceso en el siguiente paso."
+      "Si entras, eliges por cuánto tiempo."
     } else {
-      "You decide how long the access lasts in the next step."
+      "If you go in, you choose for how long."
     }
+    val summary = impactSummary(currentTargetPackage)
 
     val secondaryLabel = when (gate) {
       Gate.WATCH_AD -> if (spanish) "Ver anuncio" else "Watch ad"
@@ -171,7 +172,7 @@ class InterventionActivity : Activity() {
     root.addView(spacer(1.2f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
     root.addView(headline(observedFact))
-    root.addView(subtext(question + "\n\n" + impactSummary(currentTargetPackage)))
+    root.addView(subtext(if (summary.isEmpty()) question else question + "\n\n" + summary))
     root.addView(spacer(1f))
     root.addView(filledButton(if (spanish) "Volver" else "Go back") { goHome() })
     root.addView(
@@ -224,8 +225,8 @@ class InterventionActivity : Activity() {
     root.addView(counter)
     root.addView(
       subtext(
-        if (spanish) "Ahora mismo no hay ningún anuncio disponible. Podrás decidir cuando termine la pausa."
-        else "No ad is available right now. You can decide when the pause ends.",
+        if (spanish) "Cuando termine, eliges si entras."
+        else "When it's over, you choose whether to go in.",
       ),
     )
     root.addView(spacer(1f))
@@ -288,9 +289,9 @@ class InterventionActivity : Activity() {
       ),
     )
     val promise = if (spanish) {
-      "Still vuelve a pausar $appLabel en el momento en que se cumpla el tiempo, aunque no salgas de ella."
+      "Al terminar el tiempo, vuelve la pausa."
     } else {
-      "Still pauses $appLabel again the moment the time is up, even if you never leave it."
+      "When the time is up, the pause comes back."
     }
     root.addView(
       subtext(
@@ -355,8 +356,8 @@ class InterventionActivity : Activity() {
     )
     root.addView(
       subtext(
-        if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel y Still la vuelve a pausar en cuanto se cumpla."
-        else "Going in keeps $appLabel open for $windowLabel, and Still pauses it again the moment that is up.",
+        if (spanish) "$appLabel quedará abierta $windowLabel. Al terminar, vuelve la pausa."
+        else "$appLabel will stay open for $windowLabel. When the time is up, the pause comes back.",
       ),
     )
     root.addView(spacer(1f))
@@ -718,11 +719,18 @@ class InterventionActivity : Activity() {
     }?.coerceAtLeast(0) ?: 0
     val minutesPerOpen =
       preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
+    if (avoidedOpens <= 0) return ""
     val duration = formatSavedTime(avoidedOpens * minutesPerOpen)
+    val times = when {
+      spanish && avoidedOpens == 1 -> "1 vez"
+      spanish -> "$avoidedOpens veces"
+      avoidedOpens == 1 -> "once"
+      else -> "$avoidedOpens times"
+    }
     return if (spanish) {
-      "$avoidedOpens aperturas automáticas de $appLabel evitadas hoy · $duration recuperados (est.)"
+      "Hoy no entraste a $appLabel $times: unos $duration recuperados."
     } else {
-      "$avoidedOpens automatic $appLabel opens avoided today · $duration returned (est.)"
+      "Today you skipped $appLabel $times: about $duration back."
     }
   }
 

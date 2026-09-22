@@ -6,7 +6,7 @@ import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Eyebrow, Heading } from "@/components/typography";
-import { localize } from "@/i18n";
+import { androidSys, localize } from "@/i18n";
 import { oemGuidance } from "@/lib/android-oem";
 import {
   restrictionEngine,
@@ -83,8 +83,8 @@ export default function AndroidRepairScreen() {
         <Cause
           title={localize("Unlock the switch first", "Desbloquea el interruptor")}
           body={localize(
-            "Because you installed Still outside the store, the switch can be greyed out. In App info, open the top-right menu and choose Allow restricted settings, then turn Still on.",
-            "Como instalaste Still fuera de la tienda, el interruptor puede aparecer en gris. En Información de la app, abre el menú de arriba a la derecha y elige Permitir ajustes restringidos, y luego activa Still.",
+            `If the switch is greyed out: in Still's ${androidSys("appInfo")}, open the ⋮ menu and tap “${androidSys("allowRestrictedSettings")}”. Then turn Still on.`,
+            `Si el interruptor está gris: en ${androidSys("appInfo")} de Still, abre el menú ⋮ y toca «${androidSys("allowRestrictedSettings")}». Después activa Still.`,
           )}
           action={localize("Open app info", "Abrir información de la app")}
           onPress={() => void restrictionEngine.openAppInfo?.()}

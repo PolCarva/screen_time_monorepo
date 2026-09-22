@@ -135,7 +135,7 @@ export default function IosAppsScreen() {
             `Connected · last pause ${ageLabel(age)}`,
             `Conectada · última pausa ${ageLabel(age)}`,
           )
-        : localize("Not tested yet", "Sin probar todavía");
+        : localize("Not tested yet", "Falta probar");
     return (
       <Pressable
         accessibilityRole="checkbox"
@@ -166,7 +166,7 @@ export default function IosAppsScreen() {
     <Screen contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>{localize("IOS / APPS", "IOS / APPS")}</Eyebrow>
+        <Eyebrow>{localize("YOUR APPS", "TUS APPS")}</Eyebrow>
       </View>
 
       <View style={styles.header}>
@@ -178,8 +178,8 @@ export default function IosAppsScreen() {
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "Still pauses before these apps. Your choice never leaves this iPhone.",
-            "Still hace una pausa antes de estas apps. Tu elección nunca sale de este iPhone.",
+            "Still pauses before these apps. Your choice stays on this iPhone.",
+            "Still hace una pausa antes de estas apps. Tu elección se queda en este iPhone.",
           )}
         </Body>
       </View>
@@ -213,14 +213,14 @@ export default function IosAppsScreen() {
           <View style={styles.pickCard}>
             <Body style={styles.pickTitle}>
               {localize(
-                "Pick it from your real apps, no typing",
-                "Elígela entre tus apps reales, sin escribir",
+                "Pick it from the apps on your iPhone",
+                "Elígela entre las apps de tu iPhone",
               )}
             </Body>
             <Body style={styles.lede}>
               {localize(
-                "iOS does not let any app see what you have installed, but Shortcuts can show you the list. Check your apps there and each one appears here by itself the first time you open it.",
-                "iOS no deja que ninguna app vea lo que tienes instalado, pero Atajos sí puede mostrarte la lista. Marca tus apps allí y cada una aparece aquí sola la primera vez que la abras.",
+                "Check your apps in Shortcuts: each one appears here by itself the first time you open it.",
+                "Marca tus apps en Atajos: cada una aparece aquí sola la primera vez que la abras.",
               )}
             </Body>
             <PrimaryButton

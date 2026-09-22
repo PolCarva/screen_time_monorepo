@@ -1,4 +1,4 @@
-import { impactWeekSchema } from "@screen-time/contracts";
+import { impactWeekSchema, type ImpactWeek } from "@screen-time/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { useFocusEffect } from "expo-router";
@@ -32,6 +32,23 @@ const voteResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
+const WEEK_STATUS_LABELS: Record<ImpactWeek["status"], [string, string]> = {
+  draft: ["BEING PREPARED", "EN PREPARACIÓN"],
+  open: ["VOTING OPEN", "VOTACIÓN ABIERTA"],
+  voting_closed: ["VOTING CLOSED", "VOTACIÓN CERRADA"],
+  donation_pending: ["DONATION IN PROGRESS", "DONACIÓN EN CURSO"],
+  donated: ["DONATED", "DONADO"],
+};
+
+function weekRange(start: string, end: string) {
+  // ISO dates are calendar days, not instants: read them at local noon.
+  const format = new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+  return `${format.format(new Date(`${start}T12:00:00`))} – ${format.format(new Date(`${end}T12:00:00`))}`;
+}
+
 function StateNotice({
   title,
   body,
@@ -39,14 +56,14 @@ function StateNotice({
   onPress,
 }: {
   title: string;
-  body: string;
+  body?: string;
   action?: string;
   onPress?: () => void;
 }) {
   return (
     <View style={styles.stateNotice}>
       <Heading style={styles.stateTitle}>{title}</Heading>
-      <Body style={styles.muted}>{body}</Body>
+      {body ? <Body style={styles.muted}>{body}</Body> : null}
       {action && onPress ? (
         <PrimaryButton variant="secondary" onPress={onPress}>
           {action}
@@ -149,13 +166,13 @@ export default function ImpactScreen() {
   const submitVote = useRef(() => vote.mutate());
   submitVote.current = () => vote.mutate();
 
-  async function connectGoogleAndVote() {
+  async function connectGoogleAndVote({ vote = true }: { vote?: boolean } = {}) {
     try {
       const linked = await linkIdentity("google");
       const providers = await getLinkedIdentityProviders();
       const connected = linked || providers.includes("google");
       setGoogleConnected(connected);
-      if (connected) submitVote.current();
+      if (connected && vote) submitVote.current();
     } catch (error) {
       if (__DEV__) console.warn("Google identity link failed", error);
       void sheet.show({
@@ -164,7 +181,10 @@ export default function ImpactScreen() {
           "Check your connection and try again.",
           "Revisa tu conexión y vuelve a intentarlo.",
         ),
-        actions: [retryAction(() => connectGoogleAndVote()), closeAction()],
+        actions: [
+          retryAction(() => connectGoogleAndVote({ vote })),
+          closeAction(),
+        ],
       });
     }
   }
@@ -178,7 +198,7 @@ export default function ImpactScreen() {
     : "—";
   const stage = week?.isEstimated
     ? localize("ESTIMATED", "ESTIMADO")
-    : localize("RECONCILED", "CONCILIADO");
+    : localize("CONFIRMED", "CONFIRMADO");
   const noPublishedWeek = isMissingImpactWeekError(query.error);
   const votingOpen = week?.status === "open" && config.votingEnabled;
 
@@ -201,45 +221,28 @@ export default function ImpactScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>
-          {localize("IMPACT / WEEKLY RECORD", "IMPACTO / REGISTRO SEMANAL")}
-        </Eyebrow>
+        <Eyebrow>{localize("IMPACT", "IMPACTO")}</Eyebrow>
       </View>
 
       {query.isLoading ? (
         <StateNotice
           title={localize(
-            "Loading this week’s record",
-            "Cargando el registro semanal",
-          )}
-          body={localize(
-            "Amounts and states come from the public ledger.",
-            "Los montos y estados provienen del registro público.",
+            "Loading this week's fund…",
+            "Cargando el fondo de esta semana…",
           )}
         />
       ) : noPublishedWeek ? (
         <StateNotice
           title={localize(
-            "No weekly record yet",
-            "Todavía no hay registro semanal",
-          )}
-          body={localize(
-            "The first real record will appear after operations opens a week.",
-            "El primer registro real aparecerá cuando operaciones abra una semana.",
+            "This week's fund will appear here",
+            "El fondo de esta semana aparecerá aquí",
           )}
           action={localize("Try again", "Reintentar")}
           onPress={() => void query.refetch()}
         />
       ) : query.isError ? (
         <StateNotice
-          title={localize(
-            "The record is unavailable",
-            "El registro no está disponible",
-          )}
-          body={localize(
-            "Nothing was inferred or replaced with demo data.",
-            "No se infirió ni reemplazó nada con datos de demostración.",
-          )}
+          title={localize("The fund didn't load", "El fondo no cargó")}
           action={localize("Try again", "Reintentar")}
           onPress={() => void query.refetch()}
         />
@@ -249,11 +252,9 @@ export default function ImpactScreen() {
             <View style={styles.fundHeader}>
               <View style={styles.fundDate}>
                 <Eyebrow>
-                  {localize("AVAILABLE FUND", "FONDO DISPONIBLE")}
+                  {localize("THIS WEEK'S FUND", "FONDO DE LA SEMANA")}
                 </Eyebrow>
-                <Mono>
-                  {week.weekStart} / {week.weekEnd}
-                </Mono>
+                <Mono>{weekRange(week.weekStart, week.weekEnd)}</Mono>
               </View>
               <View
                 style={[
@@ -268,8 +269,8 @@ export default function ImpactScreen() {
             <Body style={styles.muted}>
               {week.impactPercentage}%{" "}
               {localize(
-                "of recorded advertising revenue",
-                "del ingreso publicitario registrado",
+                "of this week's ad revenue",
+                "del ingreso por anuncios de la semana",
               )}
             </Body>
             <AttentionField
@@ -286,14 +287,17 @@ export default function ImpactScreen() {
                 <Mono>{week.participants}</Mono>
               </View>
               <View>
-                <Eyebrow>
-                  {localize("VERIFIED ACTIONS", "ACCIONES VERIFICADAS")}
-                </Eyebrow>
+                <Eyebrow>{localize("ADS WATCHED", "ANUNCIOS VISTOS")}</Eyebrow>
                 <Mono>{week.rewardedAds}</Mono>
               </View>
               <View>
                 <Eyebrow>{localize("STATUS", "ESTADO")}</Eyebrow>
-                <Mono>{week.status.replaceAll("_", " ").toUpperCase()}</Mono>
+                <Mono>
+                  {localize(
+                    WEEK_STATUS_LABELS[week.status][0],
+                    WEEK_STATUS_LABELS[week.status][1],
+                  )}
+                </Mono>
               </View>
             </View>
             {week.donationProofUrl ? (
@@ -306,32 +310,27 @@ export default function ImpactScreen() {
                 ]}
               >
                 <Text style={styles.actionLabel}>
-                  {localize(
-                    "Open published proof",
-                    "Abrir comprobante publicado",
-                  )}
+                  {localize("See the receipt", "Ver comprobante")}
                 </Text>
                 <Text style={styles.arrow}>↗</Text>
               </Pressable>
             ) : (
               <Body style={styles.pendingProof}>
                 {localize(
-                  "Proof is published after donation. This amount is not yet presented as donated.",
-                  "El comprobante se publica después de la donación. Este monto todavía no se presenta como donado.",
+                  "Once the donation is made, you'll see the receipt here.",
+                  "Cuando se haga la donación, verás aquí el comprobante.",
                 )}
               </Body>
             )}
           </View>
 
           <View style={styles.candidateHeading}>
-            <Eyebrow>
-              {localize("ALLOCATION / OPEN VOTE", "ASIGNACIÓN / VOTO ABIERTO")}
-            </Eyebrow>
+            <Eyebrow>{localize("PROJECTS · VOTE", "PROYECTOS · VOTACIÓN")}</Eyebrow>
             <Mono>
               {votingOpen
-                ? localize("OPEN", "ABIERTO")
+                ? localize("OPEN", "ABIERTA")
                 : config.votingEnabled
-                  ? localize("CLOSED", "CERRADO")
+                  ? localize("CLOSED", "CERRADA")
                   : localize("PAUSED", "EN PAUSA")}
             </Mono>
           </View>
@@ -339,12 +338,8 @@ export default function ImpactScreen() {
           {week.candidates.length === 0 ? (
             <StateNotice
               title={localize(
-                "No projects published yet",
-                "Aún no hay proyectos publicados",
-              )}
-              body={localize(
-                "Still will not invent a placeholder cause.",
-                "Still no inventará una causa de relleno.",
+                "This week's projects will appear here",
+                "Los proyectos de esta semana aparecerán aquí",
               )}
             />
           ) : (
@@ -430,20 +425,28 @@ export default function ImpactScreen() {
                 ? localize("Voting paused", "Votación en pausa")
                 : t("voteNow")}
           </PrimaryButton>
+          {!savedVote && !googleConnected && votingOpen ? (
+            <PrimaryButton
+              onPress={() => void connectGoogleAndVote({ vote: Boolean(selectedId) })}
+              variant="secondary"
+            >
+              {localize("Continue with Google", "Continuar con Google")}
+            </PrimaryButton>
+          ) : null}
           <Body style={styles.footnote}>
             {savedVote
               ? localize(
-                  `Your vote for ${savedVote.charity.name} is saved. You can change it until the weekly close.`,
-                  `Tu voto por ${savedVote.charity.name} está guardado. Puedes cambiarlo hasta el cierre semanal.`,
+                  `Your vote for ${savedVote.charity.name} is saved. You can change it until the week closes.`,
+                  `Tu voto por ${savedVote.charity.name} está guardado. Puedes cambiarlo hasta el cierre de la semana.`,
                 )
               : googleConnected
                 ? localize(
-                    "Google is connected. Choose an organization and tap Vote now.",
-                    "Google está conectado. Elige una organización y toca Votar ahora.",
+                    "Choose a project and tap Vote now.",
+                    "Elige un proyecto y toca Votar ahora.",
                   )
                 : localize(
-                    "Link Google in Settings to vote. Your choice can change until the weekly close.",
-                    "Vincula Google en Ajustes para votar. Puedes cambiar tu elección hasta el cierre semanal.",
+                    "To vote, connect Google. You can change your vote until the week closes.",
+                    "Para votar, conecta Google. Puedes cambiar tu voto hasta el cierre de la semana.",
                   )}
           </Body>
         </>

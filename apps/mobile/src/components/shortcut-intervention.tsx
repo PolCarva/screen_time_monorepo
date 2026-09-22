@@ -51,28 +51,28 @@ function noticeCopy(notice: InterventionNotice, appLabel: string) {
   switch (notice) {
     case "ad_dismissed":
       return localize(
-        "The ad was closed before it finished, so nothing was unlocked.",
-        "El anuncio se cerró antes de terminar, así que no se desbloqueó nada.",
+        "To go in, watch the ad to the end.",
+        "Para entrar, mira el anuncio hasta el final.",
       );
     case "ad_failed":
       return localize(
-        "That ad could not be shown. Here is the next option.",
-        "No se pudo mostrar ese anuncio. Esta es la siguiente opción.",
+        "That ad didn't load. You can go in with this option.",
+        "Ese anuncio no cargó. Puedes entrar con esta opción.",
       );
     case "claim_failed":
       return localize(
-        "The reward could not be confirmed. Check your connection and try again.",
-        "No se pudo confirmar la recompensa. Revisa tu conexión e inténtalo de nuevo.",
+        "Your reward still needs confirming. Check your connection and try again.",
+        "Falta confirmar tu recompensa. Revisa tu conexión y vuelve a intentarlo.",
       );
     case "unlock_failed":
       return localize(
-        "Still could not activate this access window. Try again.",
-        "Still no pudo activar este período de acceso. Inténtalo de nuevo.",
+        "The access didn't open. Try again.",
+        "No se abrió el acceso. Vuelve a intentarlo.",
       );
     case "return_failed":
       return localize(
-        `Access is active. Still cannot open ${appLabel} by itself, so open it from your Home Screen: it will not be paused during this window.`,
-        `El acceso está activo. Still no puede abrir ${appLabel} por sí solo, así que ábrela desde tu pantalla de inicio: no tendrá pausa durante este período.`,
+        `Done: ${appLabel} is open for you. Open it from your Home Screen.`,
+        `Listo: ${appLabel} ya está abierta para ti. Ábrela desde tu pantalla de inicio.`,
       );
   }
 }
@@ -305,8 +305,8 @@ export function ShortcutIntervention({
           </Display>
           <Body style={styles.question}>
             {localize(
-              `From now on, opening ${appLabel} brings you here first. This test did not count as an opening.`,
-              `A partir de ahora, abrir ${appLabel} te trae primero aquí. Esta prueba no contó como una apertura.`,
+              `${appLabel} is connected: every time you open it, you'll see this pause.`,
+              `${appLabel} quedó conectada: cada vez que la abras, verás esta pausa.`,
             )}
           </Body>
         </View>
@@ -337,8 +337,8 @@ export function ShortcutIntervention({
       `¿Cuánto tiempo quieres en ${appLabel}?`,
     );
     const promise = localize(
-      "Still pauses it again the moment the time is up, even if you never leave it.",
-      "Still la vuelve a pausar en cuanto se cumpla, aunque no salgas de ella.",
+      "When the time is up, the pause comes back.",
+      "Al terminar el tiempo, vuelve la pausa.",
     );
     question =
       flow.earnedBy === "ad"
@@ -353,8 +353,8 @@ export function ShortcutIntervention({
       `¿Sigues queriendo abrir ${appLabel}?`,
     );
     question = localize(
-      `Going in keeps ${appLabel} open for ${unlockLabel}.`,
-      `Si entras, ${appLabel} queda abierta durante ${unlockLabel}.`,
+      `${appLabel} will stay open for ${unlockLabel}. When the time is up, the pause comes back.`,
+      `${appLabel} quedará abierta ${unlockLabel}. Al terminar, vuelve la pausa.`,
     );
   } else if (flow.phase === "pause") {
     headline = localize(
@@ -362,8 +362,8 @@ export function ShortcutIntervention({
       `Respira.\n${flow.pauseSecondsLeft}`,
     );
     question = localize(
-      "No ad is available right now. You can decide when the pause ends.",
-      "Ahora mismo no hay ningún anuncio disponible. Podrás decidir cuando termine la pausa.",
+      "When it's over, you choose whether to go in.",
+      "Cuando termine, eliges si entras.",
     );
   } else if (flow.phase === "claiming") {
     headline = localize("Confirming your reward…", "Confirmando tu recompensa…");
@@ -374,8 +374,8 @@ export function ShortcutIntervention({
       `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`,
     );
     question = localize(
-      "You decide how long the access lasts in the next step.",
-      "Tú decides cuánto dura el acceso en el siguiente paso.",
+      "If you go in, you choose for how long.",
+      "Si entras, eliges por cuánto tiempo.",
     );
   }
 
@@ -462,10 +462,22 @@ export function ShortcutIntervention({
         {finished ? (
           // Reached when the app has no URL scheme and no return shortcut: the
           // allowance is running, so the Home Screen is the way in.
-          <FilledButton
-            label={localize("Go to the Home Screen", "Ir a la pantalla de inicio")}
-            onPress={() => void onLeave()}
-          />
+          <>
+            <FilledButton
+              label={localize("Go to the Home Screen", "Ir a la pantalla de inicio")}
+              onPress={() => void onLeave()}
+            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.replace("/shortcut-setup")}
+              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+            >
+              <Text style={styles.secondaryLabel}>
+                {localize("Make it open by itself", "Hacer que se abra sola")}
+              </Text>
+              <Text style={styles.secondaryArrow}>→</Text>
+            </Pressable>
+          </>
         ) : (
           <>
             <FilledButton
@@ -492,8 +504,8 @@ export function ShortcutIntervention({
             </Pressable>
             <Body style={styles.note}>
               {localize(
-                "Continuing is a choice, not a failure.",
-                "Continuar es una elección, no un fracaso.",
+                "Going in is a choice too.",
+                "Entrar también es una elección.",
               )}
             </Body>
           </>

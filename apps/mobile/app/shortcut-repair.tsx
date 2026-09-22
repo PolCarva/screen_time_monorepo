@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { useStillSheet } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize } from "@/i18n";
+import { localize, sys } from "@/i18n";
 import {
   IOS_HOME_SHORTCUT_IMPORT_URL,
   IOS_SHORTCUT_IMPORT_URL,
@@ -34,7 +34,7 @@ import { colors, spacing } from "@/theme/tokens";
 type CauseCopy = {
   title: string;
   body: string;
-  action?: { label: string; url: string };
+  action?: { label: string; url?: string; route?: "/shortcut-setup" };
 };
 
 function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
@@ -54,49 +54,58 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
   switch (id) {
     case "toggle_off":
       return {
-        title: localize("The automation is switched off", "La automatización está apagada"),
+        title: localize("Turn the automation on", "Enciende la automatización"),
         body: localize(
-          "In Shortcuts → Automation, make sure the switch next to your Still automation is on. Shared automations arrive switched off.",
-          "En Atajos → Automatización, comprueba que el interruptor junto a tu automatización de Still esté activado. Las automatizaciones compartidas llegan apagadas.",
+          `In Shortcuts → ${sys("automation")}, turn on the switch of your Still automation.`,
+          `En Atajos → ${sys("automation")}, activa el interruptor de tu automatización de Still.`,
         ),
         action: edit,
       };
     case "app_missing_in_trigger":
       return {
-        title: localize("The app is not in the trigger", "La app no está en el disparador"),
+        title: localize(
+          "Check the app in the automation",
+          "Marca la app en la automatización",
+        ),
         body: localize(
-          "Open the automation, tap the app list next to “When”, and check every app you chose in Still.",
-          "Abre la automatización, toca la lista de apps junto a «Cuando» y marca todas las apps que elegiste en Still.",
+          `Open the automation, tap the app list next to “${sys("when")}” and check every app you chose in Still.`,
+          `Abre la automatización, toca la lista de apps junto a «${sys("when")}» y marca todas las apps que elegiste en Still.`,
         ),
         action: edit,
       };
     case "not_run_immediately":
       return {
-        title: localize("It asks before running", "Pregunta antes de ejecutarse"),
+        title: localize(
+          `Choose “${sys("runImmediately")}”`,
+          `Elige «${sys("runImmediately")}»`,
+        ),
         body: localize(
-          "Open the automation and choose “Run Immediately”. With “Run After Confirmation” iOS only shows a notification and the app opens without a pause.",
-          "Abre la automatización y elige «Ejecutar inmediatamente». Con «Ejecutar tras confirmar», iOS solo muestra una notificación y la app se abre sin pausa.",
+          `Open the automation and tap “${sys("runImmediately")}” so the pause shows up by itself.`,
+          `Abre la automatización y toca «${sys("runImmediately")}» para que la pausa aparezca sola.`,
         ),
         action: edit,
       };
     case "wrong_app_in_action":
       return {
         title: localize(
-          "It says “No actions”, or names another app",
-          "Dice «No actions», o nombra otra app",
+          `It says “${sys("noActions")}” or shows another app`,
+          `Dice «${sys("noActions")}» o muestra otra app`,
         ),
         body: localize(
-          "In your automations list, the line under the app should read “Pause Before Opening”. If it says “No actions”, open it and add Still's action (steps 5 to 9 of the guide). If the action is there, tap it and pick the same app as the trigger.",
-          "En tu lista de automatizaciones, la línea bajo la app debe decir «Pause Before Opening». Si dice «No actions», ábrela y añade la acción de Still (pasos 5 a 9 de la guía). Si la acción está, tócala y elige la misma app que en el disparador.",
+          `Under the app it should read “${sys("stillAction")}”. If it says “${sys("noActions")}”, open it and follow the guide from “${sys("createNewShortcut")}”. If the action is there, tap it and choose the same app.`,
+          `Bajo la app tiene que decir «${sys("stillAction")}». Si dice «${sys("noActions")}», ábrela y sigue la guía desde «${sys("createNewShortcut")}». Si la acción está, tócala y elige la misma app.`,
         ),
         action: edit,
       };
     case "shortcut_deleted":
       return {
-        title: localize("The automation was deleted", "La automatización se borró"),
+        title: localize(
+          "Create the automation again",
+          "Vuelve a crear la automatización",
+        ),
         body: localize(
-          "If you cannot find it in Shortcuts → Automation, set it up again. Your apps and counters in Still are kept.",
-          "Si no la encuentras en Atajos → Automatización, configúrala de nuevo. Tus apps y contadores en Still se conservan.",
+          `If it isn't in Shortcuts → ${sys("automation")}, create it again. Your apps and your numbers in Still are kept.`,
+          `Si no está en Atajos → ${sys("automation")}, créala de nuevo. Tus apps y tus números en Still se conservan.`,
         ),
         action:
           tier === "import" && isTrustedImportUrl(IOS_SHORTCUT_IMPORT_URL)
@@ -104,14 +113,20 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
                 label: localize("Add it again", "Añadirla de nuevo"),
                 url: IOS_SHORTCUT_IMPORT_URL,
               }
-            : undefined,
+            : {
+                label: localize("See the guide", "Ver la guía"),
+                route: "/shortcut-setup",
+              },
       };
     case "just_rebooted":
       return {
-        title: localize("The iPhone just restarted", "El iPhone acaba de reiniciarse"),
+        title: localize(
+          "Did you just restart your iPhone?",
+          "¿Reiniciaste el iPhone?",
+        ),
         body: localize(
-          "iOS does not run automations for about two minutes after a restart. Wait a moment and test again.",
-          "iOS no ejecuta automatizaciones durante unos dos minutos tras reiniciar. Espera un momento y prueba de nuevo.",
+          "After a restart, the pause takes about two minutes to come back. Wait a moment and test again.",
+          "Después de reiniciar, la pausa tarda unos dos minutos en volver. Espera un momento y prueba de nuevo.",
         ),
       };
   }
@@ -151,7 +166,7 @@ export default function ShortcutRepairScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>{localize("IOS / REPAIR", "IOS / REPARAR")}</Eyebrow>
+        <Eyebrow>{localize("REPAIR", "REPARAR")}</Eyebrow>
       </View>
 
       <View style={styles.header}>
@@ -160,8 +175,8 @@ export default function ShortcutRepairScreen() {
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "iOS does not let Still look inside Shortcuts, so go through these in order. Stop at the first one that applies, then test again.",
-            "iOS no deja que Still mire dentro de Atajos, así que revisa esto en orden. Detente en lo primero que aplique y vuelve a probar.",
+            "Go through these in order and test again as soon as you fix something.",
+            "Revisa esto en orden y vuelve a probar en cuanto arregles algo.",
           )}
         </Body>
       </View>
@@ -177,7 +192,11 @@ export default function ShortcutRepairScreen() {
                 <Body style={styles.stepBody}>{copy.body}</Body>
                 {copy.action ? (
                   <PrimaryButton
-                    onPress={() => void open(copy.action!.url)}
+                    onPress={() => {
+                      const action = copy.action!;
+                      if (action.route) router.push(action.route);
+                      else if (action.url) void open(action.url);
+                    }}
                     variant="secondary"
                   >
                     {copy.action.label}

@@ -462,8 +462,8 @@ export default function ShortcutSetupScreen() {
       return {
         tone: "failed" as const,
         label: localize(
-          "Still did not see the automation run.",
-          "Still no vio ejecutarse la automatización.",
+          "The pause didn't show up.",
+          "La pausa no apareció.",
         ),
       };
     if (health[target.id]?.verifiedAt)
@@ -473,7 +473,7 @@ export default function ShortcutSetupScreen() {
       };
     return {
       tone: "idle" as const,
-      label: localize("Not tested yet", "Sin probar todavía"),
+      label: localize("Not tested yet", "Falta probar"),
     };
   }
 
@@ -483,7 +483,7 @@ export default function ShortcutSetupScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>{localize("IOS / SHORTCUTS", "IOS / ATAJOS")}</Eyebrow>
+        <Eyebrow>{localize("SHORTCUTS", "ATAJOS")}</Eyebrow>
       </View>
 
       <View style={styles.header}>
@@ -498,8 +498,8 @@ export default function ShortcutSetupScreen() {
           <Eyebrow>{localize("PAUSED", "EN PAUSA")}</Eyebrow>
           <Body style={styles.stepBody}>
             {localize(
-              "Pauses are temporarily switched off for iPhone, so a test cannot succeed right now. You can still prepare the automation; it starts working when pauses are back.",
-              "Las pausas están apagadas temporalmente en iPhone, así que ahora una prueba no puede funcionar. Puedes dejar lista la automatización; empezará a funcionar cuando vuelvan las pausas.",
+              "Pauses on iPhone are coming back soon. You can get the automation ready now.",
+              "Las pausas en iPhone vuelven pronto. Puedes dejar lista la automatización.",
             )}
           </Body>
         </View>
@@ -594,15 +594,15 @@ export default function ShortcutSetupScreen() {
             </View>
             <Body style={styles.stepBody}>
               {localize(
-                "iOS cannot tell Still whether an automation exists, so the only proof is opening the app. A test never counts as an opening and never shows an ad.",
-                "iOS no puede decirle a Still si una automatización existe, así que la única prueba es abrir la app. Una prueba nunca cuenta como apertura ni muestra anuncios.",
+                "Tap Test and open the app. If you see Still's pause, it is connected.",
+                "Toca Probar y abre la app. Si ves la pausa de Still, quedó conectada.",
               )}
             </Body>
             {chosen.length === 0 ? (
               <Body style={styles.stepBody}>
                 {localize(
-                  "Nothing to test yet. Once the automation is saved, open one of the apps you checked: it appears here by itself.",
-                  "Todavía no hay nada que probar. Cuando guardes la automatización, abre una de las apps que marcaste: aparecerá aquí sola.",
+                  "Once the automation is saved, open one of the apps you checked: it appears here to test.",
+                  "Cuando guardes la automatización, abre una de las apps que marcaste: aparecerá aquí para probarla.",
                 )}
               </Body>
             ) : null}
@@ -652,14 +652,8 @@ export default function ShortcutSetupScreen() {
         <Eyebrow>{localize("GOOD TO KNOW", "CONVIENE SABER")}</Eyebrow>
         <Body style={styles.stepBody}>
           {localize(
-            "The app you open appears for an instant before Still: iOS starts it first and runs the automation right after. After restarting your iPhone, automations take about two minutes to wake up.",
-            "La app que abres se ve un instante antes que Still: iOS la inicia primero y ejecuta la automatización justo después. Tras reiniciar el iPhone, las automatizaciones tardan unos dos minutos en despertar.",
-          )}
-        </Body>
-        <Body style={styles.stepBody}>
-          {localize(
-            "Still has to come to the front because iOS does not allow an ad inside an automation.",
-            "Still tiene que pasar al frente porque iOS no permite mostrar un anuncio dentro de una automatización.",
+            "You'll see the app for an instant before the pause: that's normal. After restarting your iPhone, the pause takes about two minutes to come back.",
+            "Verás la app un instante antes que la pausa: es normal. Después de reiniciar el iPhone, la pausa tarda unos dos minutos en volver.",
           )}
         </Body>
       </View>
@@ -679,8 +673,8 @@ export default function ShortcutSetupScreen() {
                   "Usar una sola automatización para todas",
                 )
               : localize(
-                  "It didn't work? Set up one app at a time",
-                  "¿No funcionó? Configurar una app a la vez",
+                  "Set up one app at a time",
+                  "Configurar una app a la vez",
                 )}
           </PrimaryButton>
         ) : null}
@@ -694,7 +688,7 @@ export default function ShortcutSetupScreen() {
           onPress={() => router.push("/shortcut-repair")}
           variant="quiet"
         >
-          {localize("Something is not working", "Algo no funciona")}
+          {localize("The pause doesn't show up", "¿No aparece la pausa?")}
         </PrimaryButton>
         <PrimaryButton
           onPress={() =>
