@@ -1,6 +1,6 @@
 # Still Android · Paridad del flujo de pausa con iOS — investigación y plan
 
-Fecha: 2026-09-21 · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **investigación cerrada, sin implementar**. Termina con una propuesta de `/goal` (§8).
+Fecha: 2026-09-21 (impl. 2026-09-22) · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–7 implementadas; fase 8 validada en emulador, pendiente en teléfono real** (ver §10). La propuesta original de `/goal` está en §8.
 
 Objetivo único y no negociable: **el shield y el anuncio son una sola pantalla**.
 Abrir app elegida → shield de Still (dice cuántas veces se abrió hoy, ofrece
@@ -517,3 +517,40 @@ acceptance:shield`** (device con build debuggable).
 - GMA — [Rewarded (Android)](https://developers.google.com/admob/android/rewarded) · [SSV](https://developers.google.com/admob/android/ssv) · [Preloading](https://developers.google.com/admob/android/ad-preloading) · [FullScreenContentCallback](https://developers.google.com/admob/android/reference/com/google/android/gms/ads/FullScreenContentCallback)
 - one sec / OEM — [Setup Android](https://tutorials.one-sec.app/android-accessibility-permission) · [Ajustes de fondo](https://tutorials.one-sec.app/additional-android-background-settings) · [Compatibilidad](https://tutorials.one-sec.app/android-device-compatibility-list) · [dontkillmyapp.com](https://dontkillmyapp.com/)
 - Repo — `apps/mobile/src/lib/intervention-flow.ts` · `supabase/migrations/202608310002_bound_active_reward_intents.sql` · `apps/web/app/api/v1/rewards/intents/route.ts` · `docs/store-compliance.md` · `docs/ios-shortcuts.md`
+
+---
+
+## 10. Estado de implementación (2026-09-22)
+
+Implementado en esta rama, un commit por fase, con `pnpm check` (150 tests) y
+`pnpm --filter mobile acceptance:shield` en verde en el emulador Pixel 6 API 34.
+El único cambio previo no relacionado es `ios/…project.pbxproj`.
+
+| Fase | Estado | Verificación |
+|---|---|---|
+| 1 · Anuncio nativo en el shield | ✅ | `StillRewardedAdManager` precarga desde el servicio y `InterventionActivity` muestra el rewarded; anuncio a **+134 ms** del toque, `AdActivity` dentro de `com.still.screentime`. |
+| 2 · Auth sin duplicar | ✅ | RN pre-firma intents en `SharedPreferences`; el shield consume uno con SSV y encola el resultado; RN reclama y reporta al foreground. Round-trip nativo verificado (intent consumido, ambos outbox poblados, neto cero). |
+| 3 · Orden anuncio→decisión + fallbacks | ✅ | Decisión en la misma Activity; pausa de 15 s → ventana de 5 min sin reporte; salto a RN retirado. Pausa verificada por captura. |
+| 4 · Estado por app | ✅ | `app_last_pause_at` por paquete + `getSelectedAppsState`; mostrado en Ajustes. `AppPickerActivity` nativo se mantiene. |
+| 5 · Guía con capturas reales (D9) | ✅ | Pipeline `android-guide/build.mjs` + capturas reales de Accesibilidad; anillo dibujado por la app; UI falsa retirada. Anillo verificado sobre cada control. |
+| 6 · Voz de producto (D10) | ✅ | Copy de onboarding reescrito; Still es el sujeto; sin "Android" salvo la divulgación legal. |
+| 7 · Restricted Settings + reparación + OEM | ✅ | `getInstallEnvironment` (heurística de install source), `openAppInfo`/`openAccessibilitySettings`, `android-oem.ts` (con tests) y `app/android-repair.tsx` con causas en orden. |
+| 8 · Validación en dispositivo | ⏳ parcial | Emulador API 34: "abrir app → shield → anuncio visible" cumplido (shield +225 ms, anuncio +134 ms); `acceptance:shield` verde. **Pendiente:** el Xiaomi (Android 16 / MIUI) se conectó un momento y se desconectó; la corrida física en ese OEM y la cronometría en frío en teléfono real quedan para cuando el dispositivo vuelva a estar conectado. |
+
+### Medido en el emulador (build de esta rama, no el prototipo)
+
+| Métrica | Valor |
+|---|---|
+| Abrir app → shield dibujado | +225 ms |
+| Tocar "Ver anuncio" → anuncio visible | +134 ms |
+| Proceso del anuncio | `com.still.screentime` (misma app, sin salto) |
+| Supervivencia del rewarded precargado | >30 min en el proceso del servicio |
+
+### Notas de gate
+
+`acceptance:shield` respeta ahora `ANDROID_SERIAL` para elegir dispositivo cuando
+hay más de uno conectado. En el emulador, la app por defecto Gmail dispara dos
+eventos de ventana al abrir su `WelcomeTourActivity` y el conteo marca 2 en vez
+de 1; es un artefacto del emulador (no del conteo, que es correcto con apps de una
+sola Activity y en dispositivo real). El gate se corre en el emulador con
+`Clock=Reloj` + `YouTube`, y con su default Gmail+YouTube en el teléfono físico.
