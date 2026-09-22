@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ACCESS_DURATION_STEPS,
+  DEFAULT_ACCESS_DURATION_SECONDS,
+  REST_OF_DAY_SECONDS,
+} from "@screen-time/contracts";
+
+import {
   type InterventionFlowEvent,
   type InterventionFlowState,
   PAUSE_ALLOWANCE_SECONDS,
   PAUSE_SECONDS,
+  accessSecondsFor,
+  canChooseDuration,
   createInterventionFlow,
   enterMethod,
   gateFromUnlockAction,
@@ -145,13 +153,15 @@ describe("intervention flow: ad first, decision after", () => {
 });
 
 describe("intervention flow: stored pass and emergency access", () => {
-  it("treats the gate itself as the decision", () => {
+  it("sends a paid pass to the same duration choice the ad earns", () => {
     for (const gate of ["use_rewarded_pass", "use_emergency"] as const) {
-      const entering = run(createInterventionFlow({ gate }), {
+      const deciding = run(createInterventionFlow({ gate }), {
         type: "USE_PASS",
       });
-      expect(entering.phase).toBe("entering");
-      expect(enterMethod(entering)).toBe("wallet");
+      expect(deciding).toMatchObject({ phase: "decision", earnedBy: "wallet" });
+      expect(canChooseDuration(deciding)).toBe(true);
+      expect(enterMethod(deciding)).toBe("wallet");
+      expect(run(deciding, { type: "ENTER" }).phase).toBe("entering");
     }
   });
 
@@ -160,13 +170,20 @@ describe("intervention flow: stored pass and emergency access", () => {
     expect(run(state, { type: "USE_PASS" })).toEqual(state);
   });
 
-  it("returns to the gate if the wallet unlock fails", () => {
+  it("keeps the chosen window on screen if the wallet unlock fails", () => {
     const back = run(
       createInterventionFlow({ gate: "use_emergency" }),
       { type: "USE_PASS" },
+      { type: "CHOOSE_DURATION", seconds: 1_800 },
+      { type: "ENTER" },
       { type: "ENTER_FAILED", stage: "unlock" },
     );
-    expect(back).toMatchObject({ phase: "gate", notice: "unlock_failed" });
+    expect(back).toMatchObject({
+      phase: "decision",
+      earnedBy: "wallet",
+      durationSeconds: 1_800,
+      notice: "unlock_failed",
+    });
   });
 });
 
@@ -270,5 +287,79 @@ describe("intervention flow: hand-back and setup test", () => {
     expect(
       run(done, { type: "WATCH_AD" }, { type: "ENTER" }, { type: "DECLINE" }),
     ).toEqual(done);
+  });
+});
+
+describe("intervention flow: choosing the window after paying", () => {
+  const afterAd = () =>
+    run(
+      atAdGate(),
+      { type: "WATCH_AD" },
+      { type: "AD_EARNED" },
+      { type: "CLAIM_CONFIRMED" },
+    );
+
+  it("starts at the default window, with nothing chosen beforehand", () => {
+    expect(atAdGate().durationSeconds).toBe(DEFAULT_ACCESS_DURATION_SECONDS);
+    expect(afterAd().durationSeconds).toBe(DEFAULT_ACCESS_DURATION_SECONDS);
+  });
+
+  it("can start from the window this device chose last time", () => {
+    const seeded = createInterventionFlow({
+      gate: "watch_ad",
+      durationSeconds: 1_800,
+    });
+    expect(seeded.durationSeconds).toBe(1_800);
+  });
+
+  it("accepts every stop from one minute to the rest of the day", () => {
+    for (const seconds of ACCESS_DURATION_STEPS) {
+      const chosen = run(afterAd(), { type: "CHOOSE_DURATION", seconds });
+      expect(chosen).toMatchObject({ phase: "decision", durationSeconds: seconds });
+      expect(accessSecondsFor(chosen)).toBe(seconds);
+    }
+  });
+
+  it("carries the chosen window into entering", () => {
+    const entering = run(
+      afterAd(),
+      { type: "CHOOSE_DURATION", seconds: REST_OF_DAY_SECONDS },
+      { type: "ENTER" },
+    );
+    expect(entering).toMatchObject({
+      phase: "entering",
+      durationSeconds: REST_OF_DAY_SECONDS,
+    });
+    expect(accessSecondsFor(entering)).toBe(REST_OF_DAY_SECONDS);
+  });
+
+  it("gives the free pause a fixed short window the user cannot stretch", () => {
+    const decision = run(
+      createInterventionFlow({ gate: "timed_pause" }),
+      ...ticks(PAUSE_SECONDS),
+    );
+    expect(canChooseDuration(decision)).toBe(false);
+    expect(accessSecondsFor(decision)).toBe(PAUSE_ALLOWANCE_SECONDS);
+
+    const stretched = run(decision, {
+      type: "CHOOSE_DURATION",
+      seconds: REST_OF_DAY_SECONDS,
+    });
+    expect(accessSecondsFor(stretched)).toBe(PAUSE_ALLOWANCE_SECONDS);
+  });
+
+  it("ignores a duration change outside the decision", () => {
+    const gate = atAdGate();
+    expect(run(gate, { type: "CHOOSE_DURATION", seconds: 3_600 })).toEqual(gate);
+    const entering = run(afterAd(), { type: "ENTER" });
+    expect(
+      run(entering, { type: "CHOOSE_DURATION", seconds: 3_600 }).durationSeconds,
+    ).toBe(DEFAULT_ACCESS_DURATION_SECONDS);
+  });
+
+  it("keeps the chosen window when the gate changes underneath", () => {
+    const chosen = run(afterAd(), { type: "CHOOSE_DURATION", seconds: 3_600 });
+    const moved = run(chosen, { type: "GATE_CHANGED", gate: "timed_pause" });
+    expect(moved).toMatchObject({ phase: "decision", durationSeconds: 3_600 });
   });
 });

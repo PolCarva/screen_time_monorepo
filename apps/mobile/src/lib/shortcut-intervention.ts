@@ -16,12 +16,14 @@ type ShortcutReturnSession = {
 
 type ShortcutUnlock = (
   contextId: string,
-  options?: { freshReward?: boolean },
+  options: { freshReward?: boolean; durationSeconds: number },
 ) => Promise<ShortcutReturnSession>;
 
 type CompleteShortcutAndReturnInput = {
   contextId: string;
   freshReward?: boolean;
+  /** The window the user chose on the slider, in seconds. */
+  durationSeconds: number;
   unlockShortcut: ShortcutUnlock;
   onUnlockActivated?: () => void | Promise<void>;
   /** The app's URL scheme did not open; called before the fallback is tried. */
@@ -76,14 +78,16 @@ export function getInterventionUnlockAction({
 export async function completeShortcutAndReturn({
   contextId,
   freshReward = false,
+  durationSeconds,
   unlockShortcut,
   onUnlockActivated,
   onPrimaryReturnFailed,
   openUrl,
 }: CompleteShortcutAndReturnInput): Promise<ShortcutReturnSession> {
-  const session = freshReward
-    ? await unlockShortcut(contextId, { freshReward: true })
-    : await unlockShortcut(contextId);
+  const session = await unlockShortcut(contextId, {
+    freshReward,
+    durationSeconds,
+  });
   await onUnlockActivated?.();
   try {
     await openUrl(session.returnUrl);

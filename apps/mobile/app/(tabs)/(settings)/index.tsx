@@ -1,8 +1,5 @@
 import { AdsConsent } from "react-native-google-mobile-ads";
-import {
-  formatUnlockDuration,
-  type UpdateUserPreferencesRequest,
-} from "@screen-time/contracts";
+import { type UpdateUserPreferencesRequest } from "@screen-time/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -57,8 +54,6 @@ function authorizationLabel(
       return localize("Checking", "Comprobando");
   }
 }
-
-const durationOptions = [600, 1_200, 1_800, 3_600, 86_400] as const;
 
 function Stepper({
   label,
@@ -517,50 +512,12 @@ export default function SettingsScreen() {
             }))
           }
         />
-        <View style={styles.choiceGroup}>
-          <Body style={styles.choiceLabel}>
-            {localize(
-              "Time unlocked by each pass",
-              "Tiempo que desbloquea cada pase",
-            )}
-          </Body>
-          <View accessibilityRole="radiogroup" style={styles.durationChoices}>
-            {durationOptions.map((duration) => {
-              const selected =
-                draftPreferences.unlockDurationSeconds === duration;
-              return (
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                  key={duration}
-                  onPress={() =>
-                    setDraftPreferences((current) => ({
-                      ...current,
-                      unlockDurationSeconds: duration,
-                    }))
-                  }
-                  style={({ pressed }) => [
-                    styles.durationChoice,
-                    selected && styles.durationChoiceSelected,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.durationChoiceLabel,
-                      selected && styles.durationChoiceLabelSelected,
-                    ]}
-                  >
-                    {localize(
-                      formatUnlockDuration(duration, "en"),
-                      formatUnlockDuration(duration, "es"),
-                    )}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <Body style={styles.muted}>
+          {localize(
+            "How long each pass keeps an app open is chosen when you use it, not here: anything from 1 minute to the rest of the day.",
+            "Cuánto tiempo mantiene abierta una app cada pase se elige al usarlo, no aquí: desde 1 minuto hasta el resto del día.",
+          )}
+        </Body>
         <Stepper
           label={localize("Maximum ads", "Máximo de anuncios")}
           value={draftPreferences.maxRewardedAdsPerUtcDay}
@@ -797,12 +754,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   switchCopy: { flex: 1, paddingRight: spacing.md, gap: spacing.xs },
-  choiceGroup: { gap: spacing.sm },
-  choiceLabel: {
-    color: colors.graphite,
-    fontFamily: fonts.brandSemiBold,
-    fontSize: 14,
-  },
   stepperRow: {
     minHeight: 58,
     flexDirection: "row",
@@ -844,31 +795,6 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     textAlign: "center",
   },
-  durationChoices: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  durationChoice: {
-    minHeight: 42,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.fog,
-    borderRadius: radius.control,
-    backgroundColor: colors.chalkRaised,
-  },
-  durationChoiceSelected: {
-    borderColor: colors.graphite,
-    backgroundColor: colors.graphite,
-  },
-  durationChoiceLabel: {
-    color: colors.graphite,
-    fontFamily: fonts.brandSemiBold,
-    fontSize: 13,
-  },
-  durationChoiceLabelSelected: { color: colors.chalk },
   privacyBody: { fontSize: 14, lineHeight: 22 },
   textAction: {
     minHeight: 48,

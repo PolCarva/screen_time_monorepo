@@ -1,10 +1,13 @@
+import { DEFAULT_ACCESS_DURATION_SECONDS } from "@screen-time/contracts";
+
 import type { InterventionUnlockAction } from "./shortcut-intervention";
 
 /** Length of the breathing pause offered when there is no ad, pass or emergency access. */
 export const PAUSE_SECONDS = 15;
 /**
- * A pause costs nothing, so it buys a short window. This keeps "go offline to
- * skip the ad" from being a better deal than watching it.
+ * A pause costs nothing, so it buys a short window and the user does not get to
+ * choose its length. This keeps "go offline to skip the ad" from being a better
+ * deal than watching it.
  */
 export const PAUSE_ALLOWANCE_SECONDS = 5 * 60;
 
@@ -40,7 +43,12 @@ export type InterventionFlowState = {
   notice: InterventionNotice | null;
   pauseSecondsLeft: number;
   /** What earned the decision screen; it decides how entering is paid for. */
-  earnedBy: "ad" | "pause" | null;
+  earnedBy: "ad" | "pause" | "wallet" | null;
+  /**
+   * The window the user dragged the slider to, in seconds. Survives a failed
+   * unlock and a trip back to the gate, so nobody has to choose twice.
+   */
+  durationSeconds: number;
   outcome: "entered" | "left" | "tested" | null;
 };
 
@@ -54,6 +62,7 @@ export type InterventionFlowEvent =
   | { type: "CLAIM_FAILED" }
   | { type: "PAUSE_TICK" }
   | { type: "USE_PASS" }
+  | { type: "CHOOSE_DURATION"; seconds: number }
   | { type: "ENTER" }
   | { type: "DECLINE" }
   | { type: "ENTER_FAILED"; stage: "unlock" | "return" }
@@ -81,6 +90,8 @@ export function gateFromUnlockAction(
 export function createInterventionFlow(input: {
   gate: InterventionGate;
   isSetupTest?: boolean;
+  /** Where the slider starts: the last window this device chose, if any. */
+  durationSeconds?: number;
 }): InterventionFlowState {
   const base: InterventionFlowState = {
     phase: "gate",
@@ -88,6 +99,7 @@ export function createInterventionFlow(input: {
     notice: null,
     pauseSecondsLeft: PAUSE_SECONDS,
     earnedBy: null,
+    durationSeconds: input.durationSeconds ?? DEFAULT_ACCESS_DURATION_SECONDS,
     outcome: null,
   };
   if (input.isSetupTest) return { ...base, phase: "setup_test" };
@@ -129,11 +141,13 @@ export function transition(
     case "gate":
       if (event.type === "WATCH_AD" && state.gate === "watch_ad")
         return { ...state, phase: "ad", notice: null };
+      // A stored pass and emergency access are paid for too, so they also get
+      // to choose how long the window lasts.
       if (
         event.type === "USE_PASS" &&
         (state.gate === "use_rewarded_pass" || state.gate === "use_emergency")
       )
-        return { ...state, phase: "entering", notice: null };
+        return { ...state, phase: "decision", earnedBy: "wallet", notice: null };
       if (event.type === "DECLINE")
         return { ...state, phase: "leaving", notice: null };
       return state;
@@ -166,6 +180,10 @@ export function transition(
       return state;
 
     case "decision":
+      if (event.type === "CHOOSE_DURATION")
+        return canChooseDuration(state)
+          ? { ...state, durationSeconds: event.seconds }
+          : state;
       if (event.type === "ENTER")
         return { ...state, phase: "entering", notice: null };
       if (event.type === "DECLINE")
@@ -218,4 +236,20 @@ export function keepsRewardOnLeave(
   state: Pick<InterventionFlowState, "earnedBy">,
 ): boolean {
   return state.earnedBy === "ad";
+}
+
+/** The free pause buys a fixed short window; everything else is the user's call. */
+export function canChooseDuration(
+  state: Pick<InterventionFlowState, "earnedBy">,
+): boolean {
+  return state.earnedBy !== "pause" && state.earnedBy !== null;
+}
+
+/** The window to ask the platform for, in seconds. */
+export function accessSecondsFor(
+  state: Pick<InterventionFlowState, "earnedBy" | "durationSeconds">,
+): number {
+  return canChooseDuration(state)
+    ? state.durationSeconds
+    : PAUSE_ALLOWANCE_SECONDS;
 }

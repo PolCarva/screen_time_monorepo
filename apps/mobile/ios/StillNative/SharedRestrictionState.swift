@@ -21,6 +21,10 @@ enum SharedRestrictionState {
   private static let shortcutModeEnabledKey = "shortcutModeEnabled"
   private static let targetProductMetricsPrefix = "targetProductMetrics:"
   static let currentShieldMetricScopeKey = "currentShieldMetricScope"
+  static let windowEndNotificationPrefix = "still.window-ended."
+  /// DeviceActivity refuses schedules shorter than this, so a shorter window
+  /// keeps its own exact deadline and uses a 15-minute monitor as a fail-safe.
+  private static let minimumMonitorSeconds: TimeInterval = 15 * 60
   private static let externalBrowserBypassUntilKey = "externalBrowserBypassUntil"
   static let externalBrowserActivity = DeviceActivityName("still.external-browser")
 
@@ -177,7 +181,15 @@ enum SharedRestrictionState {
       // A 24-hour interval has identical clock components at both ends, which
       // DeviceActivity rejects. Ending its monitor one second earlier keeps
       // the all-day choice effectively intact while preserving auto-restore.
-      let monitorEnd = duration >= 86_400 ? end.addingTimeInterval(-1) : end
+      //
+      // Windows shorter than 15 minutes are rejected outright, so the monitor
+      // is floored there. It is only the fail-safe that restores shields; the
+      // window the user chose is `deadlineUptime`, which `applyShields` and
+      // `pruneExpiredSessions` enforce to the second.
+      let monitorSeconds = max(TimeInterval(duration), minimumMonitorSeconds)
+      let monitorEnd =
+        duration >= 86_400
+        ? end.addingTimeInterval(-1) : now.addingTimeInterval(monitorSeconds)
       let schedule = DeviceActivitySchedule(
         intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
         intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: monitorEnd),
@@ -192,12 +204,74 @@ enum SharedRestrictionState {
     sessions[id] = UnlockRecord(
       tokenKey: tokenKey, targetKind: targetKind, deadlineUptime: deadline, bootEpoch: bootEpoch())
     saveSessions(sessions)
+    scheduleWindowEndNotification(key: tokenKey, appName: nil, at: end)
     return (id, end)
+  }
+
+  /// Announces the exact second a window ends.
+  ///
+  /// The window itself is never extended: it is stored as a deadline and
+  /// checked against the clock, so the app is paused again from that instant
+  /// on. What this adds is the one thing iOS will not do by itself — tell the
+  /// user while they are still inside the app. A time-sensitive notification
+  /// breaks through Focus, and opening Still from it brings the pause back.
+  static func scheduleWindowEndNotification(key: String, appName: String?, at end: Date) {
+    let identifier = windowEndNotificationPrefix + key
+    let center = UNUserNotificationCenter.current()
+    center.removePendingNotificationRequests(withIdentifiers: [identifier])
+    let seconds = end.timeIntervalSinceNow
+    guard seconds > 0 else { return }
+
+    let spanish = Locale.preferredLanguages.first?.hasPrefix("es") == true
+    let content = UNMutableNotificationContent()
+    if let appName {
+      content.title =
+        spanish ? "Se cumplió tu tiempo en \(appName)" : "Your time in \(appName) is up"
+      content.body =
+        spanish
+        ? "Still ya volvió a pausar \(appName). Ábrela otra vez si quieres decidir de nuevo."
+        : "Still has paused \(appName) again. Open it again if you want to decide once more."
+    } else {
+      content.title = spanish ? "Se cumplió tu tiempo" : "Your time is up"
+      content.body =
+        spanish
+        ? "Still ya volvió a pausar la app. Ábrela otra vez si quieres decidir de nuevo."
+        : "Still has paused the app again. Open it again if you want to decide once more."
+    }
+    content.sound = .default
+    content.interruptionLevel = .timeSensitive
+    content.userInfo = ["route": "window_ended"]
+
+    center.add(
+      UNNotificationRequest(
+        identifier: identifier,
+        content: content,
+        trigger: UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
+      ),
+      withCompletionHandler: nil
+    )
+  }
+
+  static func cancelWindowEndNotification(key: String) {
+    UNUserNotificationCenter.current().removePendingNotificationRequests(
+      withIdentifiers: [windowEndNotificationPrefix + key])
+  }
+
+  /// Managed-mode windows still running, as wall-clock deadlines. Derived from
+  /// the monotonic deadline so a clock change cannot extend one.
+  static func activeWindowEnds() -> [Date] {
+    pruneExpiredSessions()
+    let uptime = ProcessInfo.processInfo.systemUptime
+    return loadSessions().values
+      .map { Date().addingTimeInterval($0.deadlineUptime - uptime) }
+      .sorted()
   }
 
   static func restore(sessionId: String) {
     var sessions = loadSessions()
-    sessions.removeValue(forKey: sessionId)
+    if let record = sessions.removeValue(forKey: sessionId) {
+      cancelWindowEndNotification(key: record.tokenKey)
+    }
     saveSessions(sessions)
     defaults.set(ISO8601DateFormatter().string(from: Date()), forKey: "lastRestoredAt")
     applyShields()

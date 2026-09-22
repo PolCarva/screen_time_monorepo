@@ -72,6 +72,12 @@ export type RestrictionHealth = {
   lastRestoredAt?: string;
   issue?: string;
 };
+/** An access window running right now, so Still can show when it really ends. */
+export type AccessWindow = {
+  /** The app's visible name; the opaque key when the name is not known. */
+  label: string;
+  endsAt: string;
+};
 export type PendingUnlockEvent = {
   clientSessionId: string;
   source: "rewarded" | "emergency";
@@ -144,6 +150,12 @@ export interface RestrictionEngine {
   openAppInfo?(): Promise<boolean>;
   /** Android only. Opens the Accessibility settings without waiting for a result. */
   openAccessibilitySettings?(): Promise<boolean>;
+  /**
+   * Windows still running. The deadline is owned natively, so this is the
+   * truth about when each app is paused again — not a countdown JavaScript
+   * keeps, which would stop with the app.
+   */
+  getAccessWindows(): Promise<AccessWindow[]>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
@@ -201,6 +213,7 @@ const unavailable: RestrictionEngine = {
   }),
   openAppInfo: async () => false,
   openAccessibilitySettings: async () => false,
+  getAccessWindows: async () => [],
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,

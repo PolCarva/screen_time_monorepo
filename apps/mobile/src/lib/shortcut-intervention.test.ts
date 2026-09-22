@@ -81,6 +81,7 @@ describe("iOS Shortcut return orchestration", () => {
     await completeShortcutAndReturn({
       contextId: "youtube-context",
       freshReward: true,
+      durationSeconds: 1_800,
       unlockShortcut,
       onUnlockActivated,
       openUrl,
@@ -88,6 +89,7 @@ describe("iOS Shortcut return orchestration", () => {
 
     expect(unlockShortcut).toHaveBeenCalledWith("youtube-context", {
       freshReward: true,
+      durationSeconds: 1_800,
     });
     expect(order).toEqual([
       "allowance",
@@ -102,6 +104,7 @@ describe("iOS Shortcut return orchestration", () => {
     await expect(
       completeShortcutAndReturn({
         contextId: "youtube-context",
+        durationSeconds: 600,
         unlockShortcut: vi.fn(async () => {
           throw new Error("allowance_failed");
         }),
@@ -118,11 +121,15 @@ describe("iOS Shortcut return orchestration", () => {
 
     await completeShortcutAndReturn({
       contextId: "youtube-context",
+      durationSeconds: 60,
       unlockShortcut,
       openUrl: vi.fn(async () => undefined),
     });
 
-    expect(unlockShortcut).toHaveBeenCalledWith("youtube-context");
+    expect(unlockShortcut).toHaveBeenCalledWith("youtube-context", {
+      freshReward: false,
+      durationSeconds: 60,
+    });
   });
 
   it("falls back to the return shortcut when the app's URL scheme does not open", async () => {
@@ -135,6 +142,7 @@ describe("iOS Shortcut return orchestration", () => {
 
     await completeShortcutAndReturn({
       contextId: "instagram-context",
+      durationSeconds: 600,
       unlockShortcut: vi.fn(async () => ({
         returnUrl: "instagram://",
         fallbackReturnUrl:
@@ -157,6 +165,7 @@ describe("iOS Shortcut return orchestration", () => {
     await expect(
       completeShortcutAndReturn({
         contextId: "youtube-context",
+        durationSeconds: 600,
         unlockShortcut: vi.fn(async () => ({
           returnUrl: "shortcuts://run-shortcut?name=Still%20-%20YouTube",
         })),

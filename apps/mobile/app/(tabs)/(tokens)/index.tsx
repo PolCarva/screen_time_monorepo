@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatUnlockDuration } from "@screen-time/contracts";
+import { formatAccessDuration } from "@screen-time/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { Alert, StyleSheet, View } from "react-native";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import { apiFetch } from "@/lib/api";
 import { capture } from "@/lib/analytics";
 import { AttentionField } from "@/components/attention-field";
+import { DurationSlider } from "@/components/duration-slider";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
@@ -31,7 +32,9 @@ export default function TokensScreen() {
     preferences,
     deviceId,
     addProvisionalToken,
+    lastAccessDurationSeconds,
     refresh,
+    rememberAccessDuration,
     unlockCurrent,
   } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
@@ -41,6 +44,7 @@ export default function TokensScreen() {
   );
   const handledRecharge = useRef<string | null>(null);
   const autoUnlockInFlight = useRef(false);
+  const [chosenWindow, setChosenWindow] = useState<number | null>(null);
   const earn = useCallback(
     async (rechargeRequest?: string) => {
       if (!deviceId || busy) return false;
@@ -92,9 +96,11 @@ export default function TokensScreen() {
     [addProvisionalToken, busy, deviceId, refresh, retry, showPrepared],
   );
   const balanceCapped = wallet.rewardedBalance >= config.maxRewardTokenBalance;
-  const durationLabel = localize(
-    formatUnlockDuration(preferences.unlockDurationSeconds, "en"),
-    formatUnlockDuration(preferences.unlockDurationSeconds, "es"),
+  // Nothing is decided in advance: the window is chosen once the pass exists.
+  const windowSeconds = chosenWindow ?? lastAccessDurationSeconds;
+  const windowLabel = localize(
+    formatAccessDuration(windowSeconds, "en"),
+    formatAccessDuration(windowSeconds, "es"),
   );
   const rewardsEnabled = config.rewardProvider === "admob";
   const dailyCapped = wallet.rewardAdsRemainingToday <= 0;
@@ -115,47 +121,42 @@ export default function TokensScreen() {
       if (!earned) handledRecharge.current = null;
     });
   }, [adReady, autoUnlock, busy, capped, earn, recharge]);
-  useEffect(() => {
-    if (
-      autoUnlock !== "1" ||
-      !recharge ||
-      earnedForRecharge !== recharge ||
-      wallet.rewardedBalance <= 0 ||
-      busy ||
-      autoUnlockInFlight.current
-    ) {
-      return;
-    }
-
+  // The ad is over and the pass exists: the only thing left is how long the
+  // app stays open, which the user chooses here rather than ahead of time.
+  const choosingWindow =
+    autoUnlock === "1" &&
+    Boolean(recharge) &&
+    earnedForRecharge === recharge &&
+    wallet.rewardedBalance > 0;
+  const openForChosenWindow = useCallback(async () => {
+    if (autoUnlockInFlight.current || busy) return;
     autoUnlockInFlight.current = true;
     setBusy(true);
-    void unlockCurrent()
-      .then((session) => {
-        capture("unlock_started", { source: "rewarded", resumedIntent: true });
-        router.replace({
-          pathname: "/unlock-ready",
-          params: { endsAt: session.endsAt },
-        });
-      })
-      .catch(() => {
-        autoUnlockInFlight.current = false;
-        Alert.alert(
-          localize("Could not unlock", "No se pudo desbloquear"),
-          localize(
-            "Your token is still available. Return to the restricted app and try again.",
-            "Tu pase sigue disponible. Vuelve a la app restringida e inténtalo de nuevo.",
-          ),
-        );
-      })
-      .finally(() => setBusy(false));
-  }, [
-    autoUnlock,
-    busy,
-    earnedForRecharge,
-    recharge,
-    unlockCurrent,
-    wallet.rewardedBalance,
-  ]);
+    try {
+      const session = await unlockCurrent({ durationSeconds: windowSeconds });
+      await rememberAccessDuration(windowSeconds);
+      capture("unlock_started", {
+        source: "rewarded",
+        resumedIntent: true,
+        durationSeconds: windowSeconds,
+      });
+      router.replace({
+        pathname: "/unlock-ready",
+        params: { endsAt: session.endsAt },
+      });
+    } catch {
+      autoUnlockInFlight.current = false;
+      Alert.alert(
+        localize("Could not unlock", "No se pudo desbloquear"),
+        localize(
+          "Your token is still available. Return to the restricted app and try again.",
+          "Tu pase sigue disponible. Vuelve a la app restringida e inténtalo de nuevo.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, rememberAccessDuration, unlockCurrent, windowSeconds]);
   const buttonLabel = busy
     ? localize("Preparing the ad…", "Preparando el anuncio…")
     : !rewardsEnabled
@@ -176,13 +177,39 @@ export default function TokensScreen() {
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
-        <Eyebrow>
-          {localize(
-            `PASSES / ${formatUnlockDuration(preferences.unlockDurationSeconds, "en").toUpperCase()}`,
-            `PASES / ${formatUnlockDuration(preferences.unlockDurationSeconds, "es").toUpperCase()}`,
-          )}
-        </Eyebrow>
+        <Eyebrow>{localize("PASSES", "PASES")}</Eyebrow>
       </View>
+
+      {choosingWindow ? (
+        <View style={styles.windowPanel}>
+          <Eyebrow>{localize("HOW LONG", "CUÁNTO TIEMPO")}</Eyebrow>
+          <Heading>
+            {localize(
+              "Choose how long the app stays open.",
+              "Elige cuánto tiempo queda abierta la app.",
+            )}
+          </Heading>
+          <Body style={styles.note}>
+            {localize(
+              "Still pauses it again the moment the time is up, even if you never leave it.",
+              "Still la vuelve a pausar en el momento en que se cumpla el tiempo, aunque no salgas de ella.",
+            )}
+          </Body>
+          <DurationSlider
+            disabled={busy}
+            onChange={setChosenWindow}
+            tone="light"
+            value={windowSeconds}
+          />
+          <PrimaryButton
+            disabled={busy}
+            onPress={() => void openForChosenWindow()}
+            variant="signal"
+          >
+            {localize(`Open for ${windowLabel}`, `Abrir por ${windowLabel}`)}
+          </PrimaryButton>
+        </View>
+      ) : null}
 
       <View style={styles.balancePanel}>
         <View style={styles.balanceHeader}>
@@ -201,12 +228,8 @@ export default function TokensScreen() {
             </Heading>
             <Body style={styles.note}>
               {localize(
-                preferences.unlockDurationSeconds >= 86_400
-                  ? "Each one opens one selected app for the whole day."
-                  : `Each one opens one selected app for ${durationLabel}.`,
-                preferences.unlockDurationSeconds >= 86_400
-                  ? "Cada uno abre una app seleccionada durante todo el día."
-                  : `Cada uno abre una app seleccionada durante ${durationLabel}.`,
+                "Each one opens one selected app for as long as you choose when you use it, from 1 minute to the rest of the day.",
+                "Cada uno abre una app seleccionada durante el tiempo que elijas al usarlo, desde 1 minuto hasta el resto del día.",
               )}
             </Body>
           </View>
@@ -287,6 +310,12 @@ export default function TokensScreen() {
 }
 const styles = StyleSheet.create({
   screen: { gap: 0 },
+  windowPanel: {
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
+  },
   topline: {
     minHeight: 58,
     flexDirection: "row",

@@ -617,3 +617,65 @@ corregido y re-verificado en el dispositivo.
 Medido en el Xiaomi: abrir app → shield **+65 ms**; el rewarded precargado se
 muestra dentro de `com.still.screentime`; la PiP se cierra sola; la reapertura en
 caliente vuelve a mostrar el shield.
+
+---
+
+## 12. Ventana de acceso elegida y expiración en vivo (2026-09-22)
+
+Rama: `feat/access-duration-slider-and-live-expiry`.
+
+### 12.1 Qué cambió
+
+1. **El tiempo ya no se define antes.** Desapareció el selector de "Tiempo que
+   desbloquea cada pase" de Ajustes. La ventana se elige **después** de pagarla
+   —anuncio, pase guardado o acceso de emergencia— con un slider de **1 min** a
+   **Resto del día**.
+   - Paradas: `ACCESS_DURATION_STEPS` en `packages/contracts/src/domain.ts`
+     (fuente de verdad, con tests) y su espejo en `AccessDuration.kt`.
+   - "Resto del día" se resuelve a los segundos que faltan hasta la medianoche
+     local **en el momento de conceder el acceso**, no 24 h fijas.
+   - La pausa gratuita de 15 s sigue dando 5 min fijos y **no** pasa por el
+     slider: si se pudiera elegir, saltarse el anuncio sería mejor negocio (D3).
+   - La última ventana elegida se guarda en `last_access_duration_seconds` y
+     sólo sirve para posicionar el slider la próxima vez.
+
+2. **La ventana termina cuando dice, aunque el usuario nunca salga de la app.**
+   `StillAccessibilityService` arma un temporizador por app con ventana viva
+   (`armAccessWindows`), programado sobre `elapsedRealtime` y validado contra
+   el `BOOT_COUNT` con el que se guardó. Al vencer:
+   1. borra `unlocked:<pkg>` / `unlocked_boot:<pkg>`;
+   2. si esa app sigue en primer plano, lanza el shield ahí mismo;
+   3. 450 ms después verifica: si el OEM rechazó el arranque de actividad en
+      background, usa `performGlobalAction(GLOBAL_ACTION_HOME)` —API de
+      accesibilidad, no necesita arrancar una actividad— y reintenta el shield.
+
+   Se rearma en `onServiceConnected` (cualquier ventana ya vencida se cierra en
+   el acto) y cuando un evento encuentra una app desbloqueada sin temporizador,
+   así que matar el proceso no regala tiempo. Todas las rutas que conceden
+   acceso avisan con `StillAccessibilityService.watchAccessWindows()`: el
+   shield (`InterventionActivity`) y `startUnlock` de React Native.
+
+3. **`getAccessWindows`** (nuevo, ambas plataformas) expone las ventanas vivas.
+   "Hoy" muestra *Abierto ahora · vuelve la pausa mm:ss* leyendo el deadline
+   nativo, no un contador de JavaScript.
+
+### 12.2 Medido en el emulador (Pixel 6, API 34)
+
+| Paso | Resultado |
+|---|---|
+| Abrir Clock → shield | "Clock opened once today." + "Tú decides cuánto dura el acceso en el siguiente paso." |
+| Usar 1 pase → slider | "How long do you want in Clock?", valor 10 min, extremos 1 min / Rest of day |
+| Arrastrar a la izquierda | valor 1 min, botón "I want to go in · 1 min" |
+| Arrastrar a la derecha | 12 hours → Rest of day |
+| Entrar con 1 min | Clock en primer plano, `unlocked:…` escrito, `last_access_duration_seconds=60` |
+| **Esperar sin tocar nada** | **el shield vuelve solo**, con Clock en primer plano todo el rato |
+| Precisión del deadline | deadline `187047ms`, shield reanudado `187170ms` → **123 ms** de desvío (es la latencia de `adb`, el temporizador es exacto) |
+| El escudo se queda | tras volver sigue en primer plano minutos después (`ResumedActivity: .InterventionActivity`), con "Volver" / "Usar 1 pase · Abrir Clock" |
+| "Resto del día" | elegido a las 15:33:55 → deadline `31927993ms` con `elapsedRealtime≈1562993ms`, es decir **30 365 s = 8 h 26 min 05 s**, exactamente lo que faltaba para medianoche local (no 24 h). `last_access_duration_seconds=86400` guarda la *parada* del slider, no la ventana concedida |
+
+### 12.3 Pendiente de teléfono real
+
+El arranque de actividad desde el servicio ya estaba validado en Xiaomi
+(§10–11); la ruta nueva es la misma llamada desde un temporizador, con el
+fallback `GLOBAL_ACTION_HOME` detrás. Conviene repetir el paso "esperar sin
+tocar nada" en el Xiaomi antes de publicar.

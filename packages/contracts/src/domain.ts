@@ -86,20 +86,87 @@ export function canRequestReward(wallet: Wallet, config: RemoteConfig): boolean 
   );
 }
 
-export function formatUnlockDuration(
+/**
+ * Stops of the slider the user drags after paying for access, in seconds. The
+ * scale is deliberately uneven: minutes matter most, so they get most of the
+ * travel, and the last stop is the rest of the day.
+ *
+ * Mirrored natively in `InterventionActivity.kt` (ACCESS_DURATION_STEPS) and
+ * `ShortcutInterventionState.swift`; this list is the source of truth.
+ */
+export const ACCESS_DURATION_STEPS = [
+  60, 120, 180, 300, 600, 900, 1_200, 1_800, 2_700, 3_600, 7_200, 10_800,
+  14_400, 21_600, 28_800, 43_200, 86_400,
+] as const;
+
+/**
+ * The last stop. Stored as a whole day so it stays inside every existing
+ * duration bound, and resolved to the time left until local midnight the
+ * moment access is granted.
+ */
+export const REST_OF_DAY_SECONDS = 86_400;
+
+/** Where the slider starts before the user has ever dragged it. */
+export const DEFAULT_ACCESS_DURATION_SECONDS = 600;
+
+export function isRestOfDay(durationSeconds: number): boolean {
+  return durationSeconds >= REST_OF_DAY_SECONDS;
+}
+
+/**
+ * Seconds from `now` to the next local midnight, so "the rest of the day" ends
+ * with the day rather than 24 hours later. Never shorter than the smallest
+ * stop: a minute before midnight still buys a usable minute.
+ */
+export function secondsUntilEndOfDay(now: Date = new Date()): number {
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const seconds = Math.ceil((midnight.getTime() - now.getTime()) / 1_000);
+  return Math.max(ACCESS_DURATION_STEPS[0], Math.min(seconds, REST_OF_DAY_SECONDS));
+}
+
+/** Turns a slider stop into the window actually granted. */
+export function resolveAccessDurationSeconds(
+  step: number,
+  now: Date = new Date(),
+): number {
+  if (isRestOfDay(step)) return secondsUntilEndOfDay(now);
+  return Math.max(
+    ACCESS_DURATION_STEPS[0],
+    Math.min(Math.round(step), REST_OF_DAY_SECONDS),
+  );
+}
+
+/** The stop closest to `durationSeconds`, for seeding the slider. */
+export function nearestAccessDurationStep(durationSeconds: number): number {
+  return ACCESS_DURATION_STEPS.reduce((closest, step) =>
+    Math.abs(step - durationSeconds) < Math.abs(closest - durationSeconds)
+      ? step
+      : closest,
+  );
+}
+
+/**
+ * Label for a slider stop. The last stop is named for what it is — the rest of
+ * today, not a 24-hour block.
+ */
+export function formatAccessDuration(
   durationSeconds: number,
   locale: "en" | "es",
 ): string {
-  if (durationSeconds >= 86_400) {
-    return locale === "es" ? "Todo el día" : "All day";
+  if (isRestOfDay(durationSeconds)) {
+    return locale === "es" ? "Resto del día" : "Rest of day";
   }
   if (durationSeconds >= 3_600) {
-    const hours = Math.round(durationSeconds / 3_600);
-    return locale === "es"
-      ? `${hours} ${hours === 1 ? "hora" : "horas"}`
-      : `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    const hours = Math.floor(durationSeconds / 3_600);
+    const minutes = Math.round((durationSeconds % 3_600) / 60);
+    const hoursLabel =
+      locale === "es"
+        ? `${hours} ${hours === 1 ? "hora" : "horas"}`
+        : `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    return minutes > 0 ? `${hoursLabel} ${minutes} min` : hoursLabel;
   }
-  return `${Math.round(durationSeconds / 60)} min`;
+  return `${Math.max(1, Math.round(durationSeconds / 60))} min`;
 }
 
 export function calculateImpactFundMinor(

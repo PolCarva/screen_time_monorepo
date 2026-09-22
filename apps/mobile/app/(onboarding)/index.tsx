@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import { formatUnlockDuration } from "@screen-time/contracts";
 import { useState } from "react";
 import {
   Alert,
@@ -43,8 +42,8 @@ const steps = [
       "Vuelve, o entra\npor un tiempo claro.",
     ),
     body: localize(
-      "Going back is one tap. A pass keeps the app open for a clear amount of time, then the pause returns.",
-      "Volver requiere un toque. Un pase mantiene la app abierta durante un tiempo claro y luego vuelve la pausa.",
+      "Going back is one tap. A pass keeps the app open for as long as you choose, from 1 minute to the rest of the day, and the pause returns the moment that time is up.",
+      "Volver requiere un toque. Un pase mantiene la app abierta durante el tiempo que elijas, de 1 minuto al resto del día, y la pausa vuelve en el momento en que ese tiempo se cumple.",
     ),
     action: localize("Continue", "Continuar"),
     mode: "progress" as const,
@@ -81,7 +80,7 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
-  const { config, preferences, setOnboarded } = useAppState();
+  const { config, setOnboarded } = useAppState();
   const current = steps[step]!;
   const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const currentTitle =
@@ -94,12 +93,8 @@ export default function OnboardingScreen() {
         ? localize("Choose your\napps.", "Elige tus\napps.")
         : step === 1
           ? localize(
-              preferences.unlockDurationSeconds >= 86_400
-                ? "Go back, or enter\nfor the whole day."
-                : `Go back, or enter\nfor ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}.`,
-              preferences.unlockDurationSeconds >= 86_400
-                ? "Vuelve, o entra\ndurante todo el día."
-                : `Vuelve, o entra\ndurante ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}.`,
+              "Go back, or enter\nfor as long as you choose.",
+              "Vuelve, o entra\ndurante el tiempo que elijas.",
             )
           : current.title;
   const currentBody =

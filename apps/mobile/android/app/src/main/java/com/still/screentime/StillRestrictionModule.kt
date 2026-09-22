@@ -226,10 +226,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val endsElapsed = now + duration * 1_000L
     val sessionId = UUID.randomUUID().toString()
     preferences.edit()
-      .putLong("unlocked:$packageName", endsElapsed)
-      .putInt("unlocked_boot:$packageName", currentBootCount())
+      .putLong("$UNLOCKED_PREFIX$packageName", endsElapsed)
+      .putInt("$UNLOCKED_BOOT_PREFIX$packageName", currentBootCount())
       .putString("session:$sessionId", packageName)
       .apply()
+    // The window has to end on time even if the user never leaves the app.
+    StillAccessibilityService.watchAccessWindows()
 
     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     try {
@@ -489,6 +491,46 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(apps)
   }
 
+  /**
+   * The access windows running right now. Deadlines are monotonic and owned by
+   * the shield, so this reports when each app is actually paused again rather
+   * than a countdown JavaScript keeps.
+   */
+  @ReactMethod
+  fun getAccessWindows(promise: Promise) {
+    val boot = currentBootCount()
+    val now = SystemClock.elapsedRealtime()
+    val windows = Arguments.createArray()
+    preferences.all
+      .filterKeys { it.startsWith(UNLOCKED_PREFIX) }
+      .mapNotNull { (key, value) ->
+        val target = key.removePrefix(UNLOCKED_PREFIX)
+        val deadline = value as? Long
+        if (target.isEmpty() || deadline == null) null else target to deadline
+      }
+      .filter {
+        preferences.getInt("$UNLOCKED_BOOT_PREFIX${it.first}", -1) == boot && it.second > now
+      }
+      .sortedBy { it.second }
+      .forEach { (target, deadline) ->
+        windows.pushMap(Arguments.createMap().apply {
+          putString(
+            "label",
+            runCatching {
+              context.packageManager.getApplicationLabel(
+                context.packageManager.getApplicationInfo(target, 0),
+              ).toString()
+            }.getOrDefault(target),
+          )
+          putString(
+            "endsAt",
+            java.time.Instant.now().plusMillis(deadline - now).toString(),
+          )
+        })
+      }
+    promise.resolve(windows)
+  }
+
   @ReactMethod
   fun getLocalWellbeing(promise: Promise) {
     val day = LocalDate.now(ZoneOffset.UTC).toString()
@@ -646,6 +688,13 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_WALLET_RESET_AT = "wallet_reset_at"
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"
+    /**
+     * The last window the user chose on the shield's slider. It only seeds the
+     * slider next time; the window granted is always the one just chosen.
+     */
+    const val KEY_LAST_ACCESS_DURATION = "last_access_duration_seconds"
+    const val UNLOCKED_PREFIX = "unlocked:"
+    const val UNLOCKED_BOOT_PREFIX = "unlocked_boot:"
     const val KEY_RESTRICTIONS_ENABLED = "restrictions_enabled"
     const val KEY_ADS_ELIGIBLE = "ads_eligible"
     const val KEY_ADMOB_REWARDED_UNIT = "admob_rewarded_unit"

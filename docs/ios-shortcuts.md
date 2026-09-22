@@ -100,15 +100,28 @@ section 10 of the plan; no other code changes are needed.
    a cold start it waits up to 12 seconds for AdMob. A stored pass or Emergency
    Access is offered only when a direct ad is unavailable, times out or is
    capped; when none of those exist, a 15-second pause takes over.
-6. Only after the ad is completed and the reward is confirmed do the two final
-   options appear: **I want to go in** / **I don't want to go in anymore**.
+6. Only after the ad is completed and the reward is confirmed does the window
+   get chosen: a slider from **1 min** to **Rest of day**, with
+   **I want to go in · <window>** / **I don't want to go in anymore** under it.
    Closing the ad early returns to the gate with no penalty and no reward.
-7. **I want to go in** records the unlock, starts the app-scoped allowance and
-   opens `youtube://`. If that scheme fails, Still runs
+   Nothing about the window is configured in advance; a stored pass and
+   Emergency Access reach the same slider. The stops are
+   `ACCESS_DURATION_STEPS` in `packages/contracts/src/domain.ts`, and
+   **Rest of day** is resolved to the time left until local midnight at the
+   moment access is granted.
+7. **I want to go in** records the unlock, starts the app-scoped allowance for
+   the chosen window and opens `youtube://`. If that scheme fails, Still runs
    `shortcuts://run-shortcut?name=Still - YouTube` instead and stops offering
    the scheme on that device. YouTube's automation fires again, sees the
    allowance and does not reopen Still until it expires. An unlock earned with
-   the 15-second pause lasts five minutes, spends nothing and is not reported.
+   the 15-second pause lasts five minutes, is not chosen on the slider, spends
+   nothing and is not reported.
+   The allowance is stored as a deadline, never as a countdown, so staying
+   inside YouTube cannot extend it: from that instant the next opening is
+   paused again. At the same second Still delivers a time-sensitive
+   notification saying the window is over, which is the only thing iOS lets a
+   third-party app do to a foreground it does not own (see
+   [platform limitations](#platform-limitations)).
 8. **I don't want to go in anymore** cancels the intervention and records an
    avoided open. A reward already earned is kept as a stored pass. Still then
    leaves to the Home Screen through a fallback chain: the native suspend call
@@ -190,6 +203,17 @@ there. Stand in for it with a plain shortcut that runs the same action.
 5. Run `shortcuts://run-shortcut?name=Test%20Still%20News` (or tap the tile).
    Still comes to the foreground exactly as it would from the automation.
 
+Observed on the iOS 26.0 simulator (2026-09-22), driving the flow with a
+pending context written straight into the App Group so the automation did not
+have to fire: the gate says the window is chosen in the next step; a stored
+pass, Emergency Access and a completed ad all lead to the slider; the slider
+runs 1 min → Rest of day and the primary action reads **I want to go in ·
+&lt;window&gt;**; choosing 1 min stored an allowance ending exactly 60 seconds
+later and registered `still.window-ended.<targetKey>`; Still opened News
+through `applenews://`; and 60 seconds later SpringBoard presented that
+notification **while News was in the foreground**, with the allowance expired
+from that second on.
+
 Observed this way on the iOS 26.0 simulator (2026-09-20): the action lists
 exactly the apps chosen in Still and accepts variables; Still foregrounds with
 no confirmation dialog; the ad, the confirmed claim and the two final options
@@ -266,6 +290,17 @@ record the hypotheses H1–H9 in `docs/ios-shortcuts-v2-plan.md`.
 - This mode disables Still's Managed Settings shields on iOS to prevent a
   Screen Time shield and a personal automation from competing. Android keeps
   its existing restriction engine.
+- **A window that ends while the app is in front cannot be closed by Still.**
+  iOS offers no API to background, cover or interrupt another app, and Shortcut
+  mode knows the app only by the name the automation reported — there is no
+  `ApplicationToken` to shield. What Still does instead is make the deadline
+  real and visible: the allowance expires to the second and is never extended
+  by continued use, a time-sensitive notification fires at that exact second,
+  and the very next opening of the app is paused again. Enforcing the end of a
+  window mid-session would require Family Controls authorisation plus the
+  Family Activity Picker, which is decision D5 in
+  `docs/ios-shortcuts-v2-plan.md` and is out of scope for Shortcut mode.
+  Android has no such limit: see `docs/android-parity-plan.md` §12.
 - "Delete local data" also clears the chosen apps. Automations that still exist
   in Shortcuts keep firing, and the intent adopts those apps again on their next
   opening.

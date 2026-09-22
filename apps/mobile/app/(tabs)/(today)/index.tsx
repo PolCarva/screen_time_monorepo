@@ -10,9 +10,21 @@ import { localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
 import { activeTargets } from "@/lib/shortcut-targets";
 import { ActivityReport } from "@/native/activity-report";
+import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, spacing } from "@/theme/tokens";
+
+/** mm:ss, or h:mm:ss once there is more than an hour left. */
+function countdown(seconds: number): string {
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const rest = seconds % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(rest)}`
+    : `${pad(minutes)}:${pad(rest)}`;
+}
 
 export default function TodayScreen() {
   const { stats, config, health } = useAppState();
@@ -35,6 +47,7 @@ export default function TodayScreen() {
       }).format(impact.impactFundMinor / 100)
     : "—";
   const { targets } = useShortcutTargets();
+  const openWindows = useAccessWindows();
   // On iOS the apps live in Still, not in Screen Time, and change without a
   // native health refresh.
   const selectedCount =
@@ -60,6 +73,24 @@ export default function TodayScreen() {
             .toUpperCase()}
         </Eyebrow>
       </View>
+
+      {openWindows.length > 0 ? (
+        <View style={styles.openNow}>
+          <View style={styles.openNowHeader}>
+            <Eyebrow>{localize("OPEN NOW", "ABIERTO AHORA")}</Eyebrow>
+            <Mono>{localize("PAUSE RETURNS", "VUELVE LA PAUSA")}</Mono>
+          </View>
+          {openWindows.map((entry) => (
+            <View key={`${entry.label}:${entry.endsAt}`} style={styles.openNowRow}>
+              <Body style={styles.openNowLabel}>
+                {entry.label ||
+                  localize("Protected app", "App protegida")}
+              </Body>
+              <Mono>{countdown(secondsLeft(entry))}</Mono>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.hero}>
         <View style={styles.heroLine}>
@@ -166,6 +197,24 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   screen: { gap: 0 },
+  openNow: {
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
+  },
+  openNowHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  openNowRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  openNowLabel: { flex: 1, fontFamily: fonts.brandSemiBold },
   topline: {
     minHeight: 58,
     flexDirection: "row",

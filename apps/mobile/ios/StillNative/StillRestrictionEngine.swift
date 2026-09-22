@@ -363,6 +363,34 @@ final class StillRestrictionEngine: RCTEventEmitter {
     resolve(nil)
   }
 
+  /// The windows running right now, newest deadline last. In Shortcut mode the
+  /// app is known by the name the automation reported, so it can be named.
+  @objc func getAccessWindows(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let formatter = ISO8601DateFormatter()
+    guard SharedRestrictionState.shortcutModeEnabled else {
+      resolve(
+        SharedRestrictionState.activeWindowEnds().map { end in
+          ["label": "", "endsAt": formatter.string(from: end)]
+        })
+      return
+    }
+    let names = Dictionary(
+      ShortcutTargetStore.load().map {
+        (ShortcutInterventionState.key(appName: $0.name), $0.name)
+      },
+      uniquingKeysWith: { first, _ in first })
+    resolve(
+      ShortcutInterventionState.activeAllowances().map { allowance in
+        [
+          "label": names[allowance.targetKey] ?? "",
+          "endsAt": formatter.string(from: allowance.endsAt),
+        ]
+      })
+  }
+
   @objc func getPendingUnlockEvents(
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock

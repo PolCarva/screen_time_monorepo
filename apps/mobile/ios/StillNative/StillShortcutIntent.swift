@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UserNotifications
 
 struct ShortcutInterventionContext: Codable {
   let id: String
@@ -299,6 +300,12 @@ enum ShortcutInterventionState {
     var allowances = loadAllowances()
     allowances[context.targetKey] = end
     saveAllowances(allowances)
+    // The allowance is a deadline, never a countdown that staying in the app
+    // can extend: from `end` on, the automation pauses the app again. iOS has
+    // no way to close an app that is already in front, so the exact second is
+    // announced instead.
+    SharedRestrictionState.scheduleWindowEndNotification(
+      key: context.targetKey, appName: context.appName, at: end)
     SharedRestrictionState.defaults.removeObject(forKey: pendingKey)
     SharedRestrictionState.recordOutcome(
       targetMetricScope: "shortcut:\(context.targetKey)",
@@ -346,9 +353,21 @@ enum ShortcutInterventionState {
   private static func hasActiveAllowance(for targetKey: String) -> Bool {
     var allowances = loadAllowances()
     let now = Date()
+    let expired = allowances.filter { $0.value <= now }.keys
     allowances = allowances.filter { $0.value > now }
     saveAllowances(allowances)
+    for key in expired { SharedRestrictionState.cancelWindowEndNotification(key: key) }
     return allowances[targetKey] != nil
+  }
+
+  /// Allowances still running, newest deadline per app. Read by React Native so
+  /// Still can show what is open and for how much longer.
+  static func activeAllowances() -> [(targetKey: String, endsAt: Date)] {
+    let now = Date()
+    return loadAllowances()
+      .filter { $0.value > now }
+      .map { (targetKey: $0.key, endsAt: $0.value) }
+      .sorted { $0.endsAt < $1.endsAt }
   }
 
   private static func loadAllowances() -> [String: Date] {

@@ -15,6 +15,7 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import java.text.NumberFormat
 import java.time.Instant
@@ -28,8 +29,11 @@ import org.json.JSONObject
  * The shield: one screen from "app opened" to the decision. Ad, fallbacks and
  * decision all happen here, never by jumping to another Still screen. The order
  * and the fallbacks mirror the pure state machine in
- * `src/lib/intervention-flow.ts` (ad → decision; and with no ad: saved pass →
- * emergency → 15-second pause), which is the tested source of truth (D6).
+ * `src/lib/intervention-flow.ts` (ad → duration choice → decision; and with no
+ * ad: saved pass → emergency → 15-second pause), which is the tested source of
+ * truth (D6). Nothing about the window is decided in advance: once the ad, the
+ * saved pass or the emergency access has paid for it, the user drags a slider
+ * from one minute to the rest of the day.
  */
 class InterventionActivity : Activity() {
   private val graphite = Color.rgb(36, 40, 38)
@@ -44,8 +48,8 @@ class InterventionActivity : Activity() {
   private var spanish = false
   private var appLabel = ""
   private var attempts = 1
-  private var durationSeconds = 600
-  private var durationLabel = "10 min"
+  /** The slider stop currently selected; only resolved to a window on entry. */
+  private var chosenStep = AccessDuration.DEFAULT_SECONDS
   private var busy = false
   // True only while the rewarded ad is on top, so the shield is not finished
   // when it goes to the background for the ad.
@@ -97,10 +101,16 @@ class InterventionActivity : Activity() {
           1,
         )
       }?.coerceAtLeast(1) ?: 1
-    durationSeconds = preferences
-      .getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600)
-      .coerceIn(60, 86400)
-    durationLabel = formatDuration(durationSeconds)
+    // Seeds the slider with the last window this device chose. It is a
+    // starting point only: the window granted is always the one chosen here.
+    chosenStep = AccessDuration.STEPS[
+      AccessDuration.nearestIndex(
+        preferences.getInt(
+          StillRestrictionModule.KEY_LAST_ACCESS_DURATION,
+          AccessDuration.DEFAULT_SECONDS,
+        ),
+      ),
+    ]
 
     renderByGate()
   }
@@ -142,18 +152,18 @@ class InterventionActivity : Activity() {
     } else {
       "$appLabel opened $attemptLabel today."
     }
-    val question = if (durationSeconds >= 86400) {
-      if (spanish) "¿Qué quieres del resto del día?" else "What do you want from the rest of the day?"
+    val question = if (spanish) {
+      "Tú decides cuánto dura el acceso en el siguiente paso."
     } else {
-      if (spanish) "¿Qué quieres de los próximos $durationLabel?" else "What do you want from the next $durationLabel?"
+      "You decide how long the access lasts in the next step."
     }
 
     val secondaryLabel = when (gate) {
       Gate.WATCH_AD -> if (spanish) "Ver anuncio" else "Watch ad"
       Gate.USE_REWARDED_PASS ->
-        if (spanish) "Usar 1 pase · $durationLabel" else "Use 1 pass · $durationLabel"
+        if (spanish) "Usar 1 pase · Abrir $appLabel" else "Use 1 pass · Open $appLabel"
       Gate.USE_EMERGENCY ->
-        if (spanish) "Acceso de emergencia · $durationLabel" else "Emergency access · $durationLabel"
+        if (spanish) "Acceso de emergencia · Abrir $appLabel" else "Emergency access · Open $appLabel"
       Gate.TIMED_PAUSE -> if (spanish) "Ver anuncio" else "Watch ad"
     }
 
@@ -168,8 +178,10 @@ class InterventionActivity : Activity() {
       textButton(secondaryLabel, chalk, enabled = true) {
         when (gate) {
           Gate.WATCH_AD -> startAd()
-          Gate.USE_REWARDED_PASS -> enterTarget(EnterSource.SAVED_PASS)
-          Gate.USE_EMERGENCY -> enterTarget(EnterSource.EMERGENCY)
+          // A saved pass and emergency access are paid for too, so they choose
+          // their own window instead of inheriting a preset one.
+          Gate.USE_REWARDED_PASS -> renderDecision(EnterSource.SAVED_PASS)
+          Gate.USE_EMERGENCY -> renderDecision(EnterSource.EMERGENCY)
           Gate.TIMED_PAUSE -> renderPause()
         }
       },
@@ -253,11 +265,85 @@ class InterventionActivity : Activity() {
     pauseTick = null
   }
 
-  /** After the ad or pause completes: enter the app, or leave. Order is friction → decision. */
+  /**
+   * After the ad, the saved pass or the emergency access has paid for the visit:
+   * choose the window, then enter or leave. The free pause is the one path that
+   * does not choose — it buys a fixed short window, so waiting out an ad-less
+   * pause never beats watching the ad (D3).
+   */
   private fun renderDecision(source: EnterSource) {
-    val windowSeconds = if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS else durationSeconds
-    val windowLabel = formatDuration(windowSeconds)
+    if (source == EnterSource.PAUSE) {
+      renderPauseDecision()
+      return
+    }
+    busy = false
     val keepsPass = source == EnterSource.FRESH_AD
+    val root = column()
+    root.addView(spacer(1.1f))
+    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
+    root.addView(
+      headline(
+        if (spanish) "¿Cuánto tiempo quieres en $appLabel?"
+        else "How long do you want in $appLabel?",
+      ),
+    )
+    val promise = if (spanish) {
+      "Still vuelve a pausar $appLabel en el momento en que se cumpla el tiempo, aunque no salgas de ella."
+    } else {
+      "Still pauses $appLabel again the moment the time is up, even if you never leave it."
+    }
+    root.addView(
+      subtext(
+        if (keepsPass) {
+          promise + " " + if (spanish) {
+            "Si te vas ahora, el pase que ganaste se guarda para después."
+          } else {
+            "If you leave now, the pass you earned is saved for later."
+          }
+        } else {
+          promise
+        },
+      ),
+    )
+    root.addView(spacer(0.35f))
+
+    val value = durationValue(AccessDuration.label(chosenStep, spanish))
+    root.addView(value)
+    val enter = filledButton(enterLabel()) { enterTarget(source) }
+    root.addView(
+      durationSlider { step ->
+        chosenStep = step
+        val label = AccessDuration.label(step, spanish)
+        value.text = label
+        // Kept in step with the text so a screen reader never announces the
+        // window the slider used to be on.
+        value.contentDescription = label
+        enter.text = enterLabel()
+        enter.contentDescription = enter.text
+      },
+    )
+    root.addView(durationEnds())
+    root.addView(spacer(0.55f))
+    root.addView(enter)
+    root.addView(
+      textButton(
+        if (spanish) "Ya no quiero entrar" else "I don't want to go in anymore",
+        chalk,
+        enabled = true,
+      ) { goHome() },
+    )
+    setContentView(root)
+  }
+
+  private fun enterLabel(): String {
+    val label = AccessDuration.label(chosenStep, spanish)
+    return if (spanish) "Quiero entrar · $label" else "I want to go in · $label"
+  }
+
+  /** The decision after a free pause: a fixed short window, nothing to choose. */
+  private fun renderPauseDecision() {
+    busy = false
+    val windowLabel = AccessDuration.label(PAUSE_ALLOWANCE_SECONDS, spanish)
     val root = column()
     root.addView(spacer(1.2f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
@@ -269,18 +355,15 @@ class InterventionActivity : Activity() {
     )
     root.addView(
       subtext(
-        if (keepsPass) {
-          if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel. Si te vas ahora, el pase que ganaste se guarda para después."
-          else "Going in keeps $appLabel open for $windowLabel. If you leave now, the pass you earned is saved for later."
-        } else {
-          if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel."
-          else "Going in keeps $appLabel open for $windowLabel."
-        },
+        if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel y Still la vuelve a pausar en cuanto se cumpla."
+        else "Going in keeps $appLabel open for $windowLabel, and Still pauses it again the moment that is up.",
       ),
     )
     root.addView(spacer(1f))
     root.addView(
-      filledButton(if (spanish) "Quiero entrar" else "I want to go in") { enterTarget(source) },
+      filledButton(if (spanish) "Quiero entrar" else "I want to go in") {
+        enterTarget(EnterSource.PAUSE)
+      },
     )
     root.addView(
       textButton(
@@ -306,7 +389,11 @@ class InterventionActivity : Activity() {
       return
     }
     busy = true
-    val windowSeconds = if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS else durationSeconds
+    // "Rest of the day" becomes the time actually left in the day, here and
+    // not a moment earlier, so the deadline is the one the label promised.
+    val windowSeconds =
+      if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS
+      else AccessDuration.resolve(chosenStep)
     val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val unlocksKey = "unlocks:$day"
@@ -316,8 +403,11 @@ class InterventionActivity : Activity() {
       target,
     )
     val editor = preferences.edit()
-      .putLong("unlocked:$target", SystemClock.elapsedRealtime() + windowSeconds * 1_000L)
-      .putInt("unlocked_boot:$target", boot)
+      .putLong(
+        "${StillRestrictionModule.UNLOCKED_PREFIX}$target",
+        SystemClock.elapsedRealtime() + windowSeconds * 1_000L,
+      )
+      .putInt("${StillRestrictionModule.UNLOCKED_BOOT_PREFIX}$target", boot)
       .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
       .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
       .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
@@ -339,9 +429,22 @@ class InterventionActivity : Activity() {
     }
     editor.apply()
 
+    if (source != EnterSource.PAUSE) {
+      preferences.edit()
+        .putInt(StillRestrictionModule.KEY_LAST_ACCESS_DURATION, chosenStep)
+        .apply()
+    }
+
+    // The window must end on time even if the user never leaves the app, so the
+    // always-running accessibility service is told to watch this deadline.
+    StillAccessibilityService.watchAccessWindows()
+
     // A pause is never reported (D3); ad rewards and saved passes are.
     if (source != EnterSource.PAUSE) {
-      enqueueUnlockReport(if (source == EnterSource.EMERGENCY) "emergency" else "rewarded")
+      enqueueUnlockReport(
+        if (source == EnterSource.EMERGENCY) "emergency" else "rewarded",
+        windowSeconds,
+      )
     }
 
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -349,7 +452,7 @@ class InterventionActivity : Activity() {
     finish()
   }
 
-  private fun enqueueUnlockReport(source: String) {
+  private fun enqueueUnlockReport(source: String, durationSeconds: Int) {
     val raw = preferences.getString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, null)
     val array = runCatching { if (raw != null) JSONArray(raw) else JSONArray() }.getOrDefault(JSONArray())
     array.put(
@@ -418,10 +521,71 @@ class InterventionActivity : Activity() {
 
   // --- View helpers -------------------------------------------------------
 
-  private fun formatDuration(seconds: Int): String = when {
-    seconds >= 86400 -> if (spanish) "todo el día" else "all day"
-    seconds >= 3600 -> if (spanish) "1 hora" else "1 hour"
-    else -> (seconds / 60.0).toInt().coerceAtLeast(1).toString() + " min"
+  /** The chosen window, read out large above the slider. */
+  private fun durationValue(label: String) = TextView(this).apply {
+    text = label
+    gravity = Gravity.CENTER
+    textSize = 30f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    setTextColor(chalk)
+    contentDescription = label
+    layoutParams = LinearLayout.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+    ).apply { topMargin = dp(20) }
+  }
+
+  /**
+   * The stepped slider over `AccessDuration.STEPS`. A SeekBar snaps to whole
+   * steps by construction, so there is no value between one minute and the
+   * rest of the day to land on by accident.
+   */
+  private fun durationSlider(onStep: (Int) -> Unit) = SeekBar(this).apply {
+    max = AccessDuration.STEPS.size - 1
+    progress = AccessDuration.nearestIndex(chosenStep)
+    progressTintList = android.content.res.ColorStateList.valueOf(chalk)
+    thumbTintList = android.content.res.ColorStateList.valueOf(chalk)
+    progressBackgroundTintList =
+      android.content.res.ColorStateList.valueOf(Color.rgb(78, 84, 81))
+    contentDescription =
+      if (spanish) "Cuánto dura el acceso" else "How long access lasts"
+    setPadding(dp(4), dp(12), dp(4), dp(12))
+    setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+      override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
+        val step = AccessDuration.STEPS[value.coerceIn(0, AccessDuration.STEPS.size - 1)]
+        onStep(step)
+        if (fromUser) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+      }
+
+      override fun onStartTrackingTouch(bar: SeekBar?) = Unit
+      override fun onStopTrackingTouch(bar: SeekBar?) = Unit
+    })
+    layoutParams = LinearLayout.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT,
+    ).apply { topMargin = dp(8) }
+  }
+
+  /** The two ends of the slider, so its range is readable without dragging. */
+  private fun durationEnds(): View {
+    val row = LinearLayout(this).apply {
+      orientation = LinearLayout.HORIZONTAL
+      layoutParams = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.WRAP_CONTENT,
+      )
+    }
+    fun end(label: String, gravityValue: Int) = TextView(this).apply {
+      text = label
+      textSize = 12f
+      gravity = gravityValue
+      typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+      setTextColor(mineralLight)
+      layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+    }
+    row.addView(end(AccessDuration.label(AccessDuration.STEPS.first(), spanish), Gravity.START))
+    row.addView(end(AccessDuration.label(AccessDuration.REST_OF_DAY_SECONDS, spanish), Gravity.END))
+    return row
   }
 
   private fun column() = LinearLayout(this).apply {

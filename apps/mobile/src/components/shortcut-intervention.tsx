@@ -1,4 +1,4 @@
-import { formatUnlockDuration } from "@screen-time/contracts";
+import { formatAccessDuration } from "@screen-time/contracts";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useReducer, useRef } from "react";
@@ -6,6 +6,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
+import { DurationSlider } from "@/components/duration-slider";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
@@ -13,7 +14,8 @@ import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import {
   type InterventionNotice,
-  PAUSE_ALLOWANCE_SECONDS,
+  accessSecondsFor,
+  canChooseDuration,
   createInterventionFlow,
   enterMethod,
   gateFromUnlockAction,
@@ -87,7 +89,8 @@ export function ShortcutIntervention({
     cancelShortcut,
     config,
     deviceId,
-    preferences,
+    lastAccessDurationSeconds,
+    rememberAccessDuration,
     unlockShortcut,
     unlockShortcutWithPause,
     wallet,
@@ -109,7 +112,11 @@ export function ShortcutIntervention({
     }),
   );
   const [flow, dispatch] = useReducer(transition, undefined, () =>
-    createInterventionFlow({ gate, isSetupTest }),
+    createInterventionFlow({
+      gate,
+      isSetupTest,
+      durationSeconds: lastAccessDurationSeconds,
+    }),
   );
   const working = useRef(false);
 
@@ -125,8 +132,8 @@ export function ShortcutIntervention({
 
   const durationLabel = (seconds: number) =>
     localize(
-      formatUnlockDuration(seconds, "en"),
-      formatUnlockDuration(seconds, "es"),
+      formatAccessDuration(seconds, "en"),
+      formatAccessDuration(seconds, "es"),
     );
 
   const watchAd = useCallback(async () => {
@@ -175,28 +182,32 @@ export function ShortcutIntervention({
     }
   }, [flow.gate, flow.phase, retry, showPrepared]);
 
-  const enter = useCallback(async () => {
+  /** A stored pass and emergency access buy the same choice the ad does. */
+  const choosePass = useCallback(() => {
     if (working.current) return;
-    const fromDecision = flow.phase === "decision";
-    const fromWalletGate =
-      flow.phase === "gate" &&
-      (flow.gate === "use_rewarded_pass" || flow.gate === "use_emergency");
-    if (!fromDecision && !fromWalletGate) return;
+    dispatch({ type: "USE_PASS" });
+  }, []);
+
+  const enter = useCallback(async () => {
+    if (working.current || flow.phase !== "decision") return;
 
     working.current = true;
     const method = enterMethod(flow);
+    const durationSeconds = accessSecondsFor(flow);
     const source =
       method === "pause"
         ? "pause"
         : method === "fresh_reward" || flow.gate === "use_rewarded_pass"
           ? "rewarded"
           : "emergency";
-    dispatch(fromDecision ? { type: "ENTER" } : { type: "USE_PASS" });
+    dispatch({ type: "ENTER" });
     const stage: { current: "unlock" | "return" } = { current: "unlock" };
     try {
+      if (canChooseDuration(flow)) await rememberAccessDuration(durationSeconds);
       await completeShortcutAndReturn({
         contextId: shortcutId,
         freshReward: method === "fresh_reward",
+        durationSeconds,
         unlockShortcut:
           method === "pause"
             ? (contextId) => unlockShortcutWithPause(contextId)
@@ -206,6 +217,7 @@ export function ShortcutIntervention({
             source,
             resumedIntent: true,
             trigger: "ios_shortcut",
+            durationSeconds,
           });
           stage.current = "return";
         },
@@ -234,6 +246,7 @@ export function ShortcutIntervention({
     appLabel,
     disableScheme,
     flow,
+    rememberAccessDuration,
     shortcutId,
     targets,
     unlockShortcut,
@@ -313,29 +326,36 @@ export function ShortcutIntervention({
     flow.phase === "entering" ||
     flow.phase === "leaving";
   const finished = flow.phase === "done";
-  const unlockLabel = durationLabel(
-    flow.earnedBy === "pause" || flow.phase === "pause"
-      ? PAUSE_ALLOWANCE_SECONDS
-      : preferences.unlockDurationSeconds,
-  );
+  const chooses = flow.phase === "decision" && canChooseDuration(flow);
+  const unlockLabel = durationLabel(accessSecondsFor(flow));
 
   let headline: string;
   let question: string;
-  if (flow.phase === "decision") {
+  if (chooses) {
+    headline = localize(
+      `How long do you want in ${appLabel}?`,
+      `¿Cuánto tiempo quieres en ${appLabel}?`,
+    );
+    const promise = localize(
+      "Still pauses it again the moment the time is up, even if you never leave it.",
+      "Still la vuelve a pausar en cuanto se cumpla, aunque no salgas de ella.",
+    );
+    question =
+      flow.earnedBy === "ad"
+        ? `${promise} ${localize(
+            "Leaving now saves the pass you earned.",
+            "Si te vas ahora, el pase que ganaste se guarda.",
+          )}`
+        : promise;
+  } else if (flow.phase === "decision") {
     headline = localize(
       `Do you still want to open ${appLabel}?`,
       `¿Sigues queriendo abrir ${appLabel}?`,
     );
-    question =
-      flow.earnedBy === "ad"
-        ? localize(
-            `Going in keeps ${appLabel} open for ${unlockLabel}. If you leave now, the pass you just earned is saved for later.`,
-            `Si entras, ${appLabel} queda abierta durante ${unlockLabel}. Si te vas ahora, el pase que acabas de ganar se guarda para después.`,
-          )
-        : localize(
-            `Going in keeps ${appLabel} open for ${unlockLabel}.`,
-            `Si entras, ${appLabel} queda abierta durante ${unlockLabel}.`,
-          );
+    question = localize(
+      `Going in keeps ${appLabel} open for ${unlockLabel}.`,
+      `Si entras, ${appLabel} queda abierta durante ${unlockLabel}.`,
+    );
   } else if (flow.phase === "pause") {
     headline = localize(
       `Breathe.\n${flow.pauseSecondsLeft}`,
@@ -354,15 +374,20 @@ export function ShortcutIntervention({
       `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`,
     );
     question = localize(
-      `What do you want from the next ${unlockLabel}?`,
-      `¿Qué quieres de los próximos ${unlockLabel}?`,
+      "You decide how long the access lasts in the next step.",
+      "Tú decides cuánto dura el acceso en el siguiente paso.",
     );
   }
 
   let continueLabel: string;
   let continueAction: (() => void) | null = null;
   if (flow.phase === "decision") {
-    continueLabel = localize("I want to go in", "Quiero entrar");
+    continueLabel = chooses
+      ? localize(
+          `I want to go in · ${unlockLabel}`,
+          `Quiero entrar · ${unlockLabel}`,
+        )
+      : localize("I want to go in", "Quiero entrar");
     continueAction = () => void enter();
   } else if (flow.phase === "pause") {
     continueLabel = localize(
@@ -381,13 +406,13 @@ export function ShortcutIntervention({
       `Use 1 pass · Open ${appLabel}`,
       `Usar 1 pase · Abrir ${appLabel}`,
     );
-    continueAction = () => void enter();
+    continueAction = choosePass;
   } else if (flow.gate === "use_emergency") {
     continueLabel = localize(
       `Emergency access · Open ${appLabel}`,
       `Acceso de emergencia · Abrir ${appLabel}`,
     );
-    continueAction = () => void enter();
+    continueAction = choosePass;
   } else {
     continueLabel = localize("Preparing the ad…", "Preparando el anuncio…");
   }
@@ -399,22 +424,37 @@ export function ShortcutIntervention({
         <Eyebrow style={styles.lightLabel}>{appLabel}</Eyebrow>
       </View>
 
-      <AttentionField
-        accessibilityLabel={localize(
-          "The attention field opens to make space for a decision.",
-          "El campo de atención se abre para dejar espacio a una decisión.",
-        )}
-        mode="intervention"
-        dark
-      />
+      {/* The field is the focus of the gate; on the duration screen the slider
+          is, and the screen has to fit without scrolling. */}
+      {chooses ? null : (
+        <AttentionField
+          accessibilityLabel={localize(
+            "The attention field opens to make space for a decision.",
+            "El campo de atención se abre para dejar espacio a una decisión.",
+          )}
+          mode="intervention"
+          dark
+        />
+      )}
 
-      <View style={styles.copy}>
-        <Display style={styles.title}>{headline}</Display>
+      <View style={[styles.copy, chooses && styles.copyCompact]}>
+        <Display style={[styles.title, chooses && styles.titleCompact]}>
+          {headline}
+        </Display>
         <Body style={styles.question}>{question}</Body>
         {flow.notice ? (
           <Body accessibilityLiveRegion="polite" style={styles.notice}>
             {noticeCopy(flow.notice, appLabel)}
           </Body>
+        ) : null}
+        {chooses ? (
+          <DurationSlider
+            disabled={busy}
+            onChange={(seconds) =>
+              dispatch({ type: "CHOOSE_DURATION", seconds })
+            }
+            value={flow.durationSeconds}
+          />
         ) : null}
       </View>
 
@@ -506,12 +546,14 @@ const styles = StyleSheet.create({
   },
   lightLabel: { color: colors.chalk },
   copy: { gap: spacing.lg },
+  copyCompact: { gap: spacing.md },
   title: {
     color: colors.chalk,
     fontSize: 38,
     lineHeight: 41,
     letterSpacing: -1.2,
   },
+  titleCompact: { fontSize: 29, lineHeight: 32, letterSpacing: -0.8 },
   question: { color: colors.mineralLight, fontSize: 15, lineHeight: 22 },
   notice: { color: colors.chalk, fontSize: 13, lineHeight: 19 },
   actions: { gap: 0 },

@@ -1,6 +1,9 @@
 import {
+  DEFAULT_ACCESS_DURATION_SECONDS,
   canRequestReward,
   defaultRemoteConfig,
+  nearestAccessDurationStep,
+  resolveAccessDurationSeconds,
   remoteConfigSchema,
   rewardIntentSchema,
   unlockDurationSecondsSchema,
@@ -79,10 +82,14 @@ type AppStateValue = {
   ): Promise<UserPreferences>;
   spendEmergency(): Promise<boolean>;
   addProvisionalToken(): Promise<void>;
-  unlockCurrent(options?: { freshReward?: boolean }): Promise<UnlockSession>;
+  unlockCurrent(options: {
+    freshReward?: boolean;
+    /** The window the user dragged the slider to, before it is resolved. */
+    durationSeconds: number;
+  }): Promise<UnlockSession>;
   unlockShortcut(
     contextId: string,
-    options?: { freshReward?: boolean },
+    options: { freshReward?: boolean; durationSeconds: number },
   ): Promise<ShortcutUnlockSession>;
   /**
    * Activates a short allowance after the timed pause. It spends nothing and
@@ -90,6 +97,9 @@ type AppStateValue = {
    */
   unlockShortcutWithPause(contextId: string): Promise<ShortcutUnlockSession>;
   cancelShortcut(contextId: string): Promise<void>;
+  /** Where the duration slider starts: the last window chosen on this device. */
+  lastAccessDurationSeconds: number;
+  rememberAccessDuration(seconds: number): Promise<void>;
   clearLocalData(): Promise<void>;
   syncStatus: SyncStatus;
   lastSyncedAt: string | null;
@@ -166,6 +176,8 @@ const DEFINITIVE_CLAIM_FAILURES = new Set([
 ]);
 
 const PRESIGNED_INTENTS_KEY = "presignedRewardIntents";
+/** Only seeds the slider. The window itself is always the one just chosen. */
+const ACCESS_DURATION_KEY = "lastAccessDurationSeconds";
 
 /**
  * Claims rewards the Android shield earned while React Native was not running.
@@ -259,11 +271,29 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [health, setHealth] = useState(defaultHealth);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("syncing");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [lastAccessDurationSeconds, setLastAccessDurationSeconds] = useState(
+    DEFAULT_ACCESS_DURATION_SECONDS,
+  );
 
   useEffect(() => {
     void getJson("onboarded", false)
       .then(setOnboardedState)
       .finally(() => setReady(true));
+  }, []);
+  useEffect(() => {
+    void getJson(ACCESS_DURATION_KEY, DEFAULT_ACCESS_DURATION_SECONDS).then(
+      (stored) =>
+        setLastAccessDurationSeconds(
+          nearestAccessDurationStep(
+            typeof stored === "number" ? stored : DEFAULT_ACCESS_DURATION_SECONDS,
+          ),
+        ),
+    );
+  }, []);
+  const rememberAccessDuration = useCallback(async (seconds: number) => {
+    const step = nearestAccessDurationStep(seconds);
+    setLastAccessDurationSeconds(step);
+    await setJson(ACCESS_DURATION_KEY, step);
   }, []);
   const setOnboarded = useCallback(async (value: boolean) => {
     setOnboardedState(value);
@@ -549,10 +579,17 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setHealth(defaultHealth);
     setSyncStatus("offline");
     setLastSyncedAt(null);
+    setLastAccessDurationSeconds(DEFAULT_ACCESS_DURATION_SECONDS);
     if (cleanup.some((result) => result.status === "rejected"))
       throw new Error("local_cleanup_incomplete");
   }, []);
-  const unlockCurrent = useCallback(async (options: { freshReward?: boolean } = {}) => {
+  const unlockCurrent = useCallback(async (options: {
+    freshReward?: boolean;
+    durationSeconds: number;
+  }) => {
+    const durationSeconds = resolveAccessDurationSeconds(
+      options.durationSeconds,
+    );
     const restrictionsEnabled =
       Platform.OS === "ios"
         ? config.iosRestrictionEnabled
@@ -574,7 +611,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     const event: PendingUnlockEvent = {
       clientSessionId: Crypto.randomUUID(),
       source,
-      durationSeconds: preferences.unlockDurationSeconds,
+      durationSeconds,
       startedAt: new Date().toISOString(),
     };
 
@@ -585,7 +622,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         opaqueId: "current",
         platform: Platform.OS === "ios" ? "ios" : "android",
       },
-      preferences.unlockDurationSeconds,
+      durationSeconds,
     );
 
     if (source === "rewarded") {
@@ -636,12 +673,17 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     config.iosRestrictionEnabled,
     config.maxRewardTokenBalance,
     deviceId,
-    preferences.unlockDurationSeconds,
     wallet,
   ]);
   const unlockShortcut = useCallback(
-    async (contextId: string, options: { freshReward?: boolean } = {}) => {
+    async (
+      contextId: string,
+      options: { freshReward?: boolean; durationSeconds: number },
+    ) => {
       if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
+      const durationSeconds = resolveAccessDurationSeconds(
+        options.durationSeconds,
+      );
       const source = options.freshReward
         ? "rewarded"
         : wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0
@@ -659,12 +701,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       const event: PendingUnlockEvent = {
         clientSessionId: Crypto.randomUUID(),
         source,
-        durationSeconds: preferences.unlockDurationSeconds,
+        durationSeconds,
         startedAt: new Date().toISOString(),
       };
       const session = await restrictionEngine.completeShortcutIntervention(
         contextId,
-        preferences.unlockDurationSeconds,
+        durationSeconds,
       );
       const spendableWallet = options.freshReward
         ? addProvisionalReward(wallet, config.maxRewardTokenBalance)
@@ -698,12 +740,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
       return session;
     },
-    [
-      config.maxRewardTokenBalance,
-      deviceId,
-      preferences.unlockDurationSeconds,
-      wallet,
-    ],
+    [config.maxRewardTokenBalance, deviceId, wallet],
   );
   const unlockShortcutWithPause = useCallback(async (contextId: string) => {
     if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
@@ -735,6 +772,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       unlockShortcut,
       unlockShortcutWithPause,
       cancelShortcut,
+      lastAccessDurationSeconds,
+      rememberAccessDuration,
       clearLocalData,
       syncStatus,
       lastSyncedAt,
@@ -758,6 +797,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       unlockShortcut,
       unlockShortcutWithPause,
       cancelShortcut,
+      lastAccessDurationSeconds,
+      rememberAccessDuration,
       clearLocalData,
       syncStatus,
       lastSyncedAt,
