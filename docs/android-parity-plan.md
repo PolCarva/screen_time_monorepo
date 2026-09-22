@@ -551,6 +551,24 @@ El rewarded precargado sobrevive >30 min en el proceso del servicio (medido en
 API 34). API 36 usa una imagen con Play Store, lo más cercano al Xiaomi sin el
 hardware; falta solo el comportamiento OEM de MIUI, que sí necesita el teléfono.
 
+### Runbook: cerrar la fase 8 en el teléfono (turnkey)
+
+Cuando el Xiaomi (u otro Android) esté conectado por USB con la depuración
+autorizada, la corrida física completa es un solo comando (build de debug ya
+compilado con `pnpm --filter mobile android`):
+
+```sh
+pnpm --filter mobile acceptance:shield:device <serial>   # serial de `adb devices`
+```
+
+`scripts/verify-shield-device.sh` instala el build, activa la accesibilidad
+(mejor esfuerzo; en MIUI puede requerir activarla a mano tras permitir los
+ajustes restringidos), siembra Gmail+YouTube y un intent pre-firmado, corre
+`acceptance:shield` y cronometra "abrir app → shield" en frío y en caliente y
+"tocar Ver anuncio → anuncio visible". Deja la app instalada para inspección
+manual y recuerda los pasos por OEM (§6.4). Es lo único que falta de la fase 8;
+en esta sesión el teléfono no estuvo conectado el tiempo suficiente para correrlo.
+
 ### Notas de gate
 
 `acceptance:shield` respeta ahora `ANDROID_SERIAL` para elegir dispositivo cuando
