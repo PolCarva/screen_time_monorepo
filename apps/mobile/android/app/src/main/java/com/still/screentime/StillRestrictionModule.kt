@@ -347,11 +347,50 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(null)
   }
 
+  /**
+   * Unlocks the shield performed by itself (camino A2). React Native reports
+   * each one to the server on foreground and then acknowledges it, so the wallet
+   * reconciles even though the unlock happened while React Native was not running.
+   */
   @ReactMethod
-  fun getPendingUnlockEvents(promise: Promise) = promise.resolve(Arguments.createArray())
+  fun getPendingUnlockEvents(promise: Promise) {
+    val raw = preferences.getString(KEY_UNLOCK_OUTBOX, null)
+    val events = Arguments.createArray()
+    runCatching {
+      if (raw != null) {
+        val array = org.json.JSONArray(raw)
+        for (index in 0 until array.length()) {
+          val item = array.optJSONObject(index) ?: continue
+          events.pushMap(Arguments.createMap().apply {
+            putString("clientSessionId", item.optString("clientSessionId"))
+            putString("source", item.optString("source"))
+            putInt("durationSeconds", item.optInt("durationSeconds"))
+            putString("startedAt", item.optString("startedAt"))
+          })
+        }
+      }
+    }
+    promise.resolve(events)
+  }
 
   @ReactMethod
-  fun acknowledgeUnlockEvent(clientSessionId: String, promise: Promise) = promise.resolve(null)
+  fun acknowledgeUnlockEvent(clientSessionId: String, promise: Promise) {
+    val raw = preferences.getString(KEY_UNLOCK_OUTBOX, null)
+    if (raw == null) {
+      promise.resolve(null)
+      return
+    }
+    val remaining = org.json.JSONArray()
+    runCatching {
+      val array = org.json.JSONArray(raw)
+      for (index in 0 until array.length()) {
+        val item = array.optJSONObject(index) ?: continue
+        if (item.optString("clientSessionId") != clientSessionId) remaining.put(item)
+      }
+    }
+    preferences.edit().putString(KEY_UNLOCK_OUTBOX, remaining.toString()).apply()
+    promise.resolve(null)
+  }
 
   @ReactMethod
   fun hasPendingIntervention(promise: Promise) = promise.resolve(false)

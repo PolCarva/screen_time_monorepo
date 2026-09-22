@@ -2,6 +2,7 @@ import {
   canRequestReward,
   defaultRemoteConfig,
   remoteConfigSchema,
+  rewardIntentSchema,
   unlockDurationSecondsSchema,
   userPreferencesSchema,
   type RemoteConfig,
@@ -25,9 +26,16 @@ import { AppState, Platform } from "react-native";
 import { registerDeviceResponseSchema } from "@screen-time/contracts";
 import { z } from "zod";
 
-import { apiFetch, apiRequest } from "@/lib/api";
+import { apiFetch, apiRequest, ApiError } from "@/lib/api";
 import { applyDevConfigOverrides } from "@/lib/dev-config";
 import { PAUSE_ALLOWANCE_SECONDS } from "@/lib/intervention-flow";
+import {
+  intentsNeeded,
+  mergeIntents,
+  pruneExpiredIntents,
+  removeIntent,
+  type SignedRewardIntent,
+} from "@/lib/reward-intent-buffer";
 import { androidRewardedAdUnitId } from "@/native/reward-provider";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
@@ -146,6 +154,97 @@ async function reportUnlock(event: PendingUnlockEvent, deviceId: string) {
   });
 }
 
+const adClaimResponseSchema = z.object({
+  intentId: z.string().uuid(),
+  status: z.enum(["provisional", "verified"]),
+});
+
+// Claim failures that will never succeed on retry, so the queued result is dropped.
+const DEFINITIVE_CLAIM_FAILURES = new Set([
+  "reward_intent_expired",
+  "reward_intent_not_found",
+]);
+
+const PRESIGNED_INTENTS_KEY = "presignedRewardIntents";
+
+/**
+ * Claims rewards the Android shield earned while React Native was not running.
+ * The shield already granted the access window and queued the unlock report, so
+ * claiming here is what actually turns the earned ad into a server-side pass
+ * (which the queued rewarded unlock then spends, netting to zero — or, when the
+ * user declined after the ad, stays as a saved pass, D4). Idempotent by
+ * clientEventId; runs before unlock reports so the pass exists before it is spent.
+ */
+async function claimPendingAdResults(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const results = (await restrictionEngine.getPendingAdResults?.()) ?? [];
+  for (const result of results) {
+    let drop = true;
+    try {
+      await apiFetch(
+        `/api/v1/rewards/intents/${result.intentId}/claim`,
+        adClaimResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            clientEventId: result.clientEventId,
+            earnedAt: result.earnedAt,
+          }),
+          headers: { "idempotency-key": result.clientEventId },
+        },
+      );
+    } catch (error) {
+      // Keep transient failures queued; drop only definitive ones.
+      drop =
+        error instanceof ApiError && DEFINITIVE_CLAIM_FAILURES.has(error.code);
+    }
+    if (!drop) continue;
+    await restrictionEngine.acknowledgeAdResult?.(result.clientEventId).catch(
+      () => undefined,
+    );
+    const buffer = await getJson<SignedRewardIntent[]>(
+      PRESIGNED_INTENTS_KEY,
+      [],
+    );
+    await setJson(PRESIGNED_INTENTS_KEY, removeIntent(buffer, result.intentId));
+  }
+}
+
+/**
+ * Tops the shield's pre-signed intent buffer back up to capacity while React
+ * Native is in the foreground, so the ad flow never reaches the network during
+ * an intervention. Server caps (3 active, 15-min expiry) are respected: a full
+ * wallet or offline state just stops early and reuses what remains.
+ */
+async function syncRewardIntentBuffer(deviceId: string): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const stored = await getJson<SignedRewardIntent[]>(PRESIGNED_INTENTS_KEY, []);
+  let valid = pruneExpiredIntents(stored, Date.now());
+  const created: SignedRewardIntent[] = [];
+  for (let index = 0; index < intentsNeeded(valid.length); index += 1) {
+    try {
+      const intent = await apiFetch("/api/v1/rewards/intents", rewardIntentSchema, {
+        method: "POST",
+        body: JSON.stringify({ deviceId, provider: "admob" }),
+        headers: { "idempotency-key": Crypto.randomUUID() },
+      });
+      created.push({
+        id: intent.id,
+        customData: intent.customData,
+        userId: "anonymous",
+        expiresAt: intent.expiresAt,
+      });
+    } catch {
+      break;
+    }
+  }
+  valid = mergeIntents(valid, created);
+  await setJson(PRESIGNED_INTENTS_KEY, valid);
+  await restrictionEngine.setPresignedRewardIntents?.(valid).catch(
+    () => undefined,
+  );
+}
+
 export function AppStateProvider({ children }: PropsWithChildren) {
   const [onboarded, setOnboardedState] = useState(false);
   const [ready, setReady] = useState(false);
@@ -236,6 +335,19 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       await setJson("userPreferences", nextPreferences);
     } catch {
       setPreferences(activePreferences);
+    }
+
+    // Android A2: claim rewards the shield earned before reporting the unlocks
+    // it performed, so a rewarded pass exists before the unlock spends it. Then
+    // refill the shield's pre-signed intent buffer for next time.
+    if (Platform.OS === "android" && activeDeviceId) {
+      await claimPendingAdResults().catch(() => undefined);
+      if (
+        isPauseFeatureEnabled("android", activeConfig) &&
+        activeConfig.rewardProvider !== "disabled"
+      ) {
+        await syncRewardIntentBuffer(activeDeviceId).catch(() => undefined);
+      }
     }
 
     const nativePending = await restrictionEngine

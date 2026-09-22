@@ -1,6 +1,14 @@
 import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
+import type { SignedRewardIntent } from "@/lib/reward-intent-buffer";
 import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
+
+/** An earned rewarded ad the native shield recorded for React Native to claim. */
+export type PendingAdResult = {
+  clientEventId: string;
+  intentId: string;
+  earnedAt: string;
+};
 
 export type PermissionStatus =
   "notDetermined" | "authorized" | "denied" | "unavailable";
@@ -104,6 +112,11 @@ export interface RestrictionEngine {
     adUnitId: string,
     rewardProvider: string,
   ): Promise<void>;
+  /** Android only. Refill the shield's buffer of pre-signed reward intents. */
+  setPresignedRewardIntents?(intents: SignedRewardIntent[]): Promise<void>;
+  /** Android only. Earned rewards the shield recorded while RN was not running. */
+  getPendingAdResults?(): Promise<PendingAdResult[]>;
+  acknowledgeAdResult?(clientEventId: string): Promise<void>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
@@ -149,6 +162,9 @@ const unavailable: RestrictionEngine = {
   }),
   syncWallet: async () => undefined,
   syncRewardConfig: async () => undefined,
+  setPresignedRewardIntents: async () => undefined,
+  getPendingAdResults: async () => [],
+  acknowledgeAdResult: async () => undefined,
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,
