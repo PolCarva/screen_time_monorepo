@@ -1,6 +1,6 @@
 # Still Android · Paridad del flujo de pausa con iOS — investigación y plan
 
-Fecha: 2026-09-21 (impl. 2026-09-22) · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–7 implementadas; fase 8 validada en emulador, pendiente en teléfono real** (ver §10). La propuesta original de `/goal` está en §8.
+Fecha: 2026-09-21 (impl. 2026-09-22) · Rama base: `codex/ios-shortcuts-shield-flow` · Estado: **fases 1–7 implementadas; fase 8 validada en emulador API 34 y API 36 (Android 16), solo pendiente el OEM real (Xiaomi/MIUI)** (ver §10). La propuesta original de `/goal` está en §8.
 
 Objetivo único y no negociable: **el shield y el anuncio son una sola pantalla**.
 Abrir app elegida → shield de Still (dice cuántas veces se abrió hoy, ofrece
@@ -535,16 +535,21 @@ El único cambio previo no relacionado es `ios/…project.pbxproj`.
 | 5 · Guía con capturas reales (D9) | ✅ | Pipeline `android-guide/build.mjs` + capturas reales de Accesibilidad; anillo dibujado por la app; UI falsa retirada. Anillo verificado sobre cada control. |
 | 6 · Voz de producto (D10) | ✅ | Copy de onboarding reescrito; Still es el sujeto; sin "Android" salvo la divulgación legal. |
 | 7 · Restricted Settings + reparación + OEM | ✅ | `getInstallEnvironment` (heurística de install source), `openAppInfo`/`openAccessibilitySettings`, `android-oem.ts` (con tests) y `app/android-repair.tsx` con causas en orden. |
-| 8 · Validación en dispositivo | ⏳ parcial | Emulador API 34: "abrir app → shield → anuncio visible" cumplido (shield +225 ms, anuncio +134 ms); `acceptance:shield` verde. **Pendiente:** el Xiaomi (Android 16 / MIUI) se conectó un momento y se desconectó; la corrida física en ese OEM y la cronometría en frío en teléfono real quedan para cuando el dispositivo vuelva a estar conectado. |
+| 8 · Validación en dispositivo | ⏳ casi completa | Validado en **API 34** y en **API 36 (Android 16, imagen Play Store)**, la misma versión que corre el Xiaomi. En ambas: "abrir app → shield → anuncio visible" cumplido y `acceptance:shield` verde. En API 36 el rewarded se reprodujo a pantalla completa dentro de `com.still.screentime` y el shield se lanzó desde background sin bloqueo (exención BAL confirmada en Android 16, el hueco que la investigación había dejado). **Pendiente solo el OEM real:** el Xiaomi (MIUI) se conectó un instante y se desconectó; el comportamiento OEM (autostart, matar en background, "ventanas emergentes") requiere ese teléfono conectado. |
 
 ### Medido en el emulador (build de esta rama, no el prototipo)
 
-| Métrica | Valor |
-|---|---|
-| Abrir app → shield dibujado | +225 ms |
-| Tocar "Ver anuncio" → anuncio visible | +134 ms |
-| Proceso del anuncio | `com.still.screentime` (misma app, sin salto) |
-| Supervivencia del rewarded precargado | >30 min en el proceso del servicio |
+| Métrica | Android 14 (API 34) | Android 16 (API 36) |
+|---|---|---|
+| Abrir app → shield dibujado | +225 ms | +438 ms |
+| Tocar "Ver anuncio" → anuncio visible | +134 ms | +247 ms |
+| Proceso del anuncio | `com.still.screentime` | `com.still.screentime` |
+| `acceptance:shield` | verde | verde |
+| Lanzar shield desde background | sin bloqueo | sin bloqueo (BAL exento) |
+
+El rewarded precargado sobrevive >30 min en el proceso del servicio (medido en
+API 34). API 36 usa una imagen con Play Store, lo más cercano al Xiaomi sin el
+hardware; falta solo el comportamiento OEM de MIUI, que sí necesita el teléfono.
 
 ### Notas de gate
 
