@@ -148,6 +148,7 @@ function Navigation() {
       <Stack.Screen name="shortcut-setup" />
       <Stack.Screen name="shortcut-repair" />
       <Stack.Screen name="android-setup" />
+      <Stack.Screen name="android-repair" />
       <Stack.Screen name="unlock-ready" />
       <Stack.Screen name="leave" options={{ gestureEnabled: false }} />
       <Stack.Screen

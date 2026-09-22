@@ -62,6 +62,57 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     }
   }
 
+  /**
+   * How Still was installed and on what device, so onboarding and the repair
+   * screen can explain OEM quirks and the Android 13+ "restricted settings" gate
+   * that blocks enabling Accessibility for a downloaded (non-store) build. There
+   * is no API to read the restricted-settings state directly; the install source
+   * is the documented heuristic.
+   */
+  @ReactMethod
+  fun getInstallEnvironment(promise: Promise) {
+    val sdkInt = android.os.Build.VERSION.SDK_INT
+    var packageSource = -1
+    if (sdkInt >= 33) {
+      packageSource = runCatching {
+        context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+      }.getOrDefault(-1)
+    }
+    // PACKAGE_SOURCE_LOCAL_FILE (3) / DOWNLOADED_FILE (4) are the sources Android
+    // marks as restricted; store and other installs are not.
+    val likelyRestricted = sdkInt >= 33 && (packageSource == 3 || packageSource == 4)
+    promise.resolve(Arguments.createMap().apply {
+      putInt("sdkInt", sdkInt)
+      putInt("packageSource", packageSource)
+      putBoolean("likelyRestricted", likelyRestricted)
+      putString("manufacturer", android.os.Build.MANUFACTURER ?: "")
+    })
+  }
+
+  /** Opens Still's own App info screen, where the user allows restricted settings. */
+  @ReactMethod
+  fun openAppInfo(promise: Promise) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+      .setData(Uri.fromParts("package", context.packageName, null))
+    val opened = runCatching {
+      context.currentActivity?.startActivity(intent)
+        ?: context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
+    promise.resolve(opened)
+  }
+
+  /** Opens the Accessibility settings without waiting for a result (repair screen). */
+  @ReactMethod
+  fun openAccessibilitySettings(promise: Promise) {
+    val opened = runCatching {
+      context.currentActivity?.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        ?: context.startActivity(
+          Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.isSuccess
+    promise.resolve(opened)
+  }
+
   @ReactMethod
   fun requestWellbeingAuthorization(promise: Promise) {
     if (hasUsageAccess()) {

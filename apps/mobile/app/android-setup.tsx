@@ -12,6 +12,7 @@ import { localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   restrictionEngine,
+  type InstallEnvironment,
   type RestrictionHealth,
   type SelectedAppState,
 } from "@/native/restriction-engine";
@@ -105,6 +106,7 @@ export default function AndroidSetupScreen() {
   const { config, health, refresh } = useAppState();
   const [localHealth, setLocalHealth] = useState<RestrictionHealth>(health);
   const [appsState, setAppsState] = useState<SelectedAppState[]>([]);
+  const [restrictedSettings, setRestrictedSettings] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
   const [statsBusy, setStatsBusy] = useState(false);
   const restrictionsEnabled = isPauseFeatureEnabled("android", config);
@@ -119,6 +121,10 @@ export default function AndroidSetupScreen() {
     if (next) setLocalHealth(next);
     const apps = await restrictionEngine.getSelectedAppsState?.().catch(() => []);
     if (apps) setAppsState(apps);
+    const env: InstallEnvironment | undefined = await restrictionEngine
+      .getInstallEnvironment?.()
+      .catch(() => undefined);
+    if (env) setRestrictedSettings(env.likelyRestricted);
   }, []);
 
   useEffect(() => setLocalHealth(health), [health]);
@@ -291,6 +297,15 @@ export default function AndroidSetupScreen() {
                       onPress={() => void runRequiredSetup()}
                     />
                   ))}
+                  {restrictedSettings &&
+                  localHealth.authorization !== "authorized" ? (
+                    <Body style={styles.restrictedNote}>
+                      {localize(
+                        "If the switch looks greyed out, open the top-right menu on Still's App info and choose Allow restricted settings first.",
+                        "Si el interruptor se ve en gris, abre el menú de arriba a la derecha en la información de Still y elige Permitir ajustes restringidos primero.",
+                      )}
+                    </Body>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -363,6 +378,13 @@ export default function AndroidSetupScreen() {
               "Completa primero lo requerido",
             )}
       </PrimaryButton>
+
+      <PrimaryButton
+        variant="quiet"
+        onPress={() => router.push("/android-repair")}
+      >
+        {localize("Not seeing the pause?", "¿No aparece la pausa?")}
+      </PrimaryButton>
     </Screen>
   );
 }
@@ -402,6 +424,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  restrictedNote: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 19 },
   appStateName: { fontSize: 15 },
   appStateDetail: { color: colors.graphiteSoft, fontSize: 13 },
   step: {

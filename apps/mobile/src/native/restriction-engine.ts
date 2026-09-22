@@ -10,6 +10,15 @@ export type PendingAdResult = {
   earnedAt: string;
 };
 
+/** How Still was installed and on what device (Android), for onboarding + repair. */
+export type InstallEnvironment = {
+  sdkInt: number;
+  packageSource: number;
+  /** Android 13+ blocks enabling Accessibility for downloaded (non-store) builds. */
+  likelyRestricted: boolean;
+  manufacturer: string;
+};
+
 /** A chosen app with today's activity and when Still last paused it (Android). */
 export type SelectedAppState = {
   packageName: string;
@@ -129,6 +138,12 @@ export interface RestrictionEngine {
   acknowledgeAdResult?(clientEventId: string): Promise<void>;
   /** Android only. Chosen apps with today's per-app activity and last pause. */
   getSelectedAppsState?(): Promise<SelectedAppState[]>;
+  /** Android only. Install source + device, to explain restricted settings and OEM quirks. */
+  getInstallEnvironment?(): Promise<InstallEnvironment>;
+  /** Android only. Opens Still's App info screen (allow restricted settings). */
+  openAppInfo?(): Promise<boolean>;
+  /** Android only. Opens the Accessibility settings without waiting for a result. */
+  openAccessibilitySettings?(): Promise<boolean>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
@@ -178,6 +193,14 @@ const unavailable: RestrictionEngine = {
   getPendingAdResults: async () => [],
   acknowledgeAdResult: async () => undefined,
   getSelectedAppsState: async () => [],
+  getInstallEnvironment: async () => ({
+    sdkInt: 0,
+    packageSource: -1,
+    likelyRestricted: false,
+    manufacturer: "",
+  }),
+  openAppInfo: async () => false,
+  openAccessibilitySettings: async () => false,
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,
