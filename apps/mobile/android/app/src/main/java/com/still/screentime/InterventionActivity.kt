@@ -5,8 +5,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
@@ -23,6 +24,13 @@ import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * The shield: one screen from "app opened" to the decision. Ad, fallbacks and
+ * decision all happen here, never by jumping to another Still screen. The order
+ * and the fallbacks mirror the pure state machine in
+ * `src/lib/intervention-flow.ts` (ad → decision; and with no ad: saved pass →
+ * emergency → 15-second pause), which is the tested source of truth (D6).
+ */
 class InterventionActivity : Activity() {
   private val graphite = Color.rgb(36, 40, 38)
   private val chalk = Color.rgb(241, 239, 232)
@@ -30,12 +38,18 @@ class InterventionActivity : Activity() {
   private val mineralLight = Color.rgb(167, 181, 186)
   private val peach = Color.rgb(211, 154, 131)
 
+  private enum class Gate { WATCH_AD, USE_REWARDED_PASS, USE_EMERGENCY, TIMED_PAUSE }
+  private enum class EnterSource { FRESH_AD, SAVED_PASS, EMERGENCY, PAUSE }
+
   private var spanish = false
   private var appLabel = ""
   private var attempts = 1
   private var durationSeconds = 600
   private var durationLabel = "10 min"
   private var busy = false
+  private var pauseSecondsLeft = PAUSE_SECONDS
+  private val pauseHandler = Handler(Looper.getMainLooper())
+  private var pauseTick: Runnable? = null
 
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
@@ -83,22 +97,37 @@ class InterventionActivity : Activity() {
     durationSeconds = preferences
       .getInt(StillRestrictionModule.KEY_UNLOCK_DURATION_SECONDS, 600)
       .coerceIn(60, 86400)
-    durationLabel = when {
-      durationSeconds >= 86400 -> if (spanish) "todo el día" else "all day"
-      durationSeconds >= 3600 -> if (spanish) "1 hora" else "1 hour"
-      else -> (durationSeconds / 60.0).toInt().coerceAtLeast(1).toString() + " min"
-    }
+    durationLabel = formatDuration(durationSeconds)
 
-    renderShield()
+    renderByGate()
+  }
+
+  /** Mirrors gateFromUnlockAction: ad, else saved pass, else emergency, else pause. */
+  private fun currentGate(): Gate {
+    if (StillRewardedAdManager.isAdReady()) return Gate.WATCH_AD
+    if (preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0) {
+      return Gate.USE_REWARDED_PASS
+    }
+    if (preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) > 0) {
+      return Gate.USE_EMERGENCY
+    }
+    return Gate.TIMED_PAUSE
+  }
+
+  private fun renderByGate() {
+    when (currentGate()) {
+      Gate.TIMED_PAUSE -> renderPause()
+      else -> renderShield()
+    }
   }
 
   /**
-   * The gate the user meets first: how many times the app opened today, and how
-   * to move on. `acceptance:shield` asserts this heading and the Go back / Volver
-   * control, so their text stays stable.
+   * The gate the user meets first. `acceptance:shield` asserts this heading and
+   * the Go back / Volver control, so their text stays stable.
    */
   private fun renderShield() {
     busy = false
+    val gate = currentGate()
     val attemptLabel = when {
       spanish && attempts == 1 -> "una vez"
       spanish -> "$attempts veces"
@@ -116,31 +145,30 @@ class InterventionActivity : Activity() {
       if (spanish) "¿Qué quieres de los próximos $durationLabel?" else "What do you want from the next $durationLabel?"
     }
 
-    val hasAvailablePass =
-      preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0 ||
-        preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) > 0
-    val adReady = StillRewardedAdManager.isAdReady()
-
-    val secondaryLabel = when {
-      adReady && spanish -> "Ver anuncio"
-      adReady -> "Watch ad"
-      hasAvailablePass && spanish -> "Usar 1 pase · $durationLabel"
-      hasAvailablePass -> "Use 1 pass · $durationLabel"
-      spanish -> "Abrir Still · Ver anuncio"
-      else -> "Open Still · Watch ad"
+    val secondaryLabel = when (gate) {
+      Gate.WATCH_AD -> if (spanish) "Ver anuncio" else "Watch ad"
+      Gate.USE_REWARDED_PASS ->
+        if (spanish) "Usar 1 pase · $durationLabel" else "Use 1 pass · $durationLabel"
+      Gate.USE_EMERGENCY ->
+        if (spanish) "Acceso de emergencia · $durationLabel" else "Emergency access · $durationLabel"
+      Gate.TIMED_PAUSE -> if (spanish) "Ver anuncio" else "Watch ad"
     }
-    val secondaryEnabled = adReady || hasAvailablePass || true
 
     val root = column()
     root.addView(spacer(1.2f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
     root.addView(headline(observedFact))
-    root.addView(subtext(question + "\n\n" + impactSummary(spanish, currentTargetPackage, appLabel)))
+    root.addView(subtext(question + "\n\n" + impactSummary(currentTargetPackage)))
     root.addView(spacer(1f))
     root.addView(filledButton(if (spanish) "Volver" else "Go back") { goHome() })
     root.addView(
-      textButton(secondaryLabel, if (adReady || hasAvailablePass) chalk else mineralLight, secondaryEnabled) {
-        if (adReady) startAd() else legacyOpenStill()
+      textButton(secondaryLabel, chalk, enabled = true) {
+        when (gate) {
+          Gate.WATCH_AD -> startAd()
+          Gate.USE_REWARDED_PASS -> enterTarget(EnterSource.SAVED_PASS)
+          Gate.USE_EMERGENCY -> enterTarget(EnterSource.EMERGENCY)
+          Gate.TIMED_PAUSE -> renderPause()
+        }
       },
     )
     setContentView(root)
@@ -153,22 +181,77 @@ class InterventionActivity : Activity() {
     val shown = StillRewardedAdManager.show(this) { outcome ->
       busy = false
       if (outcome.earned) {
-        renderDecision(earnedByAd = true)
+        renderDecision(EnterSource.FRESH_AD)
       } else {
-        // Closed early or could not show: no penalty, back to the gate.
-        renderShield()
+        // Closed early or could not show: no penalty, fall back to the gate.
+        renderByGate()
       }
     }
     if (!shown) {
       busy = false
-      // No ad was ready after all: keep today's behaviour until Phase 3 adds the
-      // pass / emergency / timed-pause fallback natively.
-      legacyOpenStill()
+      renderByGate()
     }
   }
 
-  /** After the ad completes: enter the app, or leave. Order is ad → decision. */
-  private fun renderDecision(earnedByAd: Boolean) {
+  /**
+   * 15-second breathing pause when there is no ad, pass or emergency (D3). Costs
+   * nothing and is not reported; entering afterwards grants a short window only.
+   */
+  private fun renderPause() {
+    pauseSecondsLeft = PAUSE_SECONDS
+    val root = column()
+    root.addView(spacer(1.2f))
+    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
+    val counter = headline(if (spanish) "Respira.\n$pauseSecondsLeft" else "Breathe.\n$pauseSecondsLeft")
+    root.addView(counter)
+    root.addView(
+      subtext(
+        if (spanish) "Ahora mismo no hay ningún anuncio disponible. Podrás decidir cuando termine la pausa."
+        else "No ad is available right now. You can decide when the pause ends.",
+      ),
+    )
+    root.addView(spacer(1f))
+    val leave = filledButton(if (spanish) "Ya no quiero entrar" else "I don't want to go in anymore") {
+      stopPause()
+      goHome()
+    }
+    root.addView(leave)
+    val enter = textButton(
+      if (spanish) "Quiero entrar · ${pauseSecondsLeft}s" else "I want to go in · ${pauseSecondsLeft}s",
+      mineralLight,
+      enabled = false,
+    ) {}
+    root.addView(enter)
+    setContentView(root)
+
+    stopPause()
+    pauseTick = object : Runnable {
+      override fun run() {
+        pauseSecondsLeft -= 1
+        if (pauseSecondsLeft <= 0) {
+          counter.text = if (spanish) "Respira.\n0" else "Breathe.\n0"
+          renderDecision(EnterSource.PAUSE)
+          return
+        }
+        counter.text = if (spanish) "Respira.\n$pauseSecondsLeft" else "Breathe.\n$pauseSecondsLeft"
+        enter.text =
+          if (spanish) "Quiero entrar · ${pauseSecondsLeft}s" else "I want to go in · ${pauseSecondsLeft}s"
+        pauseHandler.postDelayed(this, 1_000)
+      }
+    }
+    pauseHandler.postDelayed(pauseTick!!, 1_000)
+  }
+
+  private fun stopPause() {
+    pauseTick?.let(pauseHandler::removeCallbacks)
+    pauseTick = null
+  }
+
+  /** After the ad or pause completes: enter the app, or leave. Order is friction → decision. */
+  private fun renderDecision(source: EnterSource) {
+    val windowSeconds = if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS else durationSeconds
+    val windowLabel = formatDuration(windowSeconds)
+    val keepsPass = source == EnterSource.FRESH_AD
     val root = column()
     root.addView(spacer(1.2f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
@@ -180,15 +263,18 @@ class InterventionActivity : Activity() {
     )
     root.addView(
       subtext(
-        if (spanish) "Si entras, $appLabel queda abierta durante $durationLabel."
-        else "Going in keeps $appLabel open for $durationLabel.",
+        if (keepsPass) {
+          if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel. Si te vas ahora, el pase que ganaste se guarda para después."
+          else "Going in keeps $appLabel open for $windowLabel. If you leave now, the pass you earned is saved for later."
+        } else {
+          if (spanish) "Si entras, $appLabel queda abierta durante $windowLabel."
+          else "Going in keeps $appLabel open for $windowLabel."
+        },
       ),
     )
     root.addView(spacer(1f))
     root.addView(
-      filledButton(if (spanish) "Quiero entrar" else "I want to go in") {
-        enterTarget(earnedByAd)
-      },
+      filledButton(if (spanish) "Quiero entrar" else "I want to go in") { enterTarget(source) },
     )
     root.addView(
       textButton(
@@ -201,20 +287,20 @@ class InterventionActivity : Activity() {
   }
 
   /**
-   * Grant the access window for the exact package, queue the unlock report for
-   * React Native, and relaunch the app. Mirrors StillRestrictionModule.startUnlock
-   * for the case where the shield resolves the whole flow itself.
+   * Grant the access window for the exact package, record the spend, and relaunch
+   * the app. A fresh ad reward and a saved pass both report a rewarded unlock; a
+   * pause grants a short window, spends nothing and is not reported (D3).
    */
-  private fun enterTarget(earnedByAd: Boolean) {
+  private fun enterTarget(source: EnterSource) {
     if (busy) return
     val target = currentTargetPackage ?: return goHome(recordAvoidedOpen = false)
     val launch = packageManager.getLaunchIntentForPackage(target)
     if (launch == null) {
-      // The app is gone; do not spend anything, just leave.
       goHome(recordAvoidedOpen = false)
       return
     }
     busy = true
+    val windowSeconds = if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS else durationSeconds
     val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val unlocksKey = "unlocks:$day"
@@ -223,22 +309,40 @@ class InterventionActivity : Activity() {
       day,
       target,
     )
-    preferences.edit()
-      .putLong("unlocked:$target", SystemClock.elapsedRealtime() + durationSeconds * 1_000L)
+    val editor = preferences.edit()
+      .putLong("unlocked:$target", SystemClock.elapsedRealtime() + windowSeconds * 1_000L)
       .putInt("unlocked_boot:$target", boot)
       .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
       .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
       .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
-      .apply()
+    // Project the local wallet so a rapid second intervention does not offer a
+    // pass that was just spent. A fresh ad reward is claimed then spent server
+    // side (net zero), so it does not decrement the local projection.
+    when (source) {
+      EnterSource.SAVED_PASS ->
+        editor.putInt(
+          StillRestrictionModule.KEY_REWARDED_BALANCE,
+          (preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) - 1).coerceAtLeast(0),
+        )
+      EnterSource.EMERGENCY ->
+        editor.putInt(
+          StillRestrictionModule.KEY_EMERGENCY_REMAINING,
+          (preferences.getInt(StillRestrictionModule.KEY_EMERGENCY_REMAINING, 0) - 1).coerceAtLeast(0),
+        )
+      else -> Unit
+    }
+    editor.apply()
 
-    enqueueUnlockReport(if (earnedByAd) "rewarded" else "emergency")
+    // A pause is never reported (D3); ad rewards and saved passes are.
+    if (source != EnterSource.PAUSE) {
+      enqueueUnlockReport(if (source == EnterSource.EMERGENCY) "emergency" else "rewarded")
+    }
 
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     runCatching { startActivity(launch) }
     finish()
   }
 
-  /** Records a unlock the shield performed so React Native can report it on foreground. */
   private fun enqueueUnlockReport(source: String) {
     val raw = preferences.getString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, null)
     val array = runCatching { if (raw != null) JSONArray(raw) else JSONArray() }.getOrDefault(JSONArray())
@@ -252,33 +356,24 @@ class InterventionActivity : Activity() {
     preferences.edit().putString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, array.toString()).apply()
   }
 
-  /**
-   * The pre-A2 path: hand the intervention to React Native through the deep link
-   * so the ad can be shown there. Kept for wallet passes and as a safety net
-   * until Phase 3 makes every branch native.
-   */
-  private fun legacyOpenStill() {
-    val uri = Uri.Builder()
-      .scheme("still")
-      .authority("intervention")
-      .appendQueryParameter("app", appLabel)
-      .appendQueryParameter("attempts", attempts.toString())
-      .build()
-    startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
-    finish()
-  }
-
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
     // This activity is singleTop. Recreate it so a new blocked app never
     // inherits the previous app's label, count, or actions.
+    stopPause()
     recreate()
+  }
+
+  override fun onDestroy() {
+    stopPause()
+    super.onDestroy()
   }
 
   override fun onBackPressed() = goHome()
 
   private fun goHome(recordAvoidedOpen: Boolean = true) {
+    stopPause()
     if (recordAvoidedOpen) {
       val day = LocalDate.now(ZoneOffset.UTC).toString()
       val totalKey = "avoided_opens:$day"
@@ -304,6 +399,12 @@ class InterventionActivity : Activity() {
   }
 
   // --- View helpers -------------------------------------------------------
+
+  private fun formatDuration(seconds: Int): String = when {
+    seconds >= 86400 -> if (spanish) "todo el día" else "all day"
+    seconds >= 3600 -> if (spanish) "1 hora" else "1 hour"
+    else -> (seconds / 60.0).toInt().coerceAtLeast(1).toString() + " min"
+  }
 
   private fun column() = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
@@ -421,7 +522,7 @@ class InterventionActivity : Activity() {
     }
   }
 
-  private fun impactSummary(spanish: Boolean, targetPackage: String?, appLabel: String): String {
+  private fun impactSummary(targetPackage: String?): String {
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val avoidedOpens = targetPackage?.let {
       preferences.getInt(
@@ -456,5 +557,9 @@ class InterventionActivity : Activity() {
   companion object {
     const val EXTRA_TARGET_PACKAGE = "target_package"
     const val EXTRA_TARGET_ATTEMPTS = "target_attempts"
+
+    // Mirror of intervention-flow.ts: 15 s breathing pause, 5 min access after it.
+    private const val PAUSE_SECONDS = 15
+    private const val PAUSE_ALLOWANCE_SECONDS = 5 * 60
   }
 }

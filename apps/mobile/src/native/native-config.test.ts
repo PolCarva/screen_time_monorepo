@@ -42,10 +42,17 @@ describe("committed native production configuration", () => {
       'android:value="ca-app-pub-8052007653549292~3132195218"',
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
-    expect(intervention).toContain("hasAvailablePass");
-    expect(intervention).toContain('else -> "Open Still · Watch ad"');
+    // The shield shows the rewarded ad and the decision in the same screen,
+    // with the pass / emergency / pause fallbacks all native (no jump to RN).
+    expect(intervention).toContain("StillRewardedAdManager.show(this)");
+    expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
+    expect(intervention).toContain("USE_REWARDED_PASS");
+    expect(intervention).toContain("USE_EMERGENCY");
+    expect(intervention).toContain("TIMED_PAUSE");
+    expect(intervention).toContain("KEY_UNLOCK_OUTBOX");
+    // The old deep-link jump into React Native is gone.
+    expect(intervention).not.toContain('scheme("still")');
     expect(intervention).toContain("override fun onNewIntent");
-    expect(intervention).toContain('appendQueryParameter("attempts"');
     expect(intervention).toContain("METRIC_APP_AVOIDED_OPENS");
     expect(restrictionModule).toContain("LifecycleEventListener");
     expect(restrictionModule).toContain("override fun onHostResume()");
