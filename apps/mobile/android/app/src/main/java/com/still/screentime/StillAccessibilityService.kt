@@ -61,6 +61,14 @@ class StillAccessibilityService : AccessibilityService() {
       nextAttempts
     }
 
+    // Record when Still last paused this app, for the per-app state in Settings.
+    preferences.edit()
+      .putString(
+        StillRestrictionModule.appStateKey(StillRestrictionModule.STATE_LAST_PAUSE_AT, target),
+        java.time.Instant.now().toString(),
+      )
+      .apply()
+
     // Refresh the ad if it expired since the last intervention. If it is not
     // ready in time the shield falls back to pass / emergency / timed pause.
     StillRewardedAdManager.preload(applicationContext, "intervention")

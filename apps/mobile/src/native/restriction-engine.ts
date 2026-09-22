@@ -10,6 +10,16 @@ export type PendingAdResult = {
   earnedAt: string;
 };
 
+/** A chosen app with today's activity and when Still last paused it (Android). */
+export type SelectedAppState = {
+  packageName: string;
+  label: string;
+  lastPauseAt?: string;
+  openAttemptsToday: number;
+  avoidedOpensToday: number;
+  unlocksToday: number;
+};
+
 export type PermissionStatus =
   "notDetermined" | "authorized" | "denied" | "unavailable";
 export type LocalAppHandle = {
@@ -117,6 +127,8 @@ export interface RestrictionEngine {
   /** Android only. Earned rewards the shield recorded while RN was not running. */
   getPendingAdResults?(): Promise<PendingAdResult[]>;
   acknowledgeAdResult?(clientEventId: string): Promise<void>;
+  /** Android only. Chosen apps with today's per-app activity and last pause. */
+  getSelectedAppsState?(): Promise<SelectedAppState[]>;
   getPendingUnlockEvents(): Promise<PendingUnlockEvent[]>;
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
@@ -165,6 +177,7 @@ const unavailable: RestrictionEngine = {
   setPresignedRewardIntents: async () => undefined,
   getPendingAdResults: async () => [],
   acknowledgeAdResult: async () => undefined,
+  getSelectedAppsState: async () => [],
   getPendingUnlockEvents: async () => [],
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,

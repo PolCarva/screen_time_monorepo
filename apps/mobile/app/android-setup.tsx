@@ -13,6 +13,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   restrictionEngine,
   type RestrictionHealth,
+  type SelectedAppState,
 } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { colors, spacing } from "@/theme/tokens";
@@ -59,6 +60,23 @@ const permissionGuide: { id: AndroidGuideId; label: string }[] = [
   },
 ];
 
+function formatLastPause(iso: string | undefined, locale: "en" | "es"): string {
+  if (!iso) return locale === "es" ? "sin pausa aún" : "no pause yet";
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return locale === "es" ? "sin pausa aún" : "no pause yet";
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
+  if (minutes < 1) return locale === "es" ? "última pausa: ahora" : "last pause: just now";
+  if (minutes < 60) {
+    return locale === "es"
+      ? `última pausa: hace ${minutes} min`
+      : `last pause: ${minutes} min ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  return locale === "es"
+    ? `última pausa: hace ${hours} h`
+    : `last pause: ${hours} h ago`;
+}
+
 function confirmAccessibilityDisclosure(): Promise<boolean> {
   return new Promise((resolve) => {
     Alert.alert(
@@ -86,6 +104,7 @@ function confirmAccessibilityDisclosure(): Promise<boolean> {
 export default function AndroidSetupScreen() {
   const { config, health, refresh } = useAppState();
   const [localHealth, setLocalHealth] = useState<RestrictionHealth>(health);
+  const [appsState, setAppsState] = useState<SelectedAppState[]>([]);
   const [setupBusy, setSetupBusy] = useState(false);
   const [statsBusy, setStatsBusy] = useState(false);
   const restrictionsEnabled = isPauseFeatureEnabled("android", config);
@@ -98,6 +117,8 @@ export default function AndroidSetupScreen() {
   const refreshHealth = useCallback(async () => {
     const next = await restrictionEngine.getHealth().catch(() => null);
     if (next) setLocalHealth(next);
+    const apps = await restrictionEngine.getSelectedAppsState?.().catch(() => []);
+    if (apps) setAppsState(apps);
   }, []);
 
   useEffect(() => setLocalHealth(health), [health]);
@@ -277,6 +298,23 @@ export default function AndroidSetupScreen() {
         ))}
       </View>
 
+      {appsState.length > 0 ? (
+        <View style={styles.appsState}>
+          <Eyebrow>{localize("YOUR APPS TODAY", "TUS APPS HOY")}</Eyebrow>
+          {appsState.map((app) => (
+            <View key={app.packageName} style={styles.appStateRow}>
+              <Body style={styles.appStateName}>{app.label}</Body>
+              <Body style={styles.appStateDetail}>
+                {localize(
+                  `${app.avoidedOpensToday} avoided · ${formatLastPause(app.lastPauseAt, "en")}`,
+                  `${app.avoidedOpensToday} evitadas · ${formatLastPause(app.lastPauseAt, "es")}`,
+                )}
+              </Body>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.optional}>
         <View style={styles.statusRow}>
           <Eyebrow>
@@ -353,6 +391,19 @@ const styles = StyleSheet.create({
   },
   steps: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.fog },
   guide: { gap: spacing.md, marginTop: spacing.sm },
+  appsState: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.chalkRaised,
+  },
+  appStateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  appStateName: { fontSize: 15 },
+  appStateDetail: { color: colors.graphiteSoft, fontSize: 13 },
   step: {
     paddingVertical: spacing.lg,
     flexDirection: "row",

@@ -395,6 +395,49 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun hasPendingIntervention(promise: Promise) = promise.resolve(false)
 
+  /**
+   * The apps the user chose, each with today's activity and when Still last
+   * paused it, for the per-app state in Settings and the apps screen. Labels are
+   * resolved here so the bridge never has to carry icons.
+   */
+  @ReactMethod
+  fun getSelectedAppsState(promise: Promise) {
+    val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val apps = Arguments.createArray()
+    selected
+      .map { packageName ->
+        val label = runCatching {
+          context.packageManager.getApplicationLabel(
+            context.packageManager.getApplicationInfo(packageName, 0),
+          ).toString()
+        }.getOrDefault(packageName)
+        packageName to label
+      }
+      .sortedBy { it.second.lowercase() }
+      .forEach { (packageName, label) ->
+        apps.pushMap(Arguments.createMap().apply {
+          putString("packageName", packageName)
+          putString("label", label)
+          preferences.getString(appStateKey(STATE_LAST_PAUSE_AT, packageName), null)
+            ?.let { putString("lastPauseAt", it) }
+          putInt(
+            "openAttemptsToday",
+            preferences.getInt(appMetricKey(METRIC_APP_OPEN_ATTEMPTS, day, packageName), 0),
+          )
+          putInt(
+            "avoidedOpensToday",
+            preferences.getInt(appMetricKey(METRIC_APP_AVOIDED_OPENS, day, packageName), 0),
+          )
+          putInt(
+            "unlocksToday",
+            preferences.getInt(appMetricKey(METRIC_APP_UNLOCKS, day, packageName), 0),
+          )
+        })
+      }
+    promise.resolve(apps)
+  }
+
   @ReactMethod
   fun getLocalWellbeing(promise: Promise) {
     val day = LocalDate.now(ZoneOffset.UTC).toString()
@@ -563,8 +606,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_EXTERNAL_AUTH_BYPASS_UNTIL = "external_auth_bypass_until"
     const val KEY_EXTERNAL_AUTH_BYPASS_BOOT = "external_auth_bypass_boot"
 
+    const val STATE_LAST_PAUSE_AT = "app_last_pause_at"
+
     fun appMetricKey(metric: String, day: String, packageName: String) =
       "$metric:$day:$packageName"
+
+    fun appStateKey(state: String, packageName: String) = "$state:$packageName"
     private const val EXTERNAL_AUTH_BYPASS_TIMEOUT_MS = 10 * 60 * 1_000L
     private const val PICKER_REQUEST = 4270
   }
