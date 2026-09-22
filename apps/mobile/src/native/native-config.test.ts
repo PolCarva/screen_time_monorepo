@@ -21,6 +21,12 @@ describe("committed native production configuration", () => {
     const accessibilityService = nativeFile(
       "android/app/src/main/java/com/still/screentime/StillAccessibilityService.kt",
     );
+    const appPicker = nativeFile(
+      "android/app/src/main/java/com/still/screentime/AppPickerActivity.kt",
+    );
+    const selfProtection = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillSelfProtection.kt",
+    );
 
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
@@ -36,16 +42,65 @@ describe("committed native production configuration", () => {
       'android:value="ca-app-pub-8052007653549292~3132195218"',
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
-    expect(intervention).toContain("hasAvailablePass");
-    expect(intervention).toContain('else -> "Open Still to get a pass"');
+    // The shield shows the rewarded ad and the decision in the same screen,
+    // with the pass / emergency / pause fallbacks all native (no jump to RN).
+    expect(intervention).toContain("StillRewardedAdManager.show(this)");
+    expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
+    expect(intervention).toContain("USE_REWARDED_PASS");
+    expect(intervention).toContain("USE_EMERGENCY");
+    expect(intervention).toContain("TIMED_PAUSE");
+    expect(intervention).toContain("KEY_UNLOCK_OUTBOX");
+    // The old deep-link jump into React Native is gone.
+    expect(intervention).not.toContain('scheme("still")');
+    expect(intervention).toContain("override fun onNewIntent");
+    expect(intervention).toContain("METRIC_APP_AVOIDED_OPENS");
     expect(restrictionModule).toContain("LifecycleEventListener");
     expect(restrictionModule).toContain("override fun onHostResume()");
     expect(restrictionModule).toContain("ComponentName.unflattenFromString");
     expect(restrictionModule).not.toContain('promise.resolve("notDetermined")');
     expect(restrictionModule).toContain("beginExternalAuthSession");
     expect(restrictionModule).toContain("endExternalAuthSession");
+    expect(restrictionModule).toContain("cancelCurrentIntervention");
+    expect(restrictionModule).toContain("Intent.CATEGORY_HOME");
+    expect(restrictionModule).toContain(
+      'putString("wellbeingAuthorization"',
+    );
+    expect(restrictionModule).not.toContain(
+      'putString("issue", "usage_access_disabled")',
+    );
+    expect(restrictionModule).toContain(
+      "getLaunchIntentForPackage(packageName)",
+    );
+    expect(restrictionModule).toContain('"target_unavailable"');
+    expect(restrictionModule).toContain(".remove(KEY_CURRENT_PACKAGE)");
     expect(accessibilityService).toContain("isExternalAuthBrowser(target)");
     expect(accessibilityService).toContain("KEY_EXTERNAL_AUTH_BYPASS_BOOT");
+    expect(accessibilityService).toContain("METRIC_APP_OPEN_ATTEMPTS");
+    expect(accessibilityService).toContain("alreadyPending");
+    expect(accessibilityService).toContain("EXTRA_TARGET_ATTEMPTS");
+    expect(accessibilityService).toContain(
+      "StillSelfProtection.isOwnPackage(packageName, target)",
+    );
+    expect(
+      accessibilityService.indexOf(
+        "StillSelfProtection.isOwnPackage(packageName, target)",
+      ),
+    ).toBeLessThan(accessibilityService.indexOf("val selected ="));
+    expect(appPicker).toMatch(
+      /StillSelfProtection\s*\.sanitizePreferences\(preferences, packageName\)/,
+    );
+    expect(appPicker).toContain(
+      "!StillSelfProtection.isOwnPackage(packageName, it.packageName)",
+    );
+    expect(restrictionModule).toContain(
+      "StillSelfProtection.sanitizePreferences",
+    );
+    expect(restrictionModule).toContain('promise.reject("invalid_target"');
+    expect(intervention).toContain(
+      "StillSelfProtection.isOwnPackage(packageName, targetPackage)",
+    );
+    expect(selfProtection).toContain("fun withoutOwnPackage");
+    expect(selfProtection).toContain(".remove(KEY_CURRENT_PACKAGE)");
   });
 
   it("keeps iOS identity, deep linking, ads, and Screen Time entitlements in sync", () => {
@@ -53,6 +108,21 @@ describe("committed native production configuration", () => {
     const project = nativeFile("ios/Still.xcodeproj/project.pbxproj");
     const sharedState = nativeFile(
       "ios/StillNative/SharedRestrictionState.swift",
+    );
+    const restrictionEngine = nativeFile(
+      "ios/StillNative/StillRestrictionEngine.swift",
+    );
+    const restrictionBridge = nativeFile(
+      "ios/StillNative/StillRestrictionEngine.m",
+    );
+    const shortcutIntent = nativeFile(
+      "ios/StillNative/StillShortcutIntent.swift",
+    );
+    const shieldAction = nativeFile(
+      "ios/StillShieldAction/ShieldActionExtension.swift",
+    );
+    const shieldConfiguration = nativeFile(
+      "ios/StillShieldConfiguration/ShieldConfigurationExtension.swift",
     );
     const entitlementPaths = [
       "ios/Still/Still.entitlements",
@@ -75,6 +145,92 @@ describe("committed native production configuration", () => {
     expect(sharedState).not.toContain(
       "LocalWallet(rewarded: 0, emergency: 3, resetAt:",
     );
+    expect(sharedState).toContain("beginExternalBrowserBypass");
+    expect(sharedState).toContain("externalBrowserBypassActive");
+    expect(sharedState).toContain("still.external-browser");
+    expect(sharedState).toContain("15 * 60");
+    expect(restrictionEngine).toContain("beginExternalAuthSession");
+    expect(restrictionEngine).toContain("endExternalAuthSession");
+    expect(restrictionBridge).toContain("beginExternalAuthSession");
+    expect(restrictionBridge).toContain("endExternalAuthSession");
+    expect(restrictionEngine).toContain("enableShortcutMode");
+    expect(restrictionEngine).toContain("completeShortcutIntervention");
+    expect(restrictionBridge).toContain("enableShortcutMode");
+    expect(restrictionBridge).toContain("completeShortcutIntervention");
+    expect(sharedState).toContain("targetProductMetrics:");
+    expect(sharedState).toContain(
+      "guard restrictionsEnabled, !shortcutModeEnabled",
+    );
+    expect(shortcutIntent).toContain(
+      "struct PauseBeforeOpeningIntent: AppIntent",
+    );
+    expect(shortcutIntent).toContain("requestToContinueInForeground");
+    expect(shortcutIntent).toContain('components.scheme = "shortcuts"');
+    expect(shortcutIntent).toContain("recordOpenAttempt");
+    expect(shortcutIntent).toContain(
+      "let targetKey = key(appName: cleanAppName)",
+    );
+    expect(shortcutIntent).not.toContain(
+      "key(appName: String, returnShortcutName:",
+    );
+    expect(project).toContain("StillShortcutIntent.swift in Sources");
+    // A regenerated project must keep the intent, or Shortcuts silently loses
+    // the action while the app still builds.
+    expect(nativeFile("scripts/configure-ios-targets.rb")).toContain(
+      "StillShortcutIntent.swift",
+    );
+
+    // Pausa vía Atajos v2: targets chosen in Still, direct return, real health.
+    expect(info).toContain("<key>LSApplicationQueriesSchemes</key>");
+    expect(shortcutIntent).toContain("enum ShortcutTargetStore");
+    expect(shortcutIntent).toContain(
+      "struct ShortcutTargetOptionsProvider: DynamicOptionsProvider",
+    );
+    expect(shortcutIntent).toContain(
+      "optionsProvider: ShortcutTargetOptionsProvider()",
+    );
+    expect(shortcutIntent).toContain(
+      "let target = ShortcutTargetStore.resolve(appName: requestedName)",
+    );
+    expect(shortcutIntent).toContain(
+      "ShortcutTargetStore.markTriggered(targetKey)",
+    );
+    // The remote kill switch and a removed app both keep the intent silent.
+    expect(shortcutIntent).toContain(
+      'guard SharedRestrictionState.restrictionsEnabled, target.state != "removed"',
+    );
+    expect(shortcutIntent).toContain("consumeSetupProbe(for: targetKey)");
+    // "Current App" names Shortcuts when run by hand; never pause it or Still.
+    expect(shortcutIntent).toContain(
+      "guard !ShortcutTargetStore.isReserved(requestedName) else { return nil }",
+    );
+    // Only a bare `scheme://` may ever be stored as a way back.
+    expect(shortcutIntent).toContain('candidate == "\\(scheme)://"');
+    expect(shortcutIntent).toContain('"still", "shortcuts", "http", "https"');
+    expect(shortcutIntent).toContain(
+      "-> (String, Date, URL, URL?)",
+    );
+    for (const method of [
+      "setShortcutTargets",
+      "getShortcutTargetsHealth",
+      "beginShortcutSetupProbe",
+      "finishShortcutSetupTest",
+      "suspendToHome",
+    ]) {
+      expect(restrictionEngine).toContain(`@objc func ${method}(`);
+      expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);
+    }
+    // Swift and JavaScript must derive the same return shortcut name, and it
+    // must be typeable: the user creates that shortcut by hand.
+    expect(shortcutIntent).toContain('returnShortcutPrefix = "Still - "');
+    expect(
+      nativeFile("src/lib/shortcut-targets.ts"),
+    ).toContain("return `Still - ${appName}`;");
+    expect(restrictionEngine).toContain('"fallbackReturnUrl"');
+    expect(restrictionEngine).toContain('"shortcuts_not_verified"');
+    expect(restrictionEngine).not.toContain('"engineActive": true,');
+    expect(shieldAction).toContain("targetMetricScope:");
+    expect(shieldConfiguration).toContain("todayMetrics(for: application)");
 
     for (const identifier of [
       "com.still.screentime",

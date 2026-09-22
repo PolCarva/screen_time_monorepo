@@ -1,208 +1,37 @@
-import { StatusBar } from "expo-status-bar";
-import { formatUnlockDuration } from "@screen-time/contracts";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Redirect, useLocalSearchParams } from "expo-router";
 
-import { AttentionField } from "@/components/attention-field";
-import { Screen } from "@/components/screen";
-import { Body, Display, Eyebrow } from "@/components/typography";
+import { ShortcutIntervention } from "@/components/shortcut-intervention";
 import { localize } from "@/i18n";
-import { useAppState } from "@/state/app-state";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { useLeaveToHome } from "@/native/use-leave-to-home";
 
+/**
+ * The only in-app intervention screen is the iOS Shortcuts pause, which arrives
+ * with a `shortcutId`. On Android the shield, the ad and the decision are fully
+ * native (see `InterventionActivity`), so there is no longer a React Native
+ * intervention to jump to; any stray navigation here returns to Today.
+ */
 export default function InterventionScreen() {
-  const { app } = useLocalSearchParams<{ app?: string }>();
-  const { wallet, preferences, stats, unlockCurrent } = useAppState();
-  const [busy, setBusy] = useState(false);
-  const durationLabel = localize(
-    formatUnlockDuration(preferences.unlockDurationSeconds, "en"),
-    formatUnlockDuration(preferences.unlockDurationSeconds, "es"),
-  );
-  const hasRewardedPass =
-    wallet.rewardedBalance > 0 && wallet.rewardedPassesRemainingToday > 0;
-  const hasEmergencyAccess = wallet.emergencyRemaining > 0;
-  const appLabel = app || localize("Selected app", "App seleccionada");
-  const attempts = Math.max(
-    stats.openAttempts,
-    stats.avoidedOpens + stats.unlocks,
-  );
+  const { app, attempts, shortcutId, setupTest } = useLocalSearchParams<{
+    app?: string;
+    attempts?: string;
+    shortcutId?: string;
+    setupTest?: string;
+  }>();
 
-  async function unlock() {
-    setBusy(true);
-    try {
-      if (!hasRewardedPass && !hasEmergencyAccess) {
-        router.replace("/(tabs)/(tokens)");
-        return;
-      }
-      const session = await unlockCurrent();
-      router.replace({
-        pathname: "/unlock-ready",
-        params: { endsAt: session.endsAt },
-      });
-    } catch {
-      Alert.alert(
-        localize("Couldn’t open the app", "No se pudo abrir la app"),
-        localize(
-          "No pass was lost. Try again from Still.",
-          "No perdiste ningún pase. Inténtalo otra vez desde Still.",
-        ),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+  const leaveToHome = useLeaveToHome();
 
-  const secondaryLabel = busy
-    ? localize("Opening…", "Abriendo…")
-    : hasRewardedPass
-      ? localize(
-          `Use 1 pass · ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}`,
-          `Usar 1 pase · ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}`,
-        )
-      : hasEmergencyAccess
-        ? localize(
-            `Emergency access · ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}`,
-            `Acceso de emergencia · ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}`,
-          )
-        : localize("Get a pass", "Conseguir un pase");
+  if (!shortcutId) return <Redirect href="/(tabs)/(today)" />;
 
+  const parsed = Number.parseInt(attempts ?? "", 10);
   return (
-    <Screen style={styles.root} contentContainerStyle={styles.screen}>
-      <StatusBar style="light" />
-      <View style={styles.topline}>
-        <Eyebrow style={styles.lightLabel}>{appLabel}</Eyebrow>
-      </View>
-
-      <AttentionField
-        accessibilityLabel={localize(
-          "The attention field opens to make space for a decision.",
-          "El campo de atención se abre para dejar espacio a una decisión.",
-        )}
-        mode="intervention"
-        dark
-      />
-
-      <View style={styles.copy}>
-        <Display style={styles.title}>
-          {localize(
-            `${appLabel} opened\n${attempts} ${attempts === 1 ? "time" : "times"} today.`,
-            `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`,
-          )}
-        </Display>
-        <Body style={styles.question}>
-          {localize(
-            preferences.unlockDurationSeconds >= 86_400
-              ? "What do you want from the rest of the day?"
-              : `What do you want from the next ${durationLabel}?`,
-            preferences.unlockDurationSeconds >= 86_400
-              ? "¿Qué quieres del resto del día?"
-              : `¿Qué quieres de los próximos ${durationLabel}?`,
-          )}
-        </Body>
-      </View>
-
-      <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryLabel}>
-            {localize("Go back", "Volver")}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={unlock}
-          style={({ pressed }) => [
-            styles.secondary,
-            pressed && styles.pressed,
-            busy && styles.disabled,
-          ]}
-        >
-          <Text style={styles.secondaryLabel}>{secondaryLabel}</Text>
-          <Text style={styles.secondaryArrow}>→</Text>
-        </Pressable>
-        <Body style={styles.note}>
-          {localize(
-            `The pause returns after ${durationLabel}. Continuing is a choice, not a failure.`,
-            `La pausa vuelve después de ${durationLabel}. Continuar es una elección, no un fracaso.`,
-          )}
-        </Body>
-      </View>
-    </Screen>
+    <ShortcutIntervention
+      appLabel={app || localize("Selected app", "App seleccionada")}
+      attempts={Number.isFinite(parsed) && parsed > 0 ? parsed : 1}
+      isSetupTest={setupTest === "1"}
+      onLeave={async () => {
+        await leaveToHome();
+      }}
+      shortcutId={shortcutId}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.graphite },
-  screen: {
-    minHeight: 760,
-    flexGrow: 1,
-    justifyContent: "space-between",
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.graphite,
-  },
-  topline: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  lightLabel: { color: colors.chalk },
-  timer: {
-    color: colors.chalk,
-    fontFamily: fonts.brandSemiBold,
-    letterSpacing: 1,
-  },
-  copy: { gap: spacing.lg },
-  title: {
-    color: colors.chalk,
-    fontSize: 38,
-    lineHeight: 41,
-    letterSpacing: -1.2,
-  },
-  question: { color: colors.mineralLight, fontSize: 15, lineHeight: 22 },
-  actions: { gap: 0 },
-  primary: {
-    minHeight: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 4,
-    backgroundColor: colors.chalk,
-  },
-  primaryLabel: {
-    color: colors.graphite,
-    fontFamily: fonts.brandSemiBold,
-    fontSize: 15,
-  },
-  secondary: {
-    minHeight: 64,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.graphiteSoft,
-  },
-  secondaryLabel: {
-    color: colors.chalk,
-    fontFamily: fonts.brandSemiBold,
-    fontSize: 15,
-  },
-  secondaryArrow: {
-    color: colors.chalk,
-    fontFamily: fonts.brandMedium,
-    fontSize: 21,
-  },
-  note: {
-    paddingTop: spacing.lg,
-    color: colors.mineralLight,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  pressed: { opacity: 0.62 },
-  disabled: { opacity: 0.42 },
-});

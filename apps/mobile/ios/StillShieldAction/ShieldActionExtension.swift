@@ -17,7 +17,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
     let duration = SharedRestrictionState.unlockDurationSeconds
-    handle(action: action, beginUnlock: {
+    let metricScope = SharedRestrictionState.metricScope(application: application)
+    handle(action: action, targetMetricScope: metricScope, beginUnlock: {
       try SharedRestrictionState.beginUnlock(application: application, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(application)
@@ -30,7 +31,9 @@ final class ShieldActionExtension: ShieldActionDelegate {
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
     let duration = SharedRestrictionState.unlockDurationSeconds
-    handle(action: action, beginUnlock: {
+    let fallbackScope = SharedRestrictionState.metricScope(category: category)
+    let metricScope = SharedRestrictionState.currentShieldMetricScope(fallback: fallbackScope)
+    handle(action: action, targetMetricScope: metricScope, beginUnlock: {
       try SharedRestrictionState.beginUnlock(category: category, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(category)
@@ -43,7 +46,9 @@ final class ShieldActionExtension: ShieldActionDelegate {
     completionHandler: @escaping (ShieldActionResponse) -> Void
   ) {
     let duration = SharedRestrictionState.unlockDurationSeconds
-    handle(action: action, beginUnlock: {
+    let fallbackScope = SharedRestrictionState.metricScope(webDomain: webDomain)
+    let metricScope = SharedRestrictionState.currentShieldMetricScope(fallback: fallbackScope)
+    handle(action: action, targetMetricScope: metricScope, beginUnlock: {
       try SharedRestrictionState.beginUnlock(webDomain: webDomain, durationSeconds: duration, scheduleMonitoring: shouldScheduleMonitoring)
     }, onUnavailable: {
       SharedRestrictionState.savePendingTarget(webDomain)
@@ -52,6 +57,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
 
   private func handle(
     action: ShieldAction,
+    targetMetricScope: String,
     beginUnlock: () throws -> (String, Date),
     onUnavailable: () -> Void = {},
     durationSeconds: Int,
@@ -64,14 +70,14 @@ final class ShieldActionExtension: ShieldActionDelegate {
       return
     }
     guard action == .secondaryButtonPressed else {
-      SharedRestrictionState.recordIntervention(avoided: true, unlocked: false)
+      SharedRestrictionState.recordIntervention(targetMetricScope: targetMetricScope, avoided: true, unlocked: false)
       SharedRestrictionState.flush()
       completionHandler(.close)
       return
     }
 
     guard let source = SharedRestrictionState.consumeAvailableUnlock() else {
-      SharedRestrictionState.recordIntervention(avoided: false, unlocked: false)
+      SharedRestrictionState.recordIntervention(targetMetricScope: targetMetricScope, avoided: false, unlocked: false)
       let requestId = SharedRestrictionState.markRechargeRequested()
       onUnavailable()
       SharedRestrictionState.flush()
@@ -87,7 +93,7 @@ final class ShieldActionExtension: ShieldActionDelegate {
       durationSeconds: durationSeconds,
       startedAt: startedAt
     ))
-    SharedRestrictionState.recordIntervention(avoided: false, unlocked: true)
+    SharedRestrictionState.recordIntervention(targetMetricScope: targetMetricScope, avoided: false, unlocked: true)
     SharedRestrictionState.flush()
 
     do {
@@ -100,8 +106,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
     } catch {
       SharedRestrictionState.acknowledgeUnlock(clientSessionId)
       SharedRestrictionState.refundUnlock(source)
-      SharedRestrictionState.rollbackUnlockedIntervention()
-      SharedRestrictionState.recordIntervention(avoided: false, unlocked: false)
+      SharedRestrictionState.rollbackUnlockedIntervention(targetMetricScope: targetMetricScope)
+      SharedRestrictionState.recordIntervention(targetMetricScope: targetMetricScope, avoided: false, unlocked: false)
       onUnavailable()
       SharedRestrictionState.flush()
       completionHandler(.defer)

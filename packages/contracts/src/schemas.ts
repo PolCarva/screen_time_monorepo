@@ -18,6 +18,10 @@ export const remoteConfigSchema = z
     votingEnabled: z.boolean(),
     iosRestrictionEnabled: z.boolean(),
     androidRestrictionEnabled: z.boolean(),
+    // Sends the user to the iOS Home Screen when they decline to open an app.
+    // iOS has no public API for that, so it ships off and stays remotely
+    // switchable. Configurations published before the flag existed read as off.
+    iosHomeOnCancelEnabled: z.boolean().default(false),
     publishedAt: isoDateTimeSchema,
   })
   .superRefine((config, context) => {
@@ -45,6 +49,7 @@ export const defaultRemoteConfig: RemoteConfig = {
   votingEnabled: false,
   iosRestrictionEnabled: false,
   androidRestrictionEnabled: false,
+  iosHomeOnCancelEnabled: false,
   publishedAt: "1970-01-01T00:00:00.000Z",
 };
 

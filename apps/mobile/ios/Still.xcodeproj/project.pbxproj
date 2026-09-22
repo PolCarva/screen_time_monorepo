@@ -10,6 +10,7 @@
 		01F8E8903DFC3CD13B3C86FB /* StillShieldConfiguration.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 75DB8D399908F71A78B3DD3C /* StillShieldConfiguration.appex */; };
 		0B6AC31BE982433B500B0576 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 86A1354A46C5D0F1E477E1AC /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1F90C6A1B33D4E19A27C1120 /* StillShortcutIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F90C6A0B33D4E19A27C1120 /* StillShortcutIntent.swift */; };
 		26DE55649387FAF9E6E49EA1 /* StillRestrictionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */; };
 		2D62980CDF0DFCAB02637ABE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAD6FEE7D603F6C2B9E9AF03 /* Foundation.framework */; };
 		37EDCD0EBBD04F527D70D8FE /* StillRestrictionEngine.m in Sources */ = {isa = PBXBuildFile; fileRef = 90C56F328EF2CE1BC601D140 /* StillRestrictionEngine.m */; };
@@ -89,6 +90,7 @@
 		13B07F961A680F5B00A75B9A /* Still.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Still.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Still/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Still/Info.plist; sourceTree = "<group>"; };
+		1F90C6A0B33D4E19A27C1120 /* StillShortcutIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillShortcutIntent.swift; path = StillNative/StillShortcutIntent.swift; sourceTree = "<group>"; };
 		23BD8C17DAA046DBC65BFDC0 /* StillShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillRestrictionEngine.swift; path = StillNative/StillRestrictionEngine.swift; sourceTree = "<group>"; };
 		2CC8F45AC489C0957CA29906 /* StillDeviceActivityReport.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillDeviceActivityReport.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -283,6 +285,7 @@
 			isa = PBXGroup;
 			children = (
 				C95652F22174F1132BACB0C0 /* SharedRestrictionState.swift */,
+				1F90C6A0B33D4E19A27C1120 /* StillShortcutIntent.swift */,
 				293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */,
 				90C56F328EF2CE1BC601D140 /* StillRestrictionEngine.m */,
 				D645E053729E6B0B27BD1691 /* StillActivityReportView.swift */,
@@ -662,6 +665,7 @@
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
 				5ED5E1C5DEA5EF8FCA574D76 /* SharedRestrictionState.swift in Sources */,
+				1F90C6A1B33D4E19A27C1120 /* StillShortcutIntent.swift in Sources */,
 				26DE55649387FAF9E6E49EA1 /* StillRestrictionEngine.swift in Sources */,
 				37EDCD0EBBD04F527D70D8FE /* StillRestrictionEngine.m in Sources */,
 				EEA10FA2FDCB43BD380F6CD6 /* ExpoModulesProvider.swift in Sources */,

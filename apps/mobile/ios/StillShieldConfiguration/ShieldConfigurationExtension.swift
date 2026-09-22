@@ -17,7 +17,8 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
   private let appGroup = "group.com.still.screentime"
   private let walletKey = "localWallet"
-  private let productMetricsPrefix = "productMetrics:"
+  private let targetProductMetricsPrefix = "targetProductMetrics:"
+  private let currentShieldMetricScopeKey = "currentShieldMetricScope"
   private let estimatedMinutesPerAvoidedOpenKey = "estimatedMinutesPerAvoidedOpen"
   private let unlockDurationSecondsKey = "unlockDurationSeconds"
   private let graphite = UIColor(red: 36/255, green: 40/255, blue: 38/255, alpha: 1)
@@ -42,41 +43,49 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     return "\(unlockDurationMinutes) min"
   }
 
-  private var todayKey: String {
+  private var today: String {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .gregorian)
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     formatter.dateFormat = "yyyy-MM-dd"
-    return productMetricsPrefix + formatter.string(from: Date())
+    return formatter.string(from: Date())
   }
 
-  private var todayMetrics: LocalProductMetrics {
+  private func metricScope(for application: Application) -> String? {
+    guard let token = application.token,
+          let data = try? JSONEncoder().encode(token)
+    else { return nil }
+    return "application:\(data.base64EncodedString())"
+  }
+
+  private func rememberCurrentMetricScope(for application: Application) {
+    guard let scope = metricScope(for: application),
+          let defaults = UserDefaults(suiteName: appGroup)
+    else { return }
+    defaults.set(scope, forKey: currentShieldMetricScopeKey)
+    defaults.synchronize()
+  }
+
+  private func todayMetrics(for application: Application) -> LocalProductMetrics {
+    guard let scope = metricScope(for: application) else {
+      return .init(openAttempts: 0, avoidedOpens: 0, unlocks: 0)
+    }
+    let key = "\(targetProductMetricsPrefix)\(scope):\(today)"
     guard let defaults = UserDefaults(suiteName: appGroup),
-          let data = defaults.data(forKey: todayKey),
+          let data = defaults.data(forKey: key),
           let metrics = try? JSONDecoder().decode(LocalProductMetrics.self, from: data)
     else { return .init(openAttempts: 0, avoidedOpens: 0, unlocks: 0) }
     return metrics
   }
 
-  private var impactSummary: String {
-    let avoidedOpens = lifetimeAvoidedOpens
+  private func impactSummary(for application: Application, appName: String) -> String {
+    let avoidedOpens = todayMetrics(for: application).avoidedOpens
     let estimatedMinutes = Double(avoidedOpens) * estimatedMinutesPerAvoidedOpen
     let duration = formatSavedTime(minutes: estimatedMinutes)
     return avoidedOpens == 1
-      ? copy("1 automatic open avoided · \(duration) returned (est.)", "1 apertura automática evitada · \(duration) recuperados (est.)")
-      : copy("\(avoidedOpens) automatic opens avoided · \(duration) returned (est.)", "\(avoidedOpens) aperturas automáticas evitadas · \(duration) recuperados (est.)")
-  }
-
-  private var lifetimeAvoidedOpens: Int {
-    guard let defaults = UserDefaults(suiteName: appGroup) else { return 0 }
-    return defaults.dictionaryRepresentation().reduce(into: 0) { total, entry in
-      guard entry.key.hasPrefix(productMetricsPrefix),
-            let data = entry.value as? Data,
-            let metrics = try? JSONDecoder().decode(LocalProductMetrics.self, from: data)
-      else { return }
-      total += max(0, metrics.avoidedOpens)
-    }
+      ? copy("1 automatic \(appName) open avoided today · \(duration) returned (est.)", "1 apertura automática de \(appName) evitada hoy · \(duration) recuperados (est.)")
+      : copy("\(avoidedOpens) automatic \(appName) opens avoided today · \(duration) returned (est.)", "\(avoidedOpens) aperturas automáticas de \(appName) evitadas hoy · \(duration) recuperados (est.)")
   }
 
   private var estimatedMinutesPerAvoidedOpen: Double {
@@ -126,6 +135,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   }
 
   override func configuration(shielding application: Application) -> ShieldConfiguration {
+    rememberCurrentMetricScope(for: application)
     let unlock = availableUnlock
     let canUnlock: Bool
     let secondaryButtonText: String
@@ -141,7 +151,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")
     }
     let appName = application.localizedDisplayName ?? copy("Selected app", "App seleccionada")
-    let attempt = todayMetrics.openAttempts + 1
+    let attempt = todayMetrics(for: application).openAttempts + 1
     let observedFact = attempt == 1
       ? copy("\(appName) opened once today.", "\(appName) se abrió una vez hoy.")
       : copy("\(appName) opened \(attempt) times today.", "\(appName) se abrió \(attempt) veces hoy.")
@@ -154,7 +164,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
       subtitle: .init(
         text: (unlockDurationLabel == copy("all day", "todo el día")
           ? copy("What do you want from the rest of the day?", "¿Qué quieres del resto del día?")
-          : copy("What do you want from the next \(unlockDurationLabel)?", "¿Qué quieres de los próximos \(unlockDurationLabel)?")) + "\n\n" + impactSummary,
+          : copy("What do you want from the next \(unlockDurationLabel)?", "¿Qué quieres de los próximos \(unlockDurationLabel)?")) + "\n\n" + impactSummary(for: application, appName: appName),
         color: mineralLight
       ),
       primaryButtonLabel: .init(text: copy("Go back", "Volver"), color: graphite),

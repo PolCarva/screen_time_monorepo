@@ -1,0 +1,24 @@
+{
+  "comment": "Crops and ring targets for the real Android Accessibility captures shown in Still's setup guide. Numbers are in screen pixels of the capture device (Pixel 6 emulator, 1080x2400, Android 14). `crop` is [x,y,w,h]; `highlight` is [x,y,w,h] in full-screen pixels and is drawn as a ring by the app, never burned into the PNG.",
+  "screen": { "width": 1080, "height": 2400 },
+  "images": [
+    {
+      "id": "accessibility-find-still",
+      "source": "01-list.png",
+      "crop": [0, 628, 1080, 396],
+      "highlight": [40, 735, 1000, 176]
+    },
+    {
+      "id": "accessibility-turn-on",
+      "source": "02-still-page.png",
+      "crop": [0, 120, 1080, 800],
+      "highlight": [815, 655, 200, 168]
+    },
+    {
+      "id": "accessibility-allow",
+      "source": "03-allow.png",
+      "crop": [0, 600, 1080, 1180],
+      "highlight": [50, 1522, 980, 190]
+    }
+  ]
+}

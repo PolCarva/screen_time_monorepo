@@ -2,7 +2,7 @@
 
 ## Bootstrap
 
-1. Install Node 22+, pnpm 10.8.1, Supabase CLI + Docker, Android SDK 36, and JDK 17. Xcode 26/CocoaPods are optional and used only for the dormant, non-release iOS spike.
+1. Install Node 22+, pnpm 10.8.1, Supabase CLI + Docker, Android SDK 36, and JDK 17. Xcode 26+/CocoaPods are optional and used only for the unreleased iOS Shortcuts flow; installing on an iOS 27 device needs an Xcode with the iOS 27 SDK or an EAS build.
 2. Copy `.env.example`, `apps/web/.env.example`, and `apps/mobile/.env.example` to matching `.env.local` files.
 3. Run `pnpm install --frozen-lockfile`.
 4. Run `supabase start`, copy its local URL/keys into the env files, then run `supabase db reset` to apply migrations and `supabase/seed.sql`.
@@ -33,7 +33,7 @@ Public values are bundled into clients and must never contain secrets.
 | `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED`                                                          | mobile       | yes; must be `true`    | enable the sole social identity provider            |
 | `ADMOB_ANDROID_APP_ID`                                                                     | mobile build | yes                    | Android Mobile Ads initialization                   |
 | `EXPO_PUBLIC_ADMOB_REWARDED_ANDROID`                                                       | mobile       | yes                    | Android rewarded ad unit                            |
-| `ADMOB_IOS_APP_ID`, `EXPO_PUBLIC_ADMOB_REWARDED_IOS`                                       | dormant iOS  | no                     | optional future iOS target; sample defaults only    |
+| `ADMOB_IOS_APP_ID`, `EXPO_PUBLIC_ADMOB_REWARDED_IOS`                                       | unreleased iOS | no; required before an iOS release | iOS Shortcuts flow; sample defaults until then. The committed `Info.plist` already carries the production app id |
 | `EXPO_PUBLIC_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`                                      | mobile       | recommended            | privacy-scrubbed product analytics                  |
 | `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`                                                     | mobile/web   | recommended            | crash/error telemetry                               |
 

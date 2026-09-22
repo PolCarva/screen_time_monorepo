@@ -76,6 +76,8 @@ function OperationalSetup({
           </label>
           <label><input defaultChecked={config?.votingEnabled ?? false} name="votingEnabled" type="checkbox" /> Votación habilitada</label>
           <label><input defaultChecked={config?.androidRestrictionEnabled ?? false} name="androidRestrictionEnabled" type="checkbox" /> Restricciones Android habilitadas</label>
+          <label><input defaultChecked={config?.iosRestrictionEnabled ?? false} name="iosRestrictionEnabled" type="checkbox" /> Pausas iOS (Atajos) habilitadas</label>
+          <label><input defaultChecked={config?.iosHomeOnCancelEnabled ?? false} name="iosHomeOnCancelEnabled" type="checkbox" /> iOS: salir a la pantalla de inicio al elegir «Ya no quiero entrar»</label>
         </AdminActionForm>
       </section>
 

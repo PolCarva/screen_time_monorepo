@@ -33,6 +33,21 @@ Unit coverage targets contract/domain transitions, offline wallet projection, Go
 - Google identity is configured in Supabase and EAS, Google Auth Platform is published for external users, Search Console ownership is verified, and AdMob Reporting is connected. Google's brand-review appeal is submitted; its external decision and a signed-device identity link/return test remain.
 - Android Accessibility timing and OEM background behavior require real devices and Play review.
 - A real Android AdMob test-device impression, SSV callback, UMP presentation, and provider-link flow require a signed physical-device run. The Reporting API import is verified; the Android AdMob app remains pending Play-listing association.
-- iOS and Apple Developer enrollment are outside the current release scope and do not gate Android v1.
+- iOS and Apple Developer enrollment are outside the current release scope and do not gate Android v1. The iOS Shortcuts pause has local evidence only (next section); every physical-device observation is still pending.
+
+## iOS Shortcuts flow — 2026-09-20
+
+Local evidence for the unreleased iOS pause (`ios-shortcuts.md`). The rows above are the Android v1 record and were not re-run as a whole.
+
+| Check | Result |
+| --- | --- |
+| `pnpm check` | Passed: lint, TypeScript and 179 unit tests (contracts 15, web 29, mobile 135). |
+| `pnpm build` | Passed, including the Next.js production build. |
+| `supabase test db` | Passed 25 pgTAP invariants on the local stack after `supabase migration up --local` applied `202609050001` and `202609200001`. Not applied to production. |
+| `supabase db lint --local` | No errors; the same intentional unused-parameter warnings as before. |
+| iOS simulator build | `xcodebuild` Debug / iphonesimulator with signing disabled succeeded on Xcode 26.0.1 for Still and its four extensions, with no warnings in `StillNative`. |
+| `acceptance:ios-shortcuts` | Passed against that build: the action is discoverable, does not open Still unconditionally, keeps dynamic foregrounding, offers the chosen apps as options, and carries the production iOS AdMob app id. |
+| iOS 26.0 simulator walkthrough | Passed for everything after the trigger, driven by shortcuts that run Still's action (recipe and observations in `ios-shortcuts.md`). It found and fixed two bugs: the return to the app always failed because `Linking.openURL` was passed unbound, and one failed open disabled an app's URL scheme for good. "App is opened" automations cannot fire in the simulator, so the trigger itself is unproven. |
+| Physical iPhone | **Not run.** The twelve-point checklist in `ios-shortcuts.md` and hypotheses H1–H9 are pending. Nothing about automation timing, foregrounding without a dialog, URL-scheme return, the Home Screen exit or ad delivery on iOS has been observed. |
 
 Use the acceptance matrix in `native-feasibility.md` before promoting beyond a closed beta.

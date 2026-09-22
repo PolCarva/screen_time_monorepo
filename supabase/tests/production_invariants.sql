@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(21);
+select plan(25);
 
 select ok(
   not has_function_privilege('authenticated', 'public.reconcile_stale_reward_intents(integer)', 'EXECUTE'),
@@ -49,6 +49,7 @@ values (
     'votingEnabled', true,
     'iosRestrictionEnabled', true,
     'androidRestrictionEnabled', true,
+    'iosHomeOnCancelEnabled', false,
     'publishedAt', now()
   ),
   true,
@@ -319,6 +320,39 @@ select ok(
       and device_id is distinct from '90000000-0000-4000-8000-000000000002'
   ),
   'deletion rollback restores the original device reference'
+);
+
+select ok(
+  not exists (
+    select 1 from public.remote_config_versions
+    where jsonb_typeof(payload->'iosHomeOnCancelEnabled') is distinct from 'boolean'
+  ),
+  'every stored configuration states the iOS home-on-cancel flag'
+);
+select ok(
+  not (select (payload->>'iosHomeOnCancelEnabled')::boolean
+       from public.remote_config_versions where is_active),
+  'the iOS home-on-cancel behaviour starts disabled'
+);
+
+insert into public.admin_users (user_id, role)
+values ('90000000-0000-4000-8000-000000000001', 'admin');
+select throws_ok(
+  $$select public.admin_publish_remote_config(
+    '90000000-0000-4000-8000-000000000001',
+    (select payload - 'iosHomeOnCancelEnabled'
+     from public.remote_config_versions where is_active)
+  )$$,
+  'P0001', 'invalid_ios_home_on_cancel_flag',
+  'a configuration cannot be published without the iOS home-on-cancel flag'
+);
+select lives_ok(
+  $$select public.admin_publish_remote_config(
+    '90000000-0000-4000-8000-000000000001',
+    (select payload || jsonb_build_object('iosHomeOnCancelEnabled', true)
+     from public.remote_config_versions where is_active)
+  )$$,
+  'an operator can switch the iOS home-on-cancel behaviour on'
 );
 
 select * from finish();

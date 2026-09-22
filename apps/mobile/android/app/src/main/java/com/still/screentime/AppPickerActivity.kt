@@ -35,10 +35,9 @@ class AppPickerActivity : Activity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     preferences = getSharedPreferences(StillRestrictionModule.PREFERENCES, Context.MODE_PRIVATE)
-    selected = preferences
-      .getStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, emptySet())
-      ?.toMutableSet()
-      ?: mutableSetOf()
+    selected = StillSelfProtection
+      .sanitizePreferences(preferences, packageName)
+      .toMutableSet()
     originalCount = selected.size
 
     window.statusBarColor = chalkRaised
@@ -53,7 +52,8 @@ class AppPickerActivity : Activity() {
     val launchable = packageManager.getInstalledApplications(0)
       .asSequence()
       .filter {
-        it.packageName != packageName && packageManager.getLaunchIntentForPackage(it.packageName) != null
+        !StillSelfProtection.isOwnPackage(packageName, it.packageName) &&
+          packageManager.getLaunchIntentForPackage(it.packageName) != null
       }
       .sortedBy { packageManager.getApplicationLabel(it).toString().lowercase(Locale.getDefault()) }
       .toList()
@@ -135,6 +135,7 @@ class AppPickerActivity : Activity() {
       }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
 
       addView(toolbarAction(if (spanish) "Listo" else "Done", mineral) {
+        selected = StillSelfProtection.withoutOwnPackage(packageName, selected).toMutableSet()
         preferences.edit().putStringSet(StillRestrictionModule.KEY_SELECTED_PACKAGES, selected).apply()
         setResult(RESULT_OK, Intent().putExtra(RESULT_COUNT, selected.size))
         finish()
@@ -201,6 +202,11 @@ class AppPickerActivity : Activity() {
       addView(indicator, LinearLayout.LayoutParams(dp(24), dp(24)))
       updateIndicator()
       setOnClickListener {
+        if (StillSelfProtection.isOwnPackage(this@AppPickerActivity.packageName, packageName)) {
+          selected.remove(packageName)
+          updateIndicator()
+          return@setOnClickListener
+        }
         if (!selected.add(packageName)) selected.remove(packageName)
         updateIndicator()
         contentDescription = "$label, ${if (packageName in selected) "selected" else "not selected"}"

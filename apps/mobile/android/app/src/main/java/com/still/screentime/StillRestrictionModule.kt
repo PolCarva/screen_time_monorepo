@@ -36,6 +36,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   private var pickerPromise: Promise? = null
 
   init {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     context.addActivityEventListener(this)
     context.addLifecycleEventListener(this)
   }
@@ -44,6 +45,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun requestAuthorization(promise: Promise) {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     if (isAccessibilityEnabled()) {
       promise.resolve("authorized")
       return
@@ -58,6 +60,57 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       authorizationPromise = null
       promise.resolve("unavailable")
     }
+  }
+
+  /**
+   * How Still was installed and on what device, so onboarding and the repair
+   * screen can explain OEM quirks and the Android 13+ "restricted settings" gate
+   * that blocks enabling Accessibility for a downloaded (non-store) build. There
+   * is no API to read the restricted-settings state directly; the install source
+   * is the documented heuristic.
+   */
+  @ReactMethod
+  fun getInstallEnvironment(promise: Promise) {
+    val sdkInt = android.os.Build.VERSION.SDK_INT
+    var packageSource = -1
+    if (sdkInt >= 33) {
+      packageSource = runCatching {
+        context.packageManager.getInstallSourceInfo(context.packageName).packageSource
+      }.getOrDefault(-1)
+    }
+    // PACKAGE_SOURCE_LOCAL_FILE (3) / DOWNLOADED_FILE (4) are the sources Android
+    // marks as restricted; store and other installs are not.
+    val likelyRestricted = sdkInt >= 33 && (packageSource == 3 || packageSource == 4)
+    promise.resolve(Arguments.createMap().apply {
+      putInt("sdkInt", sdkInt)
+      putInt("packageSource", packageSource)
+      putBoolean("likelyRestricted", likelyRestricted)
+      putString("manufacturer", android.os.Build.MANUFACTURER ?: "")
+    })
+  }
+
+  /** Opens Still's own App info screen, where the user allows restricted settings. */
+  @ReactMethod
+  fun openAppInfo(promise: Promise) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+      .setData(Uri.fromParts("package", context.packageName, null))
+    val opened = runCatching {
+      context.currentActivity?.startActivity(intent)
+        ?: context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
+    promise.resolve(opened)
+  }
+
+  /** Opens the Accessibility settings without waiting for a result (repair screen). */
+  @ReactMethod
+  fun openAccessibilitySettings(promise: Promise) {
+    val opened = runCatching {
+      context.currentActivity?.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        ?: context.startActivity(
+          Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.isSuccess
+    promise.resolve(opened)
   }
 
   @ReactMethod
@@ -80,6 +133,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun presentAppPicker(promise: Promise) {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val activity = context.currentActivity
     if (activity == null) {
       promise.reject("no_activity", "Still must be open to choose apps")
@@ -114,7 +168,34 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun applyRestrictions(selection: ReadableMap, promise: Promise) {
     // AppPickerActivity persists only opaque local package selections.
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     promise.resolve(null)
+  }
+
+  @ReactMethod
+  fun cancelCurrentIntervention(promise: Promise) {
+    val packageName = preferences.getString(KEY_CURRENT_PACKAGE, null)
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val totalKey = "avoided_opens:$day"
+    val editor = preferences.edit()
+      .remove(KEY_CURRENT_PACKAGE)
+    if (!packageName.isNullOrBlank() && !StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      val appKey = appMetricKey(METRIC_APP_AVOIDED_OPENS, day, packageName)
+      editor
+        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
+        .putInt(appKey, preferences.getInt(appKey, 0) + 1)
+    }
+    editor.apply()
+
+    val opened = runCatching {
+      context.startActivity(
+        Intent(Intent.ACTION_MAIN)
+          .addCategory(Intent.CATEGORY_HOME)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }.isSuccess
+    if (opened) promise.resolve(null)
+    else promise.reject("home_unavailable", "Android could not return to Home")
   }
 
   @ReactMethod
@@ -129,6 +210,16 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       promise.reject("missing_target", "No restricted app is waiting")
       return
     }
+    if (StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      StillSelfProtection.clearOwnTarget(preferences, context.packageName)
+      promise.reject("invalid_target", "Still cannot restrict or unlock itself")
+      return
+    }
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+    if (launchIntent == null) {
+      promise.reject("target_unavailable", "The restricted app is no longer available")
+      return
+    }
 
     val duration = durationSeconds.coerceIn(60, 86400)
     val now = SystemClock.elapsedRealtime()
@@ -140,15 +231,29 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       .putString("session:$sessionId", packageName)
       .apply()
 
+    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+    try {
+      context.startActivity(launchIntent)
+    } catch (error: Exception) {
+      preferences.edit()
+        .remove("session:$sessionId")
+        .remove("unlocked:$packageName")
+        .remove("unlocked_boot:$packageName")
+        .apply()
+      promise.reject("target_launch_failed", "Android could not reopen the restricted app", error)
+      return
+    }
+
     val day = LocalDate.now(ZoneOffset.UTC).toString()
     val unlocksKey = "unlocks:$day"
-    preferences.edit().putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1).apply()
+    val appUnlocksKey = appMetricKey(METRIC_APP_UNLOCKS, day, packageName)
+    preferences.edit()
+      .remove(KEY_CURRENT_PACKAGE)
+      .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
+      .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
+      .apply()
 
     Handler(Looper.getMainLooper()).postDelayed({ restoreSession(sessionId) }, duration * 1_000L)
-    context.packageManager.getLaunchIntentForPackage(packageName)?.let {
-      it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-      context.startActivity(it)
-    }
 
     val result = Arguments.createMap().apply {
       putString("id", sessionId)
@@ -165,18 +270,20 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun getHealth(promise: Promise) {
-    val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet())?.size ?: 0
+    val selected = StillSelfProtection
+      .sanitizePreferences(preferences, context.packageName)
+      .size
     val accessibilityEnabled = isAccessibilityEnabled()
     val usageAccessEnabled = hasUsageAccess()
     val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
     promise.resolve(Arguments.createMap().apply {
       putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
+      putString("wellbeingAuthorization", if (usageAccessEnabled) "authorized" else "denied")
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }
       if (!restrictionsEnabled) putString("issue", "restrictions_disabled")
       else if (!accessibilityEnabled) putString("issue", "accessibility_disabled")
-      else if (!usageAccessEnabled) putString("issue", "usage_access_disabled")
     })
   }
 
@@ -201,19 +308,191 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(null)
   }
 
+  /**
+   * React Native mirrors the reward eligibility it already computes
+   * (`canRequestReward` + kill switch) and the resolved ad unit into native
+   * storage, so the shield's ad manager can preload without duplicating that
+   * logic. Passing `adsEligible = false` stops preloading and drops any held ad.
+   */
   @ReactMethod
-  fun getPendingUnlockEvents(promise: Promise) = promise.resolve(Arguments.createArray())
+  fun syncRewardConfig(
+    adsEligible: Boolean,
+    adUnitId: String,
+    rewardProvider: String,
+    promise: Promise,
+  ) {
+    preferences.edit()
+      .putBoolean(KEY_ADS_ELIGIBLE, adsEligible)
+      .putString(KEY_ADMOB_REWARDED_UNIT, adUnitId)
+      .putString(KEY_REWARD_PROVIDER, rewardProvider)
+      .apply()
+    StillRewardedAdManager.preload(context, "sync-reward-config")
+    promise.resolve(null)
+  }
+
+  /**
+   * React Native drops a small buffer of pre-signed reward intents here while it
+   * is in the foreground. The shield consumes one to attach SSV before showing
+   * the ad, so the ad flow never has to reach the network mid-intervention.
+   */
+  @ReactMethod
+  fun setPresignedRewardIntents(intents: com.facebook.react.bridge.ReadableArray, promise: Promise) {
+    val array = org.json.JSONArray()
+    for (index in 0 until intents.size()) {
+      val item = intents.getMap(index) ?: continue
+      val id = item.getString("id") ?: continue
+      val customData = item.getString("customData") ?: continue
+      val expiresAt = item.getString("expiresAt") ?: continue
+      array.put(
+        org.json.JSONObject()
+          .put("id", id)
+          .put("customData", customData)
+          .put("userId", if (item.hasKey("userId")) item.getString("userId") else "anonymous")
+          .put("expiresAt", expiresAt),
+      )
+    }
+    preferences.edit().putString(KEY_PRESIGNED_INTENTS, array.toString()).apply()
+    promise.resolve(null)
+  }
+
+  /**
+   * Earned rewards recorded by the shield while React Native was not running.
+   * React Native claims each one on foreground and then acknowledges it.
+   */
+  @ReactMethod
+  fun getPendingAdResults(promise: Promise) {
+    val raw = preferences.getString(KEY_AD_OUTBOX, null)
+    val results = Arguments.createArray()
+    runCatching {
+      if (raw != null) {
+        val array = org.json.JSONArray(raw)
+        for (index in 0 until array.length()) {
+          val item = array.optJSONObject(index) ?: continue
+          results.pushMap(Arguments.createMap().apply {
+            putString("clientEventId", item.optString("clientEventId"))
+            putString("intentId", item.optString("intentId"))
+            putString("earnedAt", item.optString("earnedAt"))
+          })
+        }
+      }
+    }
+    promise.resolve(results)
+  }
 
   @ReactMethod
-  fun acknowledgeUnlockEvent(clientSessionId: String, promise: Promise) = promise.resolve(null)
+  fun acknowledgeAdResult(clientEventId: String, promise: Promise) {
+    val raw = preferences.getString(KEY_AD_OUTBOX, null)
+    if (raw == null) {
+      promise.resolve(null)
+      return
+    }
+    val remaining = org.json.JSONArray()
+    runCatching {
+      val array = org.json.JSONArray(raw)
+      for (index in 0 until array.length()) {
+        val item = array.optJSONObject(index) ?: continue
+        if (item.optString("clientEventId") != clientEventId) remaining.put(item)
+      }
+    }
+    preferences.edit().putString(KEY_AD_OUTBOX, remaining.toString()).apply()
+    promise.resolve(null)
+  }
+
+  /**
+   * Unlocks the shield performed by itself (camino A2). React Native reports
+   * each one to the server on foreground and then acknowledges it, so the wallet
+   * reconciles even though the unlock happened while React Native was not running.
+   */
+  @ReactMethod
+  fun getPendingUnlockEvents(promise: Promise) {
+    val raw = preferences.getString(KEY_UNLOCK_OUTBOX, null)
+    val events = Arguments.createArray()
+    runCatching {
+      if (raw != null) {
+        val array = org.json.JSONArray(raw)
+        for (index in 0 until array.length()) {
+          val item = array.optJSONObject(index) ?: continue
+          events.pushMap(Arguments.createMap().apply {
+            putString("clientSessionId", item.optString("clientSessionId"))
+            putString("source", item.optString("source"))
+            putInt("durationSeconds", item.optInt("durationSeconds"))
+            putString("startedAt", item.optString("startedAt"))
+          })
+        }
+      }
+    }
+    promise.resolve(events)
+  }
+
+  @ReactMethod
+  fun acknowledgeUnlockEvent(clientSessionId: String, promise: Promise) {
+    val raw = preferences.getString(KEY_UNLOCK_OUTBOX, null)
+    if (raw == null) {
+      promise.resolve(null)
+      return
+    }
+    val remaining = org.json.JSONArray()
+    runCatching {
+      val array = org.json.JSONArray(raw)
+      for (index in 0 until array.length()) {
+        val item = array.optJSONObject(index) ?: continue
+        if (item.optString("clientSessionId") != clientSessionId) remaining.put(item)
+      }
+    }
+    preferences.edit().putString(KEY_UNLOCK_OUTBOX, remaining.toString()).apply()
+    promise.resolve(null)
+  }
 
   @ReactMethod
   fun hasPendingIntervention(promise: Promise) = promise.resolve(false)
 
+  /**
+   * The apps the user chose, each with today's activity and when Still last
+   * paused it, for the per-app state in Settings and the apps screen. Labels are
+   * resolved here so the bridge never has to carry icons.
+   */
+  @ReactMethod
+  fun getSelectedAppsState(promise: Promise) {
+    val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
+    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val apps = Arguments.createArray()
+    selected
+      .map { packageName ->
+        val label = runCatching {
+          context.packageManager.getApplicationLabel(
+            context.packageManager.getApplicationInfo(packageName, 0),
+          ).toString()
+        }.getOrDefault(packageName)
+        packageName to label
+      }
+      .sortedBy { it.second.lowercase() }
+      .forEach { (packageName, label) ->
+        apps.pushMap(Arguments.createMap().apply {
+          putString("packageName", packageName)
+          putString("label", label)
+          preferences.getString(appStateKey(STATE_LAST_PAUSE_AT, packageName), null)
+            ?.let { putString("lastPauseAt", it) }
+          putInt(
+            "openAttemptsToday",
+            preferences.getInt(appMetricKey(METRIC_APP_OPEN_ATTEMPTS, day, packageName), 0),
+          )
+          putInt(
+            "avoidedOpensToday",
+            preferences.getInt(appMetricKey(METRIC_APP_AVOIDED_OPENS, day, packageName), 0),
+          )
+          putInt(
+            "unlocksToday",
+            preferences.getInt(appMetricKey(METRIC_APP_UNLOCKS, day, packageName), 0),
+          )
+        })
+      }
+    promise.resolve(apps)
+  }
+
   @ReactMethod
   fun getLocalWellbeing(promise: Promise) {
     val day = LocalDate.now(ZoneOffset.UTC).toString()
-    val selected = preferences.getStringSet(KEY_SELECTED_PACKAGES, emptySet()) ?: emptySet()
+    val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     val usageAllowed = hasUsageAccess()
     var foregroundMillis = 0L
@@ -265,6 +544,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   private fun restoreSession(sessionId: String) {
     val packageName = preferences.getString("session:$sessionId", null) ?: return
+    if (StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      StillSelfProtection.clearOwnTarget(preferences, context.packageName)
+      return
+    }
     preferences.edit()
       .remove("session:$sessionId")
       .remove("unlocked:$packageName")
@@ -331,6 +614,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   override fun onNewIntent(intent: Intent) = Unit
 
   override fun onHostResume() {
+    StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     authorizationPromise?.let {
       authorizationPromise = null
       it.resolve(if (isAccessibilityEnabled()) "authorized" else "denied")
@@ -353,6 +637,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val PREFERENCES = "still_restrictions"
     const val KEY_SELECTED_PACKAGES = "selected_packages"
     const val KEY_CURRENT_PACKAGE = "current_package"
+    const val METRIC_APP_OPEN_ATTEMPTS = "app_open_attempts"
+    const val METRIC_APP_AVOIDED_OPENS = "app_avoided_opens"
+    const val METRIC_APP_UNLOCKS = "app_unlocks"
     const val KEY_LAST_RESTORED = "last_restored_at"
     const val KEY_REWARDED_BALANCE = "rewarded_balance"
     const val KEY_EMERGENCY_REMAINING = "emergency_remaining"
@@ -360,9 +647,22 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"
     const val KEY_RESTRICTIONS_ENABLED = "restrictions_enabled"
+    const val KEY_ADS_ELIGIBLE = "ads_eligible"
+    const val KEY_ADMOB_REWARDED_UNIT = "admob_rewarded_unit"
+    const val KEY_REWARD_PROVIDER = "reward_provider"
+    const val KEY_PRESIGNED_INTENTS = "presigned_reward_intents"
+    const val KEY_AD_OUTBOX = "ad_result_outbox"
+    const val KEY_UNLOCK_OUTBOX = "unlock_report_outbox"
     const val KEY_EXTERNAL_AUTH_BYPASS_PACKAGES = "external_auth_bypass_packages"
     const val KEY_EXTERNAL_AUTH_BYPASS_UNTIL = "external_auth_bypass_until"
     const val KEY_EXTERNAL_AUTH_BYPASS_BOOT = "external_auth_bypass_boot"
+
+    const val STATE_LAST_PAUSE_AT = "app_last_pause_at"
+
+    fun appMetricKey(metric: String, day: String, packageName: String) =
+      "$metric:$day:$packageName"
+
+    fun appStateKey(state: String, packageName: String) = "$state:$packageName"
     private const val EXTERNAL_AUTH_BYPASS_TIMEOUT_MS = 10 * 60 * 1_000L
     private const val PICKER_REQUEST = 4270
   }

@@ -50,13 +50,36 @@ final class StillRestrictionEngine: RCTEventEmitter {
       let sheet = StillFamilyPicker(initial: SharedRestrictionState.selection) { selection in
         SharedRestrictionState.selection = selection
         resolve([
-          "count": selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count,
-          "localReference": "ios-app-group-selection"
+          "count": selection.applicationTokens.count + selection.categoryTokens.count
+            + selection.webDomainTokens.count,
+          "localReference": "ios-app-group-selection",
         ])
         presenter.dismiss(animated: true)
       }
       presenter.present(UIHostingController(rootView: sheet), animated: true)
     }
+  }
+
+  @objc func beginExternalAuthSession(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      try SharedRestrictionState.beginExternalBrowserBypass(
+        scheduleMonitoring: shouldScheduleMonitoring
+      )
+      resolve(nil)
+    } catch {
+      reject("external_browser_bypass_failed", error.localizedDescription, error)
+    }
+  }
+
+  @objc func endExternalAuthSession(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    SharedRestrictionState.endExternalBrowserBypass()
+    resolve(nil)
   }
 
   @objc func applyRestrictions(
@@ -66,6 +89,155 @@ final class StillRestrictionEngine: RCTEventEmitter {
   ) {
     SharedRestrictionState.applyShields()
     resolve(nil)
+  }
+
+  @objc func enableShortcutMode(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    SharedRestrictionState.setShortcutModeEnabled(true)
+    resolve(nil)
+  }
+
+  @objc func getPendingShortcutIntervention(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    guard let context = ShortcutInterventionState.pending() else {
+      resolve(nil)
+      return
+    }
+    resolve([
+      "id": context.id,
+      "appName": context.appName,
+      "returnShortcutName": context.returnShortcutName,
+      "attemptsToday": context.attemptsToday,
+      "createdAt": ISO8601DateFormatter().string(from: context.createdAt),
+      "isSetupTest": context.isSetupTest == true,
+      "returnKind": ShortcutInterventionState.returnKind(for: context),
+    ])
+  }
+
+  @objc func completeShortcutIntervention(
+    _ contextId: String,
+    durationSeconds: NSNumber,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      let result = try ShortcutInterventionState.complete(
+        id: contextId,
+        durationSeconds: durationSeconds.intValue
+      )
+      var session: [String: Any] = [
+        "id": result.0,
+        "endsAt": ISO8601DateFormatter().string(from: result.1),
+        "returnUrl": result.2.absoluteString,
+      ]
+      if let fallback = result.3 { session["fallbackReturnUrl"] = fallback.absoluteString }
+      resolve(session)
+    } catch {
+      reject("shortcut_intervention_expired", error.localizedDescription, error)
+    }
+  }
+
+  @objc func cancelShortcutIntervention(
+    _ contextId: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    do {
+      try ShortcutInterventionState.cancel(id: contextId)
+      resolve(nil)
+    } catch {
+      reject("shortcut_intervention_expired", error.localizedDescription, error)
+    }
+  }
+
+  @objc func finishShortcutSetupTest(
+    _ contextId: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    ShortcutInterventionState.finishSetupTest(id: contextId)
+    resolve(nil)
+  }
+
+  @objc func setShortcutTargets(
+    _ targets: NSArray,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let parsed: [ShortcutTarget] = targets.compactMap { entry in
+      guard let value = entry as? NSDictionary,
+        let id = value["id"] as? String,
+        let name = value["name"] as? String,
+        let origin = value["origin"] as? String,
+        let state = value["state"] as? String
+      else { return nil }
+      return ShortcutTarget(
+        id: id, name: name, matchKeys: value["matchKeys"] as? [String] ?? [],
+        urlScheme: value["urlScheme"] as? String, origin: origin, state: state)
+    }
+    ShortcutTargetStore.replace(with: parsed)
+    resolve(nil)
+  }
+
+  @objc func getShortcutTargetsHealth(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let formatter = ISO8601DateFormatter()
+    let health: [[String: Any]] = ShortcutTargetStore.load().map { target in
+      let targetKey = ShortcutInterventionState.key(appName: target.name)
+      var entry: [String: Any] = [
+        "id": target.id,
+        "name": target.name,
+        "matchKeys": target.matchKeys,
+        "origin": target.origin,
+        "state": target.state,
+        "targetKey": targetKey,
+      ]
+      entry["urlScheme"] = target.urlScheme ?? NSNull()
+      if let last = ShortcutTargetStore.lastTriggered(targetKey) {
+        entry["lastTriggeredAt"] = formatter.string(from: last)
+      }
+      if let first = ShortcutTargetStore.firstTriggered(targetKey) {
+        entry["verifiedAt"] = formatter.string(from: first)
+      }
+      return entry
+    }
+    resolve(health)
+  }
+
+  @objc func beginShortcutSetupProbe(
+    _ appName: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    ShortcutTargetStore.beginSetupProbe(appName: appName)
+    resolve(nil)
+  }
+
+  /// Sends Still to the background so the user lands on the Home Screen after
+  /// declining to open an app. iOS has no public API for this; `suspend` is the
+  /// same message the system sends for a Home press. JavaScript only calls it
+  /// while the remote `iosHomeOnCancelEnabled` flag is on and falls back to a
+  /// helper shortcut or a manual hint otherwise.
+  @objc func suspendToHome(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async {
+      let application = UIApplication.shared
+      let selector = NSSelectorFromString("suspend")
+      guard application.responds(to: selector) else {
+        reject("suspend_unavailable", "This iOS version cannot leave to the Home Screen", nil)
+        return
+      }
+      application.perform(selector)
+      resolve(nil)
+    }
   }
 
   @objc func startUnlock(
@@ -123,6 +295,28 @@ final class StillRestrictionEngine: RCTEventEmitter {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let selection = SharedRestrictionState.selection
+    if SharedRestrictionState.shortcutModeEnabled {
+      // iOS offers no way to ask whether a personal automation exists. An app
+      // counts as connected only once its automation has actually fired.
+      let chosen = ShortcutTargetStore.load().filter { $0.state == "active" }
+      let verified = chosen.filter {
+        ShortcutTargetStore.firstTriggered(ShortcutInterventionState.key(appName: $0.name)) != nil
+      }
+      var shortcutHealth: [String: Any] = [
+        "authorization": "authorized",
+        "engineActive": !verified.isEmpty,
+        "selectedCount": chosen.count,
+        "verifiedCount": verified.count,
+        "mode": "shortcuts",
+      ]
+      if chosen.isEmpty {
+        shortcutHealth["issue"] = "shortcuts_no_apps"
+      } else if verified.isEmpty {
+        shortcutHealth["issue"] = "shortcuts_not_verified"
+      }
+      resolve(shortcutHealth)
+      return
+    }
     let status: String
     switch AuthorizationCenter.shared.authorizationStatus {
     case .approved: status = "authorized"
@@ -130,11 +324,15 @@ final class StillRestrictionEngine: RCTEventEmitter {
     case .notDetermined: status = "notDetermined"
     @unknown default: status = "unavailable"
     }
-    let count = selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count
+    let count =
+      selection.applicationTokens.count + selection.categoryTokens.count
+      + selection.webDomainTokens.count
     var health: [String: Any] = [
       "authorization": status,
-      "engineActive": SharedRestrictionState.restrictionsEnabled && status == "authorized" && count > 0,
-      "selectedCount": count
+      "engineActive": SharedRestrictionState.restrictionsEnabled && status == "authorized"
+        && count > 0,
+      "selectedCount": count,
+      "mode": "managed",
     ]
     if let lastRestoredAt = SharedRestrictionState.defaults.string(forKey: "lastRestoredAt") {
       health["lastRestoredAt"] = lastRestoredAt
@@ -170,14 +368,15 @@ final class StillRestrictionEngine: RCTEventEmitter {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let formatter = ISO8601DateFormatter()
-    resolve(SharedRestrictionState.pendingUnlocks().map { event in
-      [
-        "clientSessionId": event.clientSessionId,
-        "source": event.source,
-        "durationSeconds": event.durationSeconds,
-        "startedAt": formatter.string(from: event.startedAt)
-      ]
-    })
+    resolve(
+      SharedRestrictionState.pendingUnlocks().map { event in
+        [
+          "clientSessionId": event.clientSessionId,
+          "source": event.source,
+          "durationSeconds": event.durationSeconds,
+          "startedAt": formatter.string(from: event.startedAt),
+        ]
+      })
   }
 
   @objc func acknowledgeUnlockEvent(
@@ -212,7 +411,7 @@ final class StillRestrictionEngine: RCTEventEmitter {
       "openAttempts": metrics.openAttempts,
       "avoidedOpens": metrics.avoidedOpens,
       "unlocks": metrics.unlocks,
-      "weeklyScreenTimeSeconds": []
+      "weeklyScreenTimeSeconds": [],
     ])
   }
 

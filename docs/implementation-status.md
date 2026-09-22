@@ -1,14 +1,14 @@
 # Implementation status
 
-Updated 2026-08-31.
+Updated 2026-09-20.
 
-The current v1 release scope is Android-only. The existing iOS native spike is retained as dormant future code, but it is not built, distributed, or treated as an external release gate.
+The current v1 release scope is Android-only. iOS is not distributed and is not an external release gate. It is no longer dormant code, though: the Shortcuts-based pause described in `ios-shortcuts.md` is implemented, unit-tested and compiles, and it stays off in production through `iosRestrictionEnabled` until it passes its physical-device checklist.
 
 ## Implemented in this repository
 
 - pnpm monorepo with Expo SDK 57 / React Native 0.86.3, Next.js 16, shared Zod contracts, CI, environment templates, and committed native projects.
 - Bilingual onboarding and core mobile surfaces: Today, Tokens, Impact, Settings, and intervention.
-- Dormant iOS spike with a Family Controls picker and extension prototypes, retained for possible future work without a current distribution commitment.
+- Unreleased iOS pause built on Apple Shortcuts: in-app app selection with a URL-scheme catalog, an App Intent that lists those apps, ad-first intervention with a timed-pause fallback, direct return by URL scheme, a guided setup with a real connection test, and a repair flow. The earlier Family Controls picker and extension prototypes remain but are disabled while Shortcuts mode is active.
 - Android launcher picker, minimal Accessibility service, intervention activity, Usage Stats aggregates, local wallet/outbox, monotonic unlock restoration, and no overlay or `QUERY_ALL_PACKAGES` permission.
 - Anonymous Supabase authentication with Google-only identity linking and linked-provider status for voting/recovery. The voting API verifies the Google identity server-side.
 - Versioned remote configuration with validation, cache fallback, platform/reward/voting kill switches enforced in UI and PostgreSQL, wallet limits, Emergency Unlocks, AdMob adapter, UMP consent, reward intents, provisional claims, signed SSV verification, stale-claim reconciliation, and append-only token ledger.
@@ -26,7 +26,7 @@ The current v1 release scope is Android-only. The existing iOS native spike is r
 - Clean local Supabase startup applies every migration plus seed; 16 pgTAP database invariants pass for RPC grants, runtime switches, bounded active reward intents, reward reconciliation, hidden-debt prevention, and privacy-deletion recovery.
 - Next.js production build and Playwright production smoke: public pages and configured config/current/history APIs respond successfully with no browser console or failed-response errors.
 - Android Kotlin compile: succeeds with min SDK 29, compile SDK 36, and target SDK 36.
-- The dormant iOS workspace previously compiled with signing disabled; this is historical source evidence, not a current release requirement.
+- The iOS workspace compiles for the simulator with signing disabled (Xcode 26.0.1, 2026-09-20), and `acceptance:ios-shortcuts` passes against that build. No physical-device run has happened yet; the twelve-point checklist in `ios-shortcuts.md` is entirely pending.
 - Every migration through `202608310002` applies cleanly and is deployed to production Supabase. The empty seed introduces no public fixtures. Database lint reports only the intentional wire-compatibility parameters documented in the functions.
 - A disposable authenticated production flow passed device registration, wallet, wellbeing, reward intent, Emergency Unlock, complete export, deletion, cascade cleanup, and retained-ledger pseudonymization.
 - Google Auth Platform is published for external users with real homepage/privacy/terms URLs. Google Search Console verified the canonical web property under the project account, the ownership token is live in production, and Google's brand-review appeal is submitted. AdMob OAuth refresh, account access, report generation, the production Vercel job, and persistence of its 14-day `admob_api` window all passed.
@@ -43,4 +43,4 @@ The implementation is not a validated store beta until these account/device-depe
 5. Seven-day soak, crash-free, reblock, duplicate-grant, and no-fill fallback acceptance thresholds pass.
 6. Google completes the submitted OAuth brand review; the verification center confirms that no sensitive or restricted-scope review is required.
 
-Keep the Android beta closed until these gates pass, as specified in `native-feasibility.md`. Apple enrollment and iOS distribution are outside v1.
+Keep the Android beta closed until these gates pass, as specified in `native-feasibility.md`. Apple enrollment and iOS distribution are outside v1. Enabling iOS later requires, at minimum, the physical checklist in `ios-shortcuts.md`, the device hypotheses in `ios-shortcuts-v2-plan.md` section 10, and the App Review notes in `store-compliance.md`.

@@ -9,6 +9,8 @@ coverage
 !.env.example
 *.log
 *.tsbuildinfo
+*.apk
+*.aab
 .DS_Store
 apps/mobile/.expo
 apps/mobile/ios/Pods

@@ -1,6 +1,6 @@
 # Still — Screen Time Impact
 
-Still is a bilingual Android app that adds an intentional pause before selected apps, offers non-transferable timed passes, and publishes a weekly record of the advertising revenue allocated to an Impact Fund. The repository retains an earlier iOS native spike for possible future use, but iOS is not built, distributed, or a gate for the current v1 release.
+Still is a bilingual Android app that adds an intentional pause before selected apps, offers non-transferable timed passes, and publishes a weekly record of the advertising revenue allocated to an Impact Fund. iOS is not part of the v1 release: the repository carries an iOS pause built on Apple Shortcuts that is implemented and tested but still awaiting physical-device validation, and it stays off in production behind the `iosRestrictionEnabled` flag.
 
 This repository contains the complete v1 system:
 
@@ -13,7 +13,7 @@ This repository contains the complete v1 system:
 
 - Anonymous Supabase sessions, Google identity linking, device registration, wallet reads, rewarded-ad intent/claim/SSV lifecycle, idempotent unlock reporting, voting, wellbeing aggregates, export, and deletion are connected end to end. Google is the only social identity provider and the voting API verifies that identity server-side; no placeholder login is exposed.
 - Android uses a disclosed Accessibility service, a local app picker, Usage Access aggregates, and monotonic unlock deadlines tied to the current boot.
-- The dormant iOS spike contains Family Controls/Managed Settings work, but it has no current release commitment and requires no Apple account for the Android product.
+- iOS pauses through a user-created Apple Shortcuts automation and Still's App Intent ([docs/ios-shortcuts.md](docs/ios-shortcuts.md)). It is unreleased, disabled remotely by default, and requires no Apple account for the Android product. The earlier Family Controls/Managed Settings spike remains in the tree but is switched off whenever Shortcuts mode is active.
 - Impact pages use only persisted Supabase data. Missing or unavailable data is shown explicitly; production UI never substitutes demo totals.
 - Operations can publish runtime policy, add verified charities, open/close weeks, reconcile revenue, upload validated donation proof files, and publish the donation through server-only transactional functions.
 - The website beta form persists consented requests in `beta_waitlist`, enforces a transactional per-address rate limit without storing raw IPs, and does not send mail to an unverified placeholder address.
@@ -22,7 +22,7 @@ See [the completion audit](docs/completion-audit.md) for the original gaps and t
 
 ## Local setup
 
-Prerequisites: Node 22+, pnpm 10.8.1, Supabase CLI with Docker, JDK 17, and Android SDK 36. Xcode/CocoaPods are optional and needed only to inspect the non-release iOS spike.
+Prerequisites: Node 22+, pnpm 10.8.1, Supabase CLI with Docker, JDK 17, and Android SDK 36. Xcode 26+/CocoaPods are optional and needed only to build the unreleased iOS Shortcuts flow.
 
 ```sh
 pnpm install --frozen-lockfile

@@ -17,6 +17,7 @@ import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
+import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
@@ -82,37 +83,43 @@ export default function OnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const { config, preferences, setOnboarded } = useAppState();
   const current = steps[step]!;
-  const restrictionsEnabled =
-    Platform.OS === "ios"
-      ? config.iosRestrictionEnabled
-      : config.androidRestrictionEnabled;
+  const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const currentTitle =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize(
           "Pauses are temporarily\nunavailable.",
           "Las pausas no están\ndisponibles temporalmente.",
         )
-      : step === 1
-        ? localize(
-            preferences.unlockDurationSeconds >= 86_400
-              ? "Go back, or enter\nfor the whole day."
-              : `Go back, or enter\nfor ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}.`,
-            preferences.unlockDurationSeconds >= 86_400
-              ? "Vuelve, o entra\ndurante todo el día."
-              : `Vuelve, o entra\ndurante ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}.`,
-          )
-        : current.title;
+      : step === steps.length - 1 && Platform.OS === "ios"
+        ? localize("Choose your\napps.", "Elige tus\napps.")
+        : step === 1
+          ? localize(
+              preferences.unlockDurationSeconds >= 86_400
+                ? "Go back, or enter\nfor the whole day."
+                : `Go back, or enter\nfor ${formatUnlockDuration(preferences.unlockDurationSeconds, "en")}.`,
+              preferences.unlockDurationSeconds >= 86_400
+                ? "Vuelve, o entra\ndurante todo el día."
+                : `Vuelve, o entra\ndurante ${formatUnlockDuration(preferences.unlockDurationSeconds, "es")}.`,
+            )
+          : current.title;
   const currentBody =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize(
           "You can finish setup now. Still will show the permission controls again when pauses are enabled for this platform.",
           "Puedes terminar la configuración ahora. Still volverá a mostrar los controles de permisos cuando las pausas estén habilitadas para esta plataforma.",
         )
-      : current.body;
+      : step === steps.length - 1 && Platform.OS === "ios"
+        ? localize(
+            "Pick the apps here, then connect Apple's Shortcuts so it tells Still when you open them. Everything stays on this iPhone.",
+            "Elige las apps aquí y luego conecta Atajos de Apple para que avise a Still cuando las abras. Todo se queda en este iPhone.",
+          )
+        : current.body;
   const currentAction =
     step === steps.length - 1 && !restrictionsEnabled
       ? localize("Finish setup", "Terminar configuración")
-      : current.action;
+      : step === steps.length - 1 && Platform.OS === "ios"
+        ? localize("Choose apps", "Elegir apps")
+        : current.action;
 
   async function next() {
     if (step < steps.length - 1) {
@@ -127,34 +134,14 @@ export default function OnboardingScreen() {
         router.replace("/(tabs)/(today)");
         return;
       }
-      const restrictionStatus = await restrictionEngine.requestAuthorization();
-      if (restrictionStatus !== "authorized") {
-        Alert.alert(
-          localize("Allow the pause", "Autoriza la pausa"),
-          localize(
-            "Enable Still in Settings, return, and try again.",
-            "Activa Still en Ajustes, vuelve e inténtalo otra vez.",
-          ),
-        );
+      if (Platform.OS === "ios") {
+        await restrictionEngine.enableShortcutMode();
+        await setOnboarded(true);
+        router.replace({ pathname: "/ios-apps", params: { onboarding: "1" } });
         return;
       }
-      const wellbeingStatus =
-        await restrictionEngine.requestWellbeingAuthorization();
-      if (Platform.OS === "android" && wellbeingStatus !== "authorized") {
-        Alert.alert(
-          localize("Allow device activity", "Autoriza la actividad"),
-          localize(
-            "Enable Usage Access, return, and try again.",
-            "Activa el acceso de uso, vuelve e inténtalo otra vez.",
-          ),
-        );
-        return;
-      }
-      const selection = await restrictionEngine.presentAppPicker();
-      if (selection.count > 0)
-        await restrictionEngine.applyRestrictions(selection);
       await setOnboarded(true);
-      router.replace("/(tabs)/(today)");
+      router.replace("/android-setup");
     } catch {
       Alert.alert(
         localize("Setup paused", "Configuración en pausa"),

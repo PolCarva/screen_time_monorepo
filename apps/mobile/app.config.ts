@@ -26,9 +26,11 @@ const androidAppId = buildValue(
   "ADMOB_ANDROID_APP_ID",
   "ca-app-pub-3940256099942544~3347511713",
 );
-// iOS is a dormant future target, not part of the current production release.
-// Keep Expo's cross-platform plugin config valid without making Android builds
-// depend on paid Apple distribution or production iOS inventory.
+// iOS is unreleased: its Shortcuts pause is built but off in production. Keep
+// Expo's cross-platform plugin config valid without making Android builds
+// depend on paid Apple distribution or production iOS inventory. The committed
+// ios/Still/Info.plist carries the real iOS AdMob app id, and
+// `acceptance:ios-shortcuts` asserts it reached the built app.
 const iosAppId =
   process.env.ADMOB_IOS_APP_ID || "ca-app-pub-3940256099942544~1458002511";
 const rewardedAndroid = buildValue(
