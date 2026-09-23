@@ -44,12 +44,12 @@ export default async function AdminLoginPage({
           <>
             <p>
               Si <strong>{pendingEmail}</strong> tiene acceso, le enviamos un
-              código. Escríbelo aquí; esta sesión quedará abierta en este
-              navegador.
+              correo. Abre el enlace <strong>en este mismo navegador</strong> y
+              entrarás directo; la sesión queda abierta aquí.
             </p>
             {error ? <p className="notice notice--error">{error}</p> : null}
             <form action={verifyAdminCode}>
-              <label htmlFor="code">Código</label>
+              <label htmlFor="code">¿El correo trae un código? Escríbelo</label>
               <input
                 autoComplete="one-time-code"
                 autoFocus
@@ -78,7 +78,7 @@ export default async function AdminLoginPage({
         ) : (
           <>
             <p>
-              Te enviamos un código de acceso. Solo lo reciben las cuentas de
+              Te enviamos un acceso por correo. Solo lo reciben las cuentas de
               operaciones; a cualquier otro correo no se le envía nada.
             </p>
             {error ? <p className="notice notice--error">{error}</p> : null}
@@ -92,7 +92,7 @@ export default async function AdminLoginPage({
                 type="email"
               />
               <button className="button button--dark" type="submit">
-                Enviar código
+                Enviar acceso
               </button>
             </form>
           </>

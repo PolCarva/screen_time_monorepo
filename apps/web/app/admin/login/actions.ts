@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { authCallbackUrl } from "@/lib/auth-callback";
 import { clientAddressFrom, consumeRateLimit } from "@/lib/rate-limit";
 import { createServerSupabaseClient } from "@/lib/server-supabase";
 import { createAdminClient } from "@/lib/supabase";
@@ -36,7 +37,8 @@ export async function requestAdminCode(formData: FormData) {
   const client = await createServerSupabaseClient();
   if (!admin || !client) redirect("/admin/login?error=configuration");
 
-  const address = clientAddressFrom(await headers());
+  const requestHeaders = await headers();
+  const address = clientAddressFrom(requestHeaders);
   const allowed = await Promise.all([
     consumeRateLimit(admin, "admin-code:address", address, 5, TEN_MINUTES),
     consumeRateLimit(admin, "admin-code:email", email, 3, TEN_MINUTES),
@@ -53,13 +55,17 @@ export async function requestAdminCode(formData: FormData) {
   );
   if (lookupError) redirect("/admin/login?error=configuration");
   if (isOperator === true) {
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    // Supabase's built-in email sends a link; with custom SMTP the template can
+    // carry the code instead ({{ .Token }}). Both sign in: the link through
+    // /auth/callback in this same browser, the code through verifyAdminCode.
     const { error } = await client.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: false,
-        // Only used if the email template still carries a link.
-        emailRedirectTo: `${origin}/auth/callback?next=/admin`,
+        emailRedirectTo: authCallbackUrl(
+          requestHeaders.get("origin"),
+          process.env.NEXT_PUBLIC_APP_URL,
+        ),
       },
     });
     if (error) console.error("Admin sign-in code was not sent", error.message);
