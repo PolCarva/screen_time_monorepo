@@ -357,12 +357,12 @@ export default async function HomePage() {
               Descargar Still para Android
             </AndroidDownloadLink>
             <span>
-              Versión 0.1.0 beta · Android 10 o posterior · APK universal ·
+              Versión 0.2.0 beta · Android 10 o posterior · APK universal ·
               147 MB
             </span>
             <a
               className="closing-v3__checksum"
-              href="/downloads/still-android-beta-0.1.0-arm64.apk.sha256"
+              href="/downloads/still-android-beta-0.2.0.apk.sha256"
             >
               Verificar SHA-256
             </a>

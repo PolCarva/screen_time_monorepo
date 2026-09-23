@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const ANDROID_APK_PATH =
-  "https://github.com/PolCarva/screen_time_monorepo/releases/download/android-beta-v0.1.0/still-android-beta-0.1.0-arm64.apk";
+  "https://github.com/PolCarva/screen_time_monorepo/releases/download/android-beta-v0.2.0/still-android-beta-0.2.0.apk";
 
 type AndroidDownloadLinkProps = {
   children?: ReactNode;
