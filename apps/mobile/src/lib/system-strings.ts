@@ -86,10 +86,13 @@ export const SHORTCUTS_STRINGS = {
   cancel: { en: "Cancel", es: "Cancelar", "es-419": "Cancelar" },
   variables: same("Variables…"),
   currentApp: { en: "Current App", es: "App actual", "es-419": "App actual" },
+  // The action's title. es-419 drops the article only in the card's summary
+  // ("Obtener app Actual(es)"): the library lists it as "Obtener la app actual"
+  // (seen in Shortcuts on the es-419 simulator, docs/ui-clarity-plan.md §10).
   getCurrentAppAction: {
     en: "Get Current App",
     es: "Obtener la app actual",
-    "es-419": "Obtener app actual",
+    "es-419": "Obtener la app actual",
   },
   getScopeApp: {
     en: "Get ${scope} app",

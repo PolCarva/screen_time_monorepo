@@ -71,10 +71,35 @@ export type GuideLink =
   | "automations"
   | "resume";
 
+/**
+ * The Shortcuts screens the guide redraws in code (src/components/guide),
+ * named after the step they illustrate.
+ */
+export const GUIDE_SCREEN_IDS = [
+  "auto-01-app-trigger",
+  "auto-02-choose",
+  "auto-03-pick-app",
+  "auto-04-run-immediately",
+  "auto-05-create-new",
+  "auto-06-search-actions",
+  "auto-07-pick-action",
+  "auto-08-pick-name",
+  "auto-09-save",
+  "return-01-open-app",
+  "return-02-choose-app",
+  "return-03-rename",
+  "single-01-current-app",
+  "single-02-variables",
+  "single-03-pick-current-app",
+  "single-04-result",
+] as const;
+
+export type GuideScreenId = (typeof GUIDE_SCREEN_IDS)[number];
+
 export type GuideStep = {
   id: SetupStepId;
-  /** File name in assets/shortcut-guide without extension; null = drawn mock-up. */
-  image: string | null;
+  /** The screen the step shows; null = drawn mock-up (import tier). */
+  screen: GuideScreenId | null;
   link: GuideLink;
 };
 
@@ -124,35 +149,35 @@ export function resolveSetupTier(input: {
 }
 
 const PER_APP_STEPS: readonly GuideStep[] = [
-  { id: "pick_app_trigger", image: "auto-01-app-trigger", link: "create_automation" },
-  { id: "tap_choose", image: "auto-02-choose", link: "resume" },
-  { id: "select_app", image: "auto-03-pick-app", link: "resume" },
-  { id: "run_immediately", image: "auto-04-run-immediately", link: "resume" },
-  { id: "create_new_shortcut", image: "auto-05-create-new", link: "resume" },
-  { id: "search_actions", image: "auto-06-search-actions", link: "resume" },
-  { id: "add_still_action", image: "auto-07-pick-action", link: "resume" },
-  { id: "pick_app_name", image: "auto-08-pick-name", link: "resume" },
-  { id: "save_automation", image: "auto-09-save", link: "resume" },
+  { id: "pick_app_trigger", screen: "auto-01-app-trigger", link: "create_automation" },
+  { id: "tap_choose", screen: "auto-02-choose", link: "resume" },
+  { id: "select_app", screen: "auto-03-pick-app", link: "resume" },
+  { id: "run_immediately", screen: "auto-04-run-immediately", link: "resume" },
+  { id: "create_new_shortcut", screen: "auto-05-create-new", link: "resume" },
+  { id: "search_actions", screen: "auto-06-search-actions", link: "resume" },
+  { id: "add_still_action", screen: "auto-07-pick-action", link: "resume" },
+  { id: "pick_app_name", screen: "auto-08-pick-name", link: "resume" },
+  { id: "save_automation", screen: "auto-09-save", link: "resume" },
 ];
 
 const SINGLE_AUTOMATION_STEPS: readonly GuideStep[] = [
-  { id: "pick_app_trigger", image: "auto-01-app-trigger", link: "create_automation" },
-  { id: "tap_choose", image: "auto-02-choose", link: "resume" },
-  { id: "select_all_apps", image: "auto-03-pick-app", link: "resume" },
-  { id: "run_immediately", image: "auto-04-run-immediately", link: "resume" },
-  { id: "create_new_shortcut", image: "auto-05-create-new", link: "resume" },
-  { id: "add_current_app", image: "single-01-current-app", link: "resume" },
-  { id: "search_actions", image: "auto-06-search-actions", link: "resume" },
-  { id: "add_still_action", image: "auto-07-pick-action", link: "resume" },
-  { id: "open_variables", image: "single-02-variables", link: "resume" },
-  { id: "pick_current_app", image: "single-03-pick-current-app", link: "resume" },
-  { id: "check_result", image: "single-04-result", link: "resume" },
+  { id: "pick_app_trigger", screen: "auto-01-app-trigger", link: "create_automation" },
+  { id: "tap_choose", screen: "auto-02-choose", link: "resume" },
+  { id: "select_all_apps", screen: "auto-03-pick-app", link: "resume" },
+  { id: "run_immediately", screen: "auto-04-run-immediately", link: "resume" },
+  { id: "create_new_shortcut", screen: "auto-05-create-new", link: "resume" },
+  { id: "add_current_app", screen: "single-01-current-app", link: "resume" },
+  { id: "search_actions", screen: "auto-06-search-actions", link: "resume" },
+  { id: "add_still_action", screen: "auto-07-pick-action", link: "resume" },
+  { id: "open_variables", screen: "single-02-variables", link: "resume" },
+  { id: "pick_current_app", screen: "single-03-pick-current-app", link: "resume" },
+  { id: "check_result", screen: "single-04-result", link: "resume" },
 ];
 
 const RETURN_SHORTCUT_STEPS: readonly GuideStep[] = [
-  { id: "return_open_app", image: "return-01-open-app", link: "create_shortcut" },
-  { id: "return_choose_app", image: "return-02-choose-app", link: "resume" },
-  { id: "return_rename", image: "return-03-rename", link: "resume" },
+  { id: "return_open_app", screen: "return-01-open-app", link: "create_shortcut" },
+  { id: "return_choose_app", screen: "return-02-choose-app", link: "resume" },
+  { id: "return_rename", screen: "return-03-rename", link: "resume" },
 ];
 
 /**
@@ -166,9 +191,9 @@ export function guideSteps(
   const steps: GuideStep[] =
     tier === "import"
       ? [
-          { id: "import_add", image: null, link: "resume" },
-          { id: "import_choose_apps", image: null, link: "resume" },
-          { id: "import_enable", image: null, link: "resume" },
+          { id: "import_add", screen: null, link: "resume" },
+          { id: "import_choose_apps", screen: null, link: "resume" },
+          { id: "import_enable", screen: null, link: "resume" },
         ]
       : tier === "single_automation"
         ? [...SINGLE_AUTOMATION_STEPS]

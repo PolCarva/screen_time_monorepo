@@ -1,21 +1,24 @@
+import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { AppState, Linking, Platform, StyleSheet, View } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { EXAMPLE_APP, FAKE_APP } from "@/components/guide/app-icons";
+import { GuideCard } from "@/components/guide/guide-card";
+import { SHORTCUTS_SCREENS } from "@/components/guide/ios-shortcuts-screens";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { gotItAction, useStillSheet } from "@/components/still-sheet";
-import type { GuideImageId } from "@/components/shortcut-guide-assets";
-import { ShortcutGuideImage } from "@/components/shortcut-guide-image";
 import {
   ShortcutStepVisual,
   type ShortcutStepVisualVariant,
 } from "@/components/shortcut-step-visual";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize } from "@/i18n";
+import { localize, sys } from "@/i18n";
 import {
   type GuideLink,
+  type GuideStep,
   IOS_SHORTCUT_IMPORT_URL,
   SHORTCUTS_APP_URL,
   SHORTCUTS_CREATE_AUTOMATION_URL,
@@ -50,11 +53,19 @@ type StepCopy = {
   visualLabel: string;
 };
 
-function stepCopy(
-  id: SetupStepId,
-  appName: string,
-  schemelessName: string,
-): StepCopy {
+/** A Shortcuts label quoted the way each language quotes: “Next”, «Siguiente». */
+function q(label: string) {
+  return localize(`“${label}”`, `«${label}»`);
+}
+
+/**
+ * One step = one action. The title is the button to tap, quoted exactly as
+ * Shortcuts shows it on this phone; the example is always Instagram (or Tilo,
+ * the made-up app of the custom-app steps). docs/ui-clarity-plan.md §4.5.
+ */
+function stepCopy(id: SetupStepId): StepCopy {
+  const example = EXAMPLE_APP.name;
+  const fake = FAKE_APP.name;
   switch (id) {
     case "import_add":
       return {
@@ -95,211 +106,214 @@ function stepCopy(
           "Imagen del interruptor de la automatización activado.",
         ),
       };
-    case "select_all_apps":
-      return {
-        title: localize("Check every app you want", "Marca todas las apps que quieras"),
-        body: localize(
-          "This is the list of the apps really installed on your iPhone. Check as many as you like (the picture shows one), then tap the blue check mark. Nothing to type: each app shows up in Still by itself the first time you open it.",
-          "Esta es la lista de las apps realmente instaladas en tu iPhone. Marca todas las que quieras (la imagen muestra una) y toca el check azul. No hay que escribir nada: cada app aparece sola en Still la primera vez que la abras.",
-        ),
-        visualLabel: localize(
-          "Shortcuts' Choose App list with an app checked and the confirm button highlighted.",
-          "Lista Choose App de Atajos con una app marcada y el botón de confirmar resaltado.",
-        ),
-      };
-    case "add_current_app":
-      return {
-        title: localize("Add “Get Current App”", "Añade «Get Current App»"),
-        body: localize(
-          "Tap “Search Actions”, type Get Current App and tap it. It tells Still which of your apps was opened.",
-          "Toca «Search Actions», escribe Get Current App y tócala. Le dice a Still cuál de tus apps se abrió.",
-        ),
-        visualLabel: localize(
-          "Shortcuts' action search with Get Current App typed and its result highlighted.",
-          "Búsqueda de acciones de Atajos con Get Current App escrito y su resultado resaltado.",
-        ),
-      };
-    case "open_variables":
-      return {
-        title: localize("Tap “App name”, then “Variables…”", "Toca «App name» y luego «Variables…»"),
-        body: localize(
-          "Do not pick an app from the list here. Tap “Variables…” at the top of the menu.",
-          "Aquí no elijas una app de la lista. Toca «Variables…», arriba del menú.",
-        ),
-        visualLabel: localize(
-          "Still's action with its App name menu open and Variables highlighted.",
-          "Acción de Still con el menú App name abierto y Variables resaltado.",
-        ),
-      };
-    case "pick_current_app":
-      return {
-        title: localize("Choose “Current App”", "Elige «Current App»"),
-        body: localize(
-          "It is the last item, with the purple icon.",
-          "Es el último elemento, con el icono morado.",
-        ),
-        visualLabel: localize(
-          "The variables menu with Current App highlighted.",
-          "Menú de variables con Current App resaltado.",
-        ),
-      };
-    case "check_result":
-      return {
-        title: localize("Check it and save", "Compruébalo y guarda"),
-        body: localize(
-          "It must look exactly like this: “Get Current app” and, below it, “Pause before opening Current App”. Then tap the blue check mark at the top right and come back to Still.",
-          "Debe verse exactamente así: «Get Current app» y, debajo, «Pause before opening Current App». Después toca el check azul de arriba a la derecha y vuelve a Still.",
-        ),
-        visualLabel: localize(
-          "The finished automation: Get Current App followed by Pause before opening Current App.",
-          "La automatización terminada: Get Current App seguido de Pause before opening Current App.",
-        ),
-      };
     case "pick_app_trigger":
       return {
-        title: localize("Find “App”", "Busca «App»"),
+        title: localize(`Find ${q(sys("app"))}`, `Busca ${q(sys("app"))}`),
         body: localize(
-          "Tap the picture: Shortcuts opens on this list. Type App in the search bar at the bottom, then tap the App row.",
-          "Toca la imagen: Atajos se abre en esta lista. Escribe App en el buscador de abajo y toca la fila App.",
+          `Tap the picture to open Shortcuts. Type ${sys("app")} in the search bar and tap ${sys("app")}.`,
+          `Toca la imagen para abrir Atajos. Escribe ${sys("app")} en el buscador y toca ${sys("app")}.`,
         ),
         visualLabel: localize(
-          "Shortcuts' Personal Automation list with App typed in the search bar and the App row highlighted.",
-          "Lista Automatización personal de Atajos con App escrito en el buscador y la fila App resaltada.",
+          `${sys("personalAutomation")} in Shortcuts, with ${sys("app")} typed in the search bar and the ${sys("app")} row marked.`,
+          `${sys("personalAutomation")} en Atajos, con ${sys("app")} escrito en el buscador y la fila ${sys("app")} marcada.`,
         ),
       };
     case "tap_choose":
       return {
-        title: localize("Tap “Choose”", "Toca «Choose»"),
+        title: localize(`Tap ${q(sys("choose"))}`, `Toca ${q(sys("choose"))}`),
         body: localize(
-          "It is the blue word on the right of the App row.",
-          "Es la palabra azul a la derecha de la fila App.",
+          `It's to the right of ${sys("app")}.`,
+          `Está a la derecha de ${sys("app")}.`,
         ),
         visualLabel: localize(
-          "Shortcuts' When screen with the blue Choose button highlighted.",
-          "Pantalla When de Atajos con el botón azul Choose resaltado.",
+          `The ${sys("when")} screen with ${sys("choose")} marked.`,
+          `La pantalla ${sys("when")} con ${sys("choose")} marcado.`,
+        ),
+      };
+    case "select_all_apps":
+      return {
+        title: localize("Check your apps", "Marca tus apps"),
+        body: localize(
+          `Check the apps you want to pause (${example} in the picture) and tap the blue ✓.`,
+          `Marca las apps que quieres pausar (en la imagen, ${example}) y toca el ✓ azul.`,
+        ),
+        visualLabel: localize(
+          `${sys("chooseApp")} with ${example} checked and the blue check mark marked.`,
+          `${sys("chooseApp")} con ${example} marcada y el ✓ azul marcado.`,
         ),
       };
     case "select_app":
       return {
-        title: localize(`Check ${appName}`, `Marca ${appName}`),
+        title: localize("Check the app", "Marca la app"),
         body: localize(
-          `Tap ${appName} in the list${appName === "News" ? "" : " (the picture shows News as an example)"}, then the blue check mark at the top right. Only one app per automation.`,
-          `Toca ${appName} en la lista${appName === "News" ? "" : " (la imagen muestra News como ejemplo)"} y luego el check azul de arriba a la derecha. Solo una app por automatización.`,
+          `Check the app you want to pause (${example} in the picture) and tap the blue ✓.`,
+          `Marca la app que quieres pausar (en la imagen, ${example}) y toca el ✓ azul.`,
         ),
         visualLabel: localize(
-          "Shortcuts' Choose App list with one app checked and the confirm button highlighted.",
-          "Lista Choose App de Atajos con una app marcada y el botón de confirmar resaltado.",
+          `${sys("chooseApp")} with ${example} checked and the blue check mark marked.`,
+          `${sys("chooseApp")} con ${example} marcada y el ✓ azul marcado.`,
         ),
       };
     case "run_immediately":
       return {
-        title: localize("Run Immediately", "Run Immediately"),
+        title: localize(
+          `Tap ${q(sys("runImmediately"))}`,
+          `Toca ${q(sys("runImmediately"))}`,
+        ),
         body: localize(
-          "Tap “Run Immediately”, make sure “Notify When Run” stays off, then tap Next. Leave “Is Opened” checked.",
-          "Toca «Run Immediately», deja «Notify When Run» apagado y toca Next. Deja «Is Opened» marcado.",
+          `Leave ${q(sys("notifyWhenRun"))} off and tap ${q(sys("next"))}.`,
+          `Deja ${q(sys("notifyWhenRun"))} apagado y toca ${q(sys("next"))}.`,
         ),
         visualLabel: localize(
-          "Shortcuts' run options with Run Immediately, the Notify When Run switch and Next highlighted in order.",
-          "Opciones de ejecución de Atajos con Run Immediately, el interruptor Notify When Run y Next resaltados en orden.",
+          `${sys("runImmediately")}, the ${sys("notifyWhenRun")} switch and ${sys("next")}, marked in order.`,
+          `${sys("runImmediately")}, el interruptor ${sys("notifyWhenRun")} y ${sys("next")}, marcados en orden.`,
         ),
       };
     case "create_new_shortcut":
       return {
-        title: localize("Create New Shortcut", "Create New Shortcut"),
+        title: localize(
+          `Tap ${q(sys("createNewShortcut"))}`,
+          `Toca ${q(sys("createNewShortcut"))}`,
+        ),
+        body: localize("It's the first tile.", "Es el primer recuadro."),
+        visualLabel: localize(
+          `The ${sys("createNewShortcut")} tile marked.`,
+          `El recuadro ${sys("createNewShortcut")} marcado.`,
+        ),
+      };
+    case "add_current_app":
+      return {
+        title: localize(
+          `Tap ${q(sys("getCurrentAppAction"))}`,
+          `Toca ${q(sys("getCurrentAppAction"))}`,
+        ),
         body: localize(
-          "Tap the first tile. Do not pick anything from the lists below it.",
-          "Toca el primer recuadro. No elijas nada de las listas de abajo.",
+          `Type it in ${q(sys("searchActions"))} and tap the result.`,
+          `Escríbelo en ${q(sys("searchActions"))} y toca el resultado.`,
         ),
         visualLabel: localize(
-          "Shortcuts' Get Started row with the Create New Shortcut tile highlighted.",
-          "Fila Get Started de Atajos con el recuadro Create New Shortcut resaltado.",
+          `${sys("getCurrentAppAction")} typed in the action search, with its result marked.`,
+          `${sys("getCurrentAppAction")} escrito en la búsqueda de acciones, con su resultado marcado.`,
         ),
       };
     case "search_actions":
       return {
         title: localize("Search for Still", "Busca Still"),
         body: localize(
-          "Tap “Search Actions” and type Still.",
-          "Toca «Search Actions» y escribe Still.",
+          `Tap ${q(sys("searchActions"))} and type Still.`,
+          `Toca ${q(sys("searchActions"))} y escribe Still.`,
         ),
         visualLabel: localize(
-          "Shortcuts' editor with the Search Actions bar highlighted.",
-          "Editor de Atajos con la barra Search Actions resaltada.",
+          `The editor with ${sys("searchActions")} marked.`,
+          `El editor con ${sys("searchActions")} marcado.`,
         ),
       };
     case "add_still_action":
       return {
-        title: localize("Pause Before Opening", "Pause Before Opening"),
+        title: localize(`Tap ${q(sys("stillAction"))}`, `Toca ${q(sys("stillAction"))}`),
+        body: localize("It's Still's action.", "Es la acción de Still."),
+        visualLabel: localize(
+          `Search results for Still with ${sys("stillAction")} marked.`,
+          `Resultados de búsqueda de Still con ${sys("stillAction")} marcada.`,
+        ),
+      };
+    case "open_variables":
+      return {
+        title: localize(
+          `Tap ${q(sys("appNameParam"))}, then ${q(sys("variables"))}`,
+          `Toca ${q(sys("appNameParam"))} y luego ${q(sys("variables"))}`,
+        ),
         body: localize(
-          "Tap “Pause Before Opening”. This is the step that connects the app to Still; an automation that says “No actions” is missing it.",
-          "Toca «Pause Before Opening». Este es el paso que conecta la app con Still; si una automatización dice «No actions», le falta esto.",
+          `${q(sys("variables"))} is at the top of the menu.`,
+          `${q(sys("variables"))} está arriba del menú.`,
         ),
         visualLabel: localize(
-          "Shortcuts' search results for Still with the Pause Before Opening action highlighted.",
-          "Resultados de búsqueda de Still en Atajos con la acción Pause Before Opening resaltada.",
+          `Still's action with its ${sys("appNameParam")} menu open and ${sys("variables")} marked.`,
+          `La acción de Still con el menú ${sys("appNameParam")} abierto y ${sys("variables")} marcado.`,
+        ),
+      };
+    case "pick_current_app":
+      return {
+        title: localize(`Tap ${q(sys("currentApp"))}`, `Toca ${q(sys("currentApp"))}`),
+        body: localize("It's the last option.", "Es la última opción."),
+        visualLabel: localize(
+          `The variables menu with ${sys("currentApp")} marked.`,
+          `El menú de variables con ${sys("currentApp")} marcado.`,
+        ),
+      };
+    case "check_result":
+      return {
+        title: localize("Check and save", "Revisa y guarda"),
+        body: localize(
+          "It should look like this. Tap the blue ✓ and come back to Still.",
+          "Tiene que verse así. Toca el ✓ azul y vuelve a Still.",
+        ),
+        visualLabel: localize(
+          `The finished automation: ${sys("getScopeApp", { scope: sys("currentScope") })}, then ${sys("stillSummaryPrefix")} ${sys("currentApp")}.`,
+          `La automatización terminada: ${sys("getScopeApp", { scope: sys("currentScope") })} y después ${sys("stillSummaryPrefix")} ${sys("currentApp")}.`,
         ),
       };
     case "pick_app_name":
       return {
-        title: localize(`Pick ${appName}`, `Elige ${appName}`),
+        title: localize("Choose the app", "Elige la app"),
         body: localize(
-          `Tap the blue “App name” and choose ${appName} from the list. It shows the apps you chose in Still, so there is nothing to type.`,
-          `Toca el «App name» azul y elige ${appName} en la lista. Muestra las apps que elegiste en Still, así que no hay que escribir nada.`,
+          `Tap ${q(sys("appNameParam"))} and choose the same app (${example} in the picture).`,
+          `Toca ${q(sys("appNameParam"))} y elige la misma app (en la imagen, ${example}).`,
         ),
         visualLabel: localize(
-          "Still's action with its App name list open and the first app highlighted.",
-          "Acción de Still con la lista App name abierta y la primera app resaltada.",
+          `Still's action with its ${sys("appNameParam")} list open and ${example} marked.`,
+          `La acción de Still con la lista ${sys("appNameParam")} abierta y ${example} marcada.`,
         ),
       };
     case "save_automation":
       return {
-        title: localize("Save it", "Guárdala"),
+        title: localize("Save", "Guarda"),
         body: localize(
-          "Tap the blue check mark at the top right, then come back to Still and test it below.",
-          "Toca el check azul de arriba a la derecha, vuelve a Still y pruébala aquí abajo.",
+          "Tap the blue ✓ and come back to Still to test it.",
+          "Toca el ✓ azul y vuelve a Still para probarla.",
         ),
         visualLabel: localize(
-          "The finished automation with the blue check mark highlighted.",
-          "La automatización terminada con el check azul resaltado.",
+          "The finished automation with the blue check mark marked.",
+          "La automatización terminada con el ✓ azul marcado.",
         ),
       };
     case "return_open_app":
       return {
         title: localize(
-          `A way back to ${schemelessName}`,
-          `Un camino de vuelta a ${schemelessName}`,
+          `Create a shortcut with ${q(sys("openApp"))}`,
+          `Crea un atajo con ${q(sys("openApp"))}`,
         ),
         body: localize(
-          `Optional. Still cannot reopen ${schemelessName} by itself: without this, after the ad it sends you to the Home Screen and you open ${schemelessName} yourself, with no pause. With this small shortcut it opens for you. Tap the picture to start a new shortcut, then tap “Open App”.`,
-          `Opcional. Still no puede reabrir ${schemelessName} por sí solo: sin esto, tras el anuncio te lleva a la pantalla de inicio y abres ${schemelessName} tú, ya sin pausa. Con este atajo pequeño se abre sola. Toca la imagen para empezar un atajo nuevo y luego toca «Open App».`,
+          `Tap the picture to create a new shortcut and tap ${q(sys("openApp"))}.`,
+          `Toca la imagen para crear un atajo nuevo y toca ${q(sys("openApp"))}.`,
         ),
         visualLabel: localize(
-          "Shortcuts' action list with Open App highlighted.",
-          "Lista de acciones de Atajos con Open App resaltada.",
+          `The action list with ${sys("openApp")} marked.`,
+          `La lista de acciones con ${sys("openApp")} marcada.`,
         ),
       };
     case "return_choose_app":
       return {
-        title: localize(`Choose ${schemelessName}`, `Elige ${schemelessName}`),
+        title: localize("Choose the app", "Elige la app"),
         body: localize(
-          `Tap the blue “App” and pick ${schemelessName}. Then tap the shortcut's name at the top.`,
-          `Toca el «App» azul y elige ${schemelessName}. Después toca el nombre del atajo, arriba.`,
+          `Tap the blue ${q(sys("app"))} and choose ${fake}. Then tap the shortcut's name at the top.`,
+          `Toca ${q(sys("app"))} (azul) y elige ${fake}. Después toca el nombre del atajo, arriba.`,
         ),
         visualLabel: localize(
-          "The Open App action with the App field and the shortcut's name highlighted in order.",
-          "Acción Open App con el campo App y el nombre del atajo resaltados en orden.",
+          `The ${sys("openApp")} action with ${sys("app")} and the shortcut's name marked in order.`,
+          `La acción ${sys("openApp")} con ${sys("app")} y el nombre del atajo marcados en orden.`,
         ),
       };
     case "return_rename":
       return {
-        title: localize("Name it exactly", "Ponle el nombre exacto"),
+        title: localize("Give it the exact name", "Ponle el nombre exacto"),
         body: localize(
-          `Tap Rename and type exactly “${returnShortcutName(schemelessName)}”. The first time it runs, iOS asks whether the shortcut may output an app: choose “Always Allow”.`,
-          `Toca Rename y escribe exactamente «${returnShortcutName(schemelessName)}». La primera vez que se ejecute, iOS preguntará si el atajo puede devolver una app: elige «Always Allow».`,
+          `Tap ${q(sys("rename"))} and type the name from the list below. The first time it runs, tap ${q(sys("alwaysAllow"))}.`,
+          `Toca ${q(sys("rename"))} y escribe el nombre de la lista de abajo. La primera vez que se use, toca ${q(sys("alwaysAllow"))}.`,
         ),
         visualLabel: localize(
-          "The shortcut's menu with Rename highlighted.",
-          "Menú del atajo con Rename resaltado.",
+          `The shortcut's menu with ${sys("rename")} marked.`,
+          `El menú del atajo con ${sys("rename")} marcado.`,
         ),
       };
   }
@@ -339,13 +353,13 @@ function tierLede(tier: SetupTier) {
       );
     case "single_automation":
       return localize(
-        "One automation covers every app, and you pick them from the real apps on your iPhone inside Shortcuts. Every step below is a real picture with the button to tap marked; tap a picture to jump there, and use “◀ Still” at the top left of Shortcuts to come back.",
-        "Una sola automatización cubre todas las apps, y las eliges entre las apps reales de tu iPhone dentro de Atajos. Cada paso de abajo es una foto real con el botón marcado; toca una foto para saltar allí y usa «◀ Still», arriba a la izquierda en Atajos, para volver.",
+        "One automation pauses all your apps. Tap each picture to go to that screen in Shortcuts, and come back with “◀ Still” at the top left.",
+        "Una sola automatización pausa todas tus apps. Toca cada imagen para ir a esa pantalla de Atajos y vuelve con «◀ Still», arriba a la izquierda.",
       );
     case "per_app":
       return localize(
-        "Each app gets one automation. Every step below is a real picture of Shortcuts with the button to tap marked; tap a picture to jump there, and use “◀ Still” at the top left of Shortcuts to come back.",
-        "Cada app lleva una automatización. Cada paso de abajo es una foto real de Atajos con el botón marcado; toca una foto para saltar allí y usa «◀ Still», arriba a la izquierda en Atajos, para volver.",
+        `Create one automation for each app. The example uses ${EXAMPLE_APP.name}.`,
+        `Crea una automatización para cada app. El ejemplo usa ${EXAMPLE_APP.name}.`,
       );
   }
 }
@@ -375,11 +389,13 @@ export default function ShortcutSetupScreen() {
   }, []);
   const bestTier = resolveSetupTier({ iosVersion: Platform.Version });
   const tier = resolveSetupTier({ iosVersion: Platform.Version, preferPerApp });
-  const steps = guideSteps(tier, {
+  const allSteps = guideSteps(tier, {
     needsReturnShortcut: schemeless.length > 0,
   });
-  const exampleName = chosen[0]?.name ?? "YouTube";
-  const schemelessName = schemeless[0]?.name ?? exampleName;
+  // The custom-app steps (Tilo) get their own section after the test.
+  const steps = allSteps.filter((step) => !step.id.startsWith("return_"));
+  const returnSteps = allSteps.filter((step) => step.id.startsWith("return_"));
+  const exampleName = chosen[0]?.name ?? EXAMPLE_APP.name;
 
   useEffect(() => {
     // Coming back from Shortcuts or from the app under test: look again.
@@ -479,6 +495,44 @@ export default function ShortcutSetupScreen() {
 
   const connected = chosen.filter((target) => health[target.id]?.verifiedAt);
 
+  async function copyShortcutName(target: ShortcutTarget) {
+    await Clipboard.setStringAsync(returnShortcutName(target.name));
+    sheet.toast({
+      message: localize("Name copied.", "Nombre copiado."),
+      tone: "success",
+    });
+  }
+
+  function renderStep(step: GuideStep, index: number) {
+    const copy = stepCopy(step.id);
+    const Drawn = step.screen ? SHORTCUTS_SCREENS[step.screen] : null;
+    return (
+      <View key={step.id} style={styles.step}>
+        <View style={styles.stepHeading}>
+          <Mono>{String(index + 1).padStart(2, "0")}</Mono>
+          <Heading style={styles.stepTitle}>{copy.title}</Heading>
+        </View>
+        <Body style={styles.stepBody}>{copy.body}</Body>
+        {Drawn ? (
+          <GuideCard
+            accessibilityLabel={copy.visualLabel}
+            actionLabel={linkLabel(step.link)}
+            onPress={() => void open(guideLinkUrl(step.link))}
+          >
+            <Drawn />
+          </GuideCard>
+        ) : copy.visual ? (
+          <ShortcutStepVisual
+            accessibilityLabel={copy.visualLabel}
+            appName={exampleName}
+            appNames={chosen.map((target) => target.name)}
+            variant={copy.visual}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
@@ -537,35 +591,7 @@ export default function ShortcutSetupScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.steps}>
-            {steps.map((step, index) => {
-              const copy = stepCopy(step.id, exampleName, schemelessName);
-              return (
-                <View key={step.id} style={styles.step}>
-                  <View style={styles.stepHeading}>
-                    <Mono>{String(index + 1).padStart(2, "0")}</Mono>
-                    <Heading style={styles.stepTitle}>{copy.title}</Heading>
-                  </View>
-                  <Body style={styles.stepBody}>{copy.body}</Body>
-                  {step.image ? (
-                    <ShortcutGuideImage
-                      accessibilityLabel={copy.visualLabel}
-                      actionLabel={linkLabel(step.link)}
-                      image={step.image as GuideImageId}
-                      onPress={() => void open(guideLinkUrl(step.link))}
-                    />
-                  ) : copy.visual ? (
-                    <ShortcutStepVisual
-                      accessibilityLabel={copy.visualLabel}
-                      appName={exampleName}
-                      appNames={chosen.map((target) => target.name)}
-                      variant={copy.visual}
-                    />
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
+          <View style={styles.steps}>{steps.map(renderStep)}</View>
 
           <View style={styles.actions}>
             {tier === "import" ? (
@@ -645,6 +671,45 @@ export default function ShortcutSetupScreen() {
               );
             })}
           </View>
+
+          {returnSteps.length > 0 ? (
+            <View style={styles.section}>
+              <View style={styles.sectionIntro}>
+                <Heading style={styles.stepTitle}>
+                  {localize(
+                    "So Still can open your other apps",
+                    "Para que Still abra tus otras apps",
+                  )}
+                </Heading>
+                <Body style={styles.stepBody}>
+                  {localize(
+                    `Some apps need a shortcut so Still can open them after the ad. Follow the example with ${FAKE_APP.name} and repeat it for each app in the list.`,
+                    `Algunas apps necesitan un atajo para que Still las abra después del anuncio. Mira el ejemplo con ${FAKE_APP.name} y repítelo con cada app de la lista.`,
+                  )}
+                </Body>
+              </View>
+              <View style={styles.steps}>{returnSteps.map(renderStep)}</View>
+              <Eyebrow>{localize("YOUR APPS", "TUS APPS")}</Eyebrow>
+              {schemeless.map((target) => (
+                <View key={target.id} style={styles.testRow}>
+                  <View style={styles.testCopy}>
+                    <Body style={styles.testName}>{target.name}</Body>
+                    <Mono>{returnShortcutName(target.name)}</Mono>
+                  </View>
+                  <PrimaryButton
+                    accessibilityLabel={localize(
+                      `Copy “${returnShortcutName(target.name)}”`,
+                      `Copiar «${returnShortcutName(target.name)}»`,
+                    )}
+                    onPress={() => void copyShortcutName(target)}
+                    variant="secondary"
+                  >
+                    {localize("Copy", "Copiar")}
+                  </PrimaryButton>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </>
       )}
 
@@ -732,6 +797,7 @@ const styles = StyleSheet.create({
   stepTitle: { fontSize: 18, lineHeight: 22 },
   stepBody: { color: colors.graphiteSoft, fontSize: 14, lineHeight: 21 },
   section: { gap: spacing.md },
+  sectionIntro: { gap: spacing.sm },
   sectionHeading: {
     flexDirection: "row",
     justifyContent: "space-between",

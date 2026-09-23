@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { EXAMPLE_APP } from "@/components/guide/app-icons";
 import { localize } from "@/i18n";
 import { colors, radius, spacing } from "@/theme/tokens";
 
@@ -242,8 +243,8 @@ function PauseCurrentVisual() {
 
 export function ShortcutStepVisual({
   accessibilityLabel,
-  appName = "YouTube",
-  appNames = ["YouTube"],
+  appName = EXAMPLE_APP.name,
+  appNames = [EXAMPLE_APP.name],
   variant,
 }: ShortcutStepVisualProps) {
   return (

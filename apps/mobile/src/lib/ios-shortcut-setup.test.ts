@@ -1,10 +1,7 @@
-/// <reference types="node" />
-
-import { existsSync, readFileSync } from "node:fs";
-
 import { describe, expect, it } from "vitest";
 
 import {
+  GUIDE_SCREEN_IDS,
   IOS_HOME_SHORTCUT_IMPORT_URL,
   IOS_SHORTCUT_IMPORT_URL,
   IOS_SINGLE_AUTOMATION_ENABLED,
@@ -247,35 +244,15 @@ describe("last pause age", () => {
 describe("guide pictures and jump links", () => {
   const perApp = guideSteps("per_app", { needsReturnShortcut: true });
 
-  it("backs every per-app step with a real capture that exists on disk", () => {
-    const spec = JSON.parse(
-      readFileSync(
-        new URL("../../scripts/shortcut-guide/spec.json", import.meta.url),
-        "utf8",
-      ),
-    ) as { images: { id: string }[] };
-    const specIds = new Set(spec.images.map((image) => image.id));
-    const manifest = readFileSync(
-      new URL("../components/shortcut-guide-assets.ts", import.meta.url),
-      "utf8",
-    );
-
-    const single = guideSteps("single_automation", { needsReturnShortcut: false });
+  it("backs every step of both tiers with a screen drawn in code", () => {
+    const known = new Set<string>(GUIDE_SCREEN_IDS);
+    const single = guideSteps("single_automation", { needsReturnShortcut: true });
     for (const step of [...perApp, ...single]) {
-      expect(step.image, step.id).not.toBeNull();
-      expect(specIds.has(step.image!), step.id).toBe(true);
-      expect(manifest).toContain(`"${step.image}": {`);
-      expect(
-        existsSync(
-          new URL(
-            `../../assets/shortcut-guide/${step.image}.jpg`,
-            import.meta.url,
-          ),
-        ),
-        step.id,
-      ).toBe(true);
+      expect(step.screen, step.id).not.toBeNull();
+      expect(known.has(step.screen!), step.id).toBe(true);
     }
-    expect(new Set(perApp.map((step) => step.image)).size).toBe(perApp.length);
+    expect(new Set(perApp.map((step) => step.screen)).size).toBe(perApp.length);
+    expect(new Set(single.map((step) => step.screen)).size).toBe(single.length);
   });
 
   it("jumps to the exact Shortcuts screen only where iOS has a link for it", () => {
