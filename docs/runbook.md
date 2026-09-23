@@ -57,6 +57,14 @@ The seed is intentionally empty. Use `/admin` to publish operational policy and 
 
 The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates their byte signature before uploading. The Storage bucket has a larger database-level ceiling to preserve operational headroom; the web boundary is intentionally stricter.
 
+## Operations console access
+
+`/admin/login` asks for an email and sends a one-time code only when that address belongs to a row in `admin_users` (`admin_login_allowed()`); any other address gets the same on-screen answer and no email, so the form cannot be used to mail arbitrary people. Requests and code attempts are rate limited per address and per email (`consume_rate_limit()`, HMAC keys only). After the code, the session is kept in that browser: `apps/web/proxy.ts` refreshes the Supabase session cookies on every `/admin` request, and **Cerrar sesión** ends it.
+
+- The Supabase **Magic link** email template must include `{{ .Token }}` (Authentication → Emails) for the code to appear in the email. Until then the email carries only a link, which still signs in through `/auth/callback`.
+- To add an operator, create the user in Supabase Auth (Authentication → Users → Add user, with that email) and insert its id into `admin_users` with role `admin`, `operator` or `viewer`.
+- Supabase's built-in email service has low sending limits; configure custom SMTP before relying on it.
+
 ## Scheduled and weekly operations
 
 - Daily at 03:17 UTC: Vercel calls `GET /api/internal/jobs/reconcile-rewards`; stale provisional grants older than 26 hours are rejected and an available pass is reversed idempotently.
