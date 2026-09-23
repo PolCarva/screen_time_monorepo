@@ -49,7 +49,9 @@ const NOTIFICATION_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1_000;
 
 function Navigation() {
   const router = useRouter();
-  const segments = useSegments();
+  // Typed routes are generated locally but not in CI, where the tuple would be
+  // narrower; the checks below only need the segments as strings.
+  const segments: readonly string[] = useSegments();
   // Groups vanish from the pathname, so Today and onboarding are both "/".
   const onToday = segments[0] === "(tabs)" && segments[1] === "(today)";
   const sheet = useStillSheet();
