@@ -163,21 +163,20 @@ class InterventionActivity : Activity() {
     root.addView(subtext(if (summary.isEmpty()) question else question + "\n\n" + summary))
     root.addView(spacer(1f))
     root.addView(filledButton(if (spanish) "Volver" else "Go back") { goHome() })
-    if (gate.passAvailable) {
-      // A saved pass was paid for with an earlier ad: it goes in without
-      // watching one, and chooses its own window.
-      root.addView(
-        textButton(
-          if (spanish) "Usar 1 pase · Abrir $appLabel" else "Use 1 pass · Open $appLabel",
-          chalk,
-          enabled = true,
-        ) { renderDecision(EnterSource.SAVED_PASS) },
-      )
-    }
     if (gate.adReady) {
       root.addView(
         textButton(if (spanish) "Ver anuncio" else "Watch ad", chalk, enabled = true) {
           startAd()
+        },
+      )
+    }
+    if (gate.passAvailable) {
+      // A saved pass is for emergencies: always there without watching an ad,
+      // but small and quiet so the ad stays the way in (it chooses its own
+      // window like the ad does).
+      root.addView(
+        quietButton(if (spanish) "Usar 1 pase de emergencia" else "Use 1 emergency pass") {
+          renderDecision(EnterSource.SAVED_PASS)
         },
       )
     }
@@ -653,6 +652,22 @@ class InterventionActivity : Activity() {
     setOnClickListener { if (enabled) onClick() }
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
       topMargin = dp(6)
+    }
+  }
+
+  /** The least prominent choice: small, muted, still a full-width tap target. */
+  private fun quietButton(label: String, onClick: () -> Unit) = TextView(this).apply {
+    text = label
+    gravity = Gravity.CENTER
+    textSize = 13f
+    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+    setTextColor(mineralLight)
+    isClickable = true
+    isFocusable = true
+    contentDescription = label
+    setOnClickListener { onClick() }
+    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
+      topMargin = dp(2)
     }
   }
 

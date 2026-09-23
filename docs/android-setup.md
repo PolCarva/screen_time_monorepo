@@ -35,9 +35,9 @@ not ask for Usage Access.
 4. **Watch ad** opens Still's rewarded-ad decision screen. After the reward is
    confirmed, the native module grants the time window and launches the exact
    saved package with its normal launch intent.
-5. A saved pass uses the same exact-package launch path, offered next to the
-   ad so it never has to wait for one. When the time window expires, the next
-   opening is paused again.
+5. A saved pass ("Usar 1 pase de emergencia", small and muted under "Ver
+   anuncio") uses the same exact-package launch path and never has to wait for
+   an ad. When the time window expires, the next opening is paused again.
 
 If Android cannot resolve or launch the saved package, the native module rejects
 the operation and rolls back the temporary allowance before a pass is spent.

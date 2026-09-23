@@ -385,9 +385,15 @@ export function ShortcutIntervention({
     );
   }
 
-  // Every way forward on this screen. At the gate a saved pass and the ad sit
-  // side by side: a pass never has to wait for, or give way to, an ad.
-  type Option = { key: string; label: string; action: (() => void) | null };
+  // Every way forward on this screen. At the gate the ad is the way in; a
+  // saved pass is the quiet emergency option under it, always usable without
+  // watching an ad but never the first choice.
+  type Option = {
+    key: string;
+    label: string;
+    action: (() => void) | null;
+    quiet?: boolean;
+  };
   const options: Option[] = [];
   if (flow.phase === "decision") {
     options.push({
@@ -422,15 +428,6 @@ export function ShortcutIntervention({
       action: null,
     });
   } else {
-    if (flow.gate.pass)
-      options.push({
-        key: "pass",
-        label: localize(
-          `Use 1 pass · Open ${appLabel}`,
-          `Usar 1 pase · Abrir ${appLabel}`,
-        ),
-        action: choosePass,
-      });
     if (flow.gate.ad === "ready")
       options.push({
         key: "ad",
@@ -442,6 +439,13 @@ export function ShortcutIntervention({
         key: "ad",
         label: localize("Preparing the ad…", "Preparando el anuncio…"),
         action: null,
+      });
+    if (flow.gate.pass)
+      options.push({
+        key: "pass",
+        label: localize("Use 1 emergency pass", "Usar 1 pase de emergencia"),
+        action: choosePass,
+        quiet: true,
       });
   }
 
@@ -516,23 +520,40 @@ export function ShortcutIntervention({
               )}
               onPress={() => void decline()}
             />
-            {options.map((option) => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ disabled: busy || !option.action }}
-                disabled={busy || !option.action}
-                key={option.key}
-                onPress={option.action ?? undefined}
-                style={({ pressed }) => [
-                  styles.secondary,
-                  pressed && styles.pressed,
-                  (busy || !option.action) && styles.disabled,
-                ]}
-              >
-                <Text style={styles.secondaryLabel}>{option.label}</Text>
-                <Text style={styles.secondaryArrow}>→</Text>
-              </Pressable>
-            ))}
+            {options.map((option) =>
+              option.quiet ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: busy || !option.action }}
+                  disabled={busy || !option.action}
+                  key={option.key}
+                  onPress={option.action ?? undefined}
+                  style={({ pressed }) => [
+                    styles.quiet,
+                    pressed && styles.pressed,
+                    (busy || !option.action) && styles.disabled,
+                  ]}
+                >
+                  <Text style={styles.quietLabel}>{option.label}</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: busy || !option.action }}
+                  disabled={busy || !option.action}
+                  key={option.key}
+                  onPress={option.action ?? undefined}
+                  style={({ pressed }) => [
+                    styles.secondary,
+                    pressed && styles.pressed,
+                    (busy || !option.action) && styles.disabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryLabel}>{option.label}</Text>
+                  <Text style={styles.secondaryArrow}>→</Text>
+                </Pressable>
+              ),
+            )}
             <Body style={styles.note}>
               {localize(
                 "Going in is a choice too.",
@@ -629,6 +650,15 @@ const styles = StyleSheet.create({
     color: colors.chalk,
     fontFamily: fonts.brandMedium,
     fontSize: 21,
+  },
+  quiet: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  quietLabel: {
+    color: colors.mineralLight,
+    fontFamily: fonts.brandMedium,
+    fontSize: 13,
   },
   note: {
     paddingTop: spacing.lg,

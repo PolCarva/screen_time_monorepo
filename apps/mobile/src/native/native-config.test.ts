@@ -47,11 +47,19 @@ describe("committed native production configuration", () => {
     // Emergency access is gone (docs/real-impact-stats-plan.md, D1-D3).
     expect(intervention).toContain("StillRewardedAdManager.show(this)");
     expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
-    expect(intervention).toContain('"Usar 1 pase · Abrir $appLabel"');
+    expect(intervention).toContain('"Usar 1 pase de emergencia"');
+    // The pass is the quiet option under the ad, never the first choice.
+    expect(intervention.indexOf("if (gate.adReady)")).toBeLessThan(
+      intervention.indexOf("if (gate.passAvailable)"),
+    );
     expect(intervention).toContain("if (gate.passAvailable)");
     expect(intervention).toContain("if (gate.adReady)");
     expect(intervention).toContain("renderPause()");
-    expect(intervention.toLowerCase()).not.toContain("emergency");
+    // The free daily allowance is gone: no counter, no "emergency" source. The
+    // saved pass is only called an emergency pass in its label.
+    expect(intervention).not.toContain("EMERGENCY_REMAINING");
+    expect(intervention).not.toContain("EnterSource.EMERGENCY");
+    expect(intervention).not.toContain('"emergency"');
     // A visit paid by a fresh ad names that ad, so it never spends a saved pass.
     expect(intervention).toContain('report.put("rewardIntentId", rewardIntentId)');
     expect(intervention).toContain("KEY_UNLOCK_OUTBOX");

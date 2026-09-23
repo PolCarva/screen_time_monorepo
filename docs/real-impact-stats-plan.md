@@ -27,7 +27,7 @@ y tiempo recuperado, y decidir qué hacer con los pases de emergencia.
 |---|---|
 | D1 | **Se quitan los accesos de emergencia** (gratis, diarios). No cumplen el modelo pedido y el pase ya lo cumple. Sin anuncio y sin pase queda la pausa de 15 s (5 min), que ya era el último recurso. |
 | D2 | **Un solo concepto: el pase.** Se gana viendo un anuncio (en Pases, o viendo el anuncio en la pausa y decidiendo no entrar), tope `maxRewardTokenBalance`, y **siempre** se puede usar en la pausa sin ver un anuncio, aunque haya uno listo. |
-| D3 | El shield muestra "Usar 1 pase · Abrir X" (si hay pase) **y** "Ver anuncio" (si hay anuncio). Si no hay ninguno, pausa de 15 s. |
+| D3 | El shield muestra "Volver" (principal), "Ver anuncio" (secundaria, si hay anuncio) y, chico y en gris debajo, "Usar 1 pase de emergencia" (si hay pase). El pase nunca espera al anuncio pero nunca es la primera opción (pedido del usuario, 2026-09-23). Si no hay ninguno, pausa de 15 s. |
 | D4 | **Anuncio visto = anuncio recompensado confirmado por AdMob (SSV)**, firmado por Google, con `transaction_id` único. Se registra en `ad_views` aunque no haya intent (Android sin buffer) o el intent haya vencido; los anuncios de prueba no mandan SSV y no cuentan. |
 | D5 | **Valor de cada anuncio**, en este orden: (1) el evento de ingreso del SDK para esa impresión (ILRD: `valueMicros`, precisión `precise`/`estimated`/`publisher_provided`, USD, tope USD 0,10); (2) el eCPM observado en los informes de AdMob de los últimos 28 días (con ≥ 50 impresiones); (3) el eCPM por defecto de la configuración (`estimatedRewardedEcpmUsd`, 3 USD: rewarded Android en LatAm ronda 2–4 USD). Precisión `unknown` con valor 0 = anuncio de prueba, vale 0 y no cuenta. |
 | D6 | **Fondo en vivo**: por cada día (zona `America/Los_Angeles`, la de los informes de AdMob) se usa el informe de AdMob si se importó ≥ 24 h después de cerrar el día; si no, el mayor entre el informe parcial y la suma de los anuncios estimados. Todo en micros (sin redondeo por día). Al confirmar el ingreso, el operador congela el monto (como antes). |
@@ -96,8 +96,8 @@ y tiempo recuperado, y decidir qué hacer con los pases de emergencia.
 
 ### App
 
-- Pausa (iOS y Android): "Usar 1 pase · Abrir X" y "Ver anuncio" a la vez; con
-  ninguno, la pausa de 15 s.
+- Pausa (iOS y Android): "Volver", "Ver anuncio" y, chico debajo, "Usar 1 pase
+  de emergencia"; con ninguno, la pausa de 15 s.
 - Pases: sin la sección de emergencia; el texto dice que el pase deja entrar sin
   ver un anuncio y hasta cuántos se guardan.
 - Impacto: fondo con centavos, anuncios vistos, personas que aportaron y el

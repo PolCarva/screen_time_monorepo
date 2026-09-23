@@ -64,6 +64,11 @@ export default async function AdminLoginPage({
                 Entrar
               </button>
             </form>
+            <p className="login-card__hint">
+              ¿No llegó? Revisa el spam. Los correos de acceso tienen un límite
+              de unos pocos por hora: si ya pediste varios, espera un rato antes
+              de pedir otro.
+            </p>
             <form action={chooseAnotherEmail}>
               <button className="text-link" type="submit">
                 Usar otro correo

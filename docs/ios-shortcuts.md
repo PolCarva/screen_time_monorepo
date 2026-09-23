@@ -98,12 +98,12 @@ section 10 of the plan; no other code changes are needed.
    intent finishes in the background and YouTube stays visible.
 4. Otherwise it stores an app-scoped intervention and conditionally brings
    Still to the foreground.
-5. Still shows the gate: **Use 1 pass · Open YouTube** when a pass is saved,
-   **Watch ad** when an ad is ready, and **I don't want to go in anymore**. A
-   saved pass never waits for or gives way to the ad. On a cold start the ad
-   waits up to 12 seconds for AdMob; with neither an ad nor a pass, a 15-second
-   pause takes over. Emergency access was removed
-   (`docs/real-impact-stats-plan.md`, D1-D3).
+5. Still shows the gate: **I don't want to go in anymore** (primary), **Watch
+   ad** when an ad is ready, and, small and muted under it, **Use 1 emergency
+   pass** when a pass is saved. The pass never waits for the ad, but it is never
+   the first choice. On a cold start the ad waits up to 12 seconds for AdMob;
+   with neither an ad nor a pass, a 15-second pause takes over. The free daily
+   emergency access was removed (`docs/real-impact-stats-plan.md`, D1-D3).
 6. Only after the ad is completed and the reward is confirmed does the window
    get chosen: a slider from **1 min** to **Rest of day**, with
    **I want to go in · <window>** / **I don't want to go in anymore** under it.
