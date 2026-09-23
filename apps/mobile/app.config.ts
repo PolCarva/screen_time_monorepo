@@ -66,7 +66,7 @@ if (production) {
 const config: ExpoConfig = {
   name: production ? "Still" : `Still ${variant}`,
   slug: "still-screen-time",
-  version: "0.1.0",
+  version: "0.2.0",
   orientation: "portrait",
   scheme: "still",
   icon: "./assets/icon.png",
