@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   verifyAdMobApplicationIdentifier,
   verifyShortcutMetadata,
+  verifySpanishStrings,
 } from "./verify-ios-shortcuts-build.mjs";
 
 function validMetadata() {
@@ -65,6 +66,25 @@ describe("iOS Shortcuts compiled-build verification", () => {
 
     expect(() => verifyShortcutMetadata(metadata)).toThrow(
       "must not unconditionally open Still",
+    );
+  });
+
+  it("requires the catalog's Spanish in the built app", () => {
+    const catalog = {
+      strings: {
+        "Pause Before Opening": {
+          localizations: {
+            es: { stringUnit: { state: "translated", value: "Pausar antes de abrir" } },
+          },
+        },
+      },
+    };
+
+    expect(() =>
+      verifySpanishStrings(catalog, { "Pause Before Opening": "Pausar antes de abrir" }),
+    ).not.toThrow();
+    expect(() => verifySpanishStrings(catalog, {})).toThrow(
+      'missing the Spanish for "Pause Before Opening"',
     );
   });
 

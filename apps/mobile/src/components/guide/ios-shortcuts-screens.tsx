@@ -196,18 +196,40 @@ function ActionToken({
   );
 }
 
+/** The fade that ends a selected placeholder cut by the end of a line. */
+const PICKED_FADE = 16.5;
+/** Room for the summary's first line, up to the remove button. */
+const SUMMARY_LINE = 268.8;
+
+/**
+ * The menu of Still's App name placeholder hangs from the selected
+ * placeholder. In English, "App" still fits after "Pause before opening": the
+ * placeholder breaks across the two lines and the menu opens under the first
+ * one, against the right edge. In Spanish, "Nombre" does not fit, so the whole
+ * placeholder moves to the second line and the menu opens under it, against
+ * the left edge, 77 pt below the card's top (measured in es-419).
+ */
+function useNameMenu(top: number, englishY: number) {
+  const [split, setSplit] = useState(true);
+  const drop = split ? 0 : top + 77 - englishY;
+  return { split, onSplit: setSplit, x: split ? 135 : 8, y: englishY + drop, drop };
+}
+
 /**
  * Still's card while its App name placeholder is selected (a menu is open for
- * it): the token wraps, its first word fading out at the end of the first
- * line and the rest starting the second.
+ * it), broken across the two lines or whole on the second (see useNameMenu).
  */
 function PickedNameCard({
   s,
   top,
+  split,
+  onSplit,
   menu,
 }: {
   s: ReturnType<typeof useStrings>;
   top: number;
+  split: boolean;
+  onSplit: (split: boolean) => void;
   menu: ReactNode;
 }) {
   const [first, ...rest] = s("appNameParam").split(" ");
@@ -217,31 +239,61 @@ function PickedNameCard({
     <>
       <Card style={[at(16, top, 361, 87.7), { borderRadius: 28, boxShadow: "0 0.5px 10px rgba(0, 0, 0, 0.045)" }]}>
         <AppIcon icon="still" radius={5.5} size={22} style={at(16.4, 16.5)} />
-        <View style={[at(48.9, 13.94, 268.8), { flexDirection: "row", alignItems: "center", gap: 7.97, overflow: "hidden" }]}>
-          <IText size={20} weight="500">
-            {s("stillSummaryPrefix")}
-          </IText>
-          <View style={{ flexDirection: "row" }}>
+        {split ? (
+          <View
+            style={[
+              at(48.9, 13.94, SUMMARY_LINE),
+              { flexDirection: "row", alignItems: "center", gap: 7.97, overflow: "hidden" },
+            ]}
+          >
+            <IText size={20} weight="500">
+              {s("stillSummaryPrefix")}
+            </IText>
             <View
-              style={[
-                picked,
-                { paddingLeft: 6.47, paddingRight: 7.26, borderTopLeftRadius: 7.5, borderBottomLeftRadius: 7.5 },
-              ]}
+              onLayout={(event) => {
+                const { x, width } = event.nativeEvent.layout;
+                onSplit(x + width - PICKED_FADE <= SUMMARY_LINE);
+              }}
+              style={{ flexDirection: "row" }}
             >
-              <IText {...pickedText}>{first}</IText>
+              <View
+                style={[
+                  picked,
+                  { paddingLeft: 6.47, paddingRight: 7.26, borderTopLeftRadius: 7.5, borderBottomLeftRadius: 7.5 },
+                ]}
+              >
+                <IText {...pickedText}>{first}</IText>
+              </View>
+              <View
+                style={[
+                  picked,
+                  {
+                    width: PICKED_FADE,
+                    experimental_backgroundImage: "linear-gradient(90deg, #BFE1FF 0%, #FFFFFF 100%)",
+                  },
+                ]}
+              />
             </View>
-            <View
-              style={[
-                picked,
-                { width: 16.5, experimental_backgroundImage: "linear-gradient(90deg, #BFE1FF 0%, #FFFFFF 100%)" },
-              ]}
-            />
           </View>
-        </View>
+        ) : (
+          <Line baseline={34.4} size={20} weight="500" x={48.9}>
+            {s("stillSummaryPrefix")}
+          </Line>
+        )}
         <RemoveButton style={at(322.5, 16.5)} />
-        <View style={[at(0.33, 46.33), { flexDirection: "row", alignItems: "center", gap: 8.9 }]}>
-          <View style={[picked, { paddingLeft: 15.8, paddingRight: 6.4, borderRadius: 7.5 }]}>
-            <IText {...pickedText}>{rest.join(" ")}</IText>
+        <View
+          style={[
+            at(split ? 0.33 : 16, 46.33),
+            { flexDirection: "row", alignItems: "center", gap: split ? 8.9 : 9.2 },
+          ]}
+        >
+          <View
+            style={[
+              picked,
+              { paddingLeft: split ? 15.8 : 6.47, paddingRight: 6.4, borderRadius: 7.5 },
+            ]}
+          >
+            <IText {...pickedText}>{split ? rest.join(" ") : s("appNameParam")}</IText>
           </View>
           <Sym color={IOS.blue} name="chevron.right.circle" size={24.2} />
         </View>
@@ -715,12 +767,13 @@ function AutoPickAction({ variant = systemVariant }: ScreenProps) {
 
 function AutoPickName({ variant = systemVariant }: ScreenProps) {
   const s = useStrings(variant);
+  const menu = useNameMenu(9, 53.5);
   return (
     <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={148}>
+      <Band background={IOS.groupedBackground} height={148 + menu.drop}>
         <PickedNameCard
           menu={
-            <Popover style={at(135, 53.5, 250, 120)}>
+            <Popover style={at(menu.x, menu.y, 250, 120)}>
               <Tap n={1} style={at(7, 10.5, 236, 42)}>
                 <Line baseline={26} size={17} x={20.33}>
                   {EXAMPLE_APP.name}
@@ -731,7 +784,9 @@ function AutoPickName({ variant = systemVariant }: ScreenProps) {
               </Line>
             </Popover>
           }
+          onSplit={menu.onSplit}
           s={s}
+          split={menu.split}
           top={9}
         />
       </Band>
@@ -998,18 +1053,21 @@ const menuSeparator = { height: 1, backgroundColor: "#E1E3E8" } as const;
 
 function SingleVariables({ variant = systemVariant }: ScreenProps) {
   const s = useStrings(variant);
+  const menu = useNameMenu(8.67, 53.67);
   return (
     <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={134}>
+      <Band background={IOS.groupedBackground} height={134 + menu.drop}>
         <PickedNameCard
           menu={
-            <Popover style={at(135, 53.67, 250, 160)}>
+            <Popover style={at(menu.x, menu.y, 250, 160)}>
               <Tap n={1} style={at(6.33, 9.66, 236, 42)} />
               <VariablesRow top={0} />
               <View style={[at(23.33, 61.33, 202), menuSeparator]} />
             </Popover>
           }
+          onSplit={menu.onSplit}
           s={s}
+          split={menu.split}
           top={8.67}
         />
       </Band>
@@ -1019,26 +1077,31 @@ function SingleVariables({ variant = systemVariant }: ScreenProps) {
 
 function SinglePickCurrentApp({ variant = systemVariant }: ScreenProps) {
   const s = useStrings(variant);
+  const menu = useNameMenu(8.67, 53.67);
   return (
     <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={116}>
+      <Band background={IOS.groupedBackground} height={116 + menu.drop}>
         <PickedNameCard
           menu={
             <>
               {/* The first menu, now behind the Variables submenu. */}
-              <Popover style={at(135, 53.67, 250, 160)} />
-              <Popover style={[at(135, 65.67, 250, 160), { boxShadow: "0 -1px 10px rgba(0, 0, 0, 0.05)" }]}>
+              <Popover style={at(menu.x, menu.y, 250, 160)} />
+              <Popover
+                style={[at(menu.x, menu.y + 12, 250, 160), { boxShadow: "0 -1px 10px rgba(0, 0, 0, 0.05)" }]}
+              >
                 <VariablesRow expanded top={0} />
               </Popover>
             </>
           }
+          onSplit={menu.onSplit}
           s={s}
+          split={menu.split}
           top={8.67}
         />
       </Band>
       <BandGap />
       <Band background={IOS.groupedBackground} height={88}>
-        <Popover style={at(135, -99.67, 250, 180)}>
+        <Popover style={at(menu.x, -99.67, 250, 180)}>
           <View style={[at(23.33, 116.67, 202), { height: 1, backgroundColor: "#E3E4E7" }]} />
           <Tap n={1} style={at(6.33, 127, 236, 44)} />
           <AppIcon icon="currentApp" size={25} style={at(23, 136.33)} />

@@ -441,7 +441,7 @@ struct PauseBeforeOpeningIntent: AppIntent {
 
   @Parameter(
     title: "App name",
-    description: "The name Still should show, for example YouTube.",
+    description: "The name Still should show, for example Instagram.",
     optionsProvider: ShortcutTargetOptionsProvider()
   )
   var appName: String

@@ -16,6 +16,7 @@
 		37EDCD0EBBD04F527D70D8FE /* StillRestrictionEngine.m in Sources */ = {isa = PBXBuildFile; fileRef = 90C56F328EF2CE1BC601D140 /* StillRestrictionEngine.m */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		46DB28B3549D786469C67404 /* SharedRestrictionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95652F22174F1132BACB0C0 /* SharedRestrictionState.swift */; };
+		4C2A9E72D05B8F3A6E19B2D4 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 4C2A9E71D05B8F3A6E19B2D4 /* Localizable.xcstrings */; };
 		55C59FF7607BBDD73DA5DDD3 /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C096F8BD72908F909A89470A /* ShieldConfigurationExtension.swift */; };
 		5ED5E1C5DEA5EF8FCA574D76 /* SharedRestrictionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95652F22174F1132BACB0C0 /* SharedRestrictionState.swift */; };
 		67BA9C283C3644A76204CF8B /* ShieldActionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02B076AE739D4ED1E93EEEB /* ShieldActionExtension.swift */; };
@@ -94,6 +95,7 @@
 		23BD8C17DAA046DBC65BFDC0 /* StillShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillRestrictionEngine.swift; path = StillNative/StillRestrictionEngine.swift; sourceTree = "<group>"; };
 		2CC8F45AC489C0957CA29906 /* StillDeviceActivityReport.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillDeviceActivityReport.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C2A9E71D05B8F3A6E19B2D4 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; name = Localizable.xcstrings; path = Still/Localizable.xcstrings; sourceTree = "<group>"; };
 		652A5A0325A139E0C032739D /* DeviceActivityMonitorExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeviceActivityMonitorExtension.swift; path = StillDeviceActivityMonitor/DeviceActivityMonitorExtension.swift; sourceTree = "<group>"; };
 		749C33C1919273D988CCA5A4 /* Pods-Still.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Still.release.xcconfig"; path = "Target Support Files/Pods-Still/Pods-Still.release.xcconfig"; sourceTree = "<group>"; };
 		75DB8D399908F71A78B3DD3C /* StillShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -185,6 +187,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				86A1354A46C5D0F1E477E1AC /* PrivacyInfo.xcprivacy */,
+				4C2A9E71D05B8F3A6E19B2D4 /* Localizable.xcstrings */,
 			);
 			name = Still;
 			sourceTree = "<group>";
@@ -429,6 +432,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				es,
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
@@ -454,6 +458,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				0B6AC31BE982433B500B0576 /* PrivacyInfo.xcprivacy in Resources */,
+				4C2A9E72D05B8F3A6E19B2D4 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

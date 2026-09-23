@@ -137,18 +137,18 @@ export const SHORTCUTS_STRINGS = {
     "es-419": "Automatización",
   },
   fitness: same("Fitness"),
-  /** Still's own action (D12): Spanish once its App Intent is localized. */
+  /** Still's own action (D12), translated in ios/Still/Localizable.xcstrings. */
   stillAction: {
     en: "Pause Before Opening",
-    es: "Pause Before Opening",
-    "es-419": "Pause Before Opening",
+    es: "Pausar antes de abrir",
+    "es-419": "Pausar antes de abrir",
   },
   stillSummaryPrefix: {
     en: "Pause before opening",
-    es: "Pause before opening",
-    "es-419": "Pause before opening",
+    es: "Pausar antes de abrir",
+    "es-419": "Pausar antes de abrir",
   },
-  appNameParam: { en: "App name", es: "App name", "es-419": "App name" },
+  appNameParam: { en: "App name", es: "Nombre de la app", "es-419": "Nombre de la app" },
 } satisfies Record<string, Entry>;
 
 /** Android 14 Settings (Pixel), `values` / `values-es` / `values-es-rUS`. */

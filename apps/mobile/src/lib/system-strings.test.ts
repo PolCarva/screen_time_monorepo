@@ -1,3 +1,7 @@
+/// <reference types="node" />
+
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -52,6 +56,22 @@ describe("system strings", () => {
       "Usar Still",
     );
     expect(fillSystemString("Open ${x}", { x: "App" })).toBe("Open App");
+  });
+
+  it("quotes Still's action as its App Intent shows it in Spanish", () => {
+    // ios/Still/Localizable.xcstrings translates the intent (D12); the guide
+    // must name it the same way or Spanish phones would not find it.
+    const catalog = JSON.parse(
+      readFileSync(new URL("../../ios/Still/Localizable.xcstrings", import.meta.url), "utf8"),
+    ) as { strings: Record<string, { localizations?: { es?: { stringUnit?: { value?: string } } } }> };
+    const spanish = (key: string) => catalog.strings[key]?.localizations?.es?.stringUnit?.value;
+    for (const variant of ["es", "es-419"] as const) {
+      expect(spanish("Pause Before Opening")).toBe(shortcutsString(variant, "stillAction"));
+      expect(spanish("Pause before opening ${appName}")).toBe(
+        `${shortcutsString(variant, "stillSummaryPrefix")} \${appName}`,
+      );
+      expect(spanish("App name")).toBe(shortcutsString(variant, "appNameParam"));
+    }
   });
 
   it("has every entry in all three variants", () => {

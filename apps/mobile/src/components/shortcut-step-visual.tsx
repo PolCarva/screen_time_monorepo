@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { EXAMPLE_APP } from "@/components/guide/app-icons";
-import { localize } from "@/i18n";
+import { localize, sys } from "@/i18n";
 import { colors, radius, spacing } from "@/theme/tokens";
 
 export type ShortcutStepVisualVariant =
@@ -104,11 +104,11 @@ function PauseVisual({ appName }: { appName: string }) {
         <ShortcutBadge label="S" tone="still" />
         <View style={styles.actionCopy}>
           <Text style={styles.actionTitle}>
-            {localize("Pause Before Opening", "Pausa antes de abrir")}
+            {sys("stillAction")}
           </Text>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>
-              {localize("App name", "Nombre de app")}
+              {sys("appNameParam")}
             </Text>
             <View style={styles.valuePill}>
               <Text style={styles.valueText}>{appName}</Text>
@@ -223,15 +223,15 @@ function PauseCurrentVisual() {
         <ShortcutBadge label="S" tone="still" />
         <View style={styles.actionCopy}>
           <Text style={styles.actionTitle}>
-            {localize("Pause Before Opening", "Pausa antes de abrir")}
+            {sys("stillAction")}
           </Text>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>
-              {localize("App name", "Nombre de app")}
+              {sys("appNameParam")}
             </Text>
             <View style={[styles.valuePill, styles.variablePill]}>
               <Text style={styles.valueText}>
-                {localize("Current App", "App actual")}
+                {sys("currentApp")}
               </Text>
             </View>
           </View>

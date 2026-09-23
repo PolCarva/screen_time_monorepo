@@ -3,11 +3,15 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const INTENT_IDENTIFIER = "PauseBeforeOpeningIntent";
 const EXPECTED_PARAMETERS = ["appName"];
 const EXPECTED_ADMOB_APP_ID = "ca-app-pub-8052007653549292~7920548119";
+// Spanish for the action (D12), which the setup guide quotes on Spanish phones.
+const STRING_CATALOG = fileURLToPath(
+  new URL("../ios/Still/Localizable.xcstrings", import.meta.url),
+);
 
 function requireValue(condition, message) {
   if (!condition) throw new Error(message);
@@ -64,6 +68,17 @@ export function verifyShortcutMetadata(metadata) {
   return intent;
 }
 
+/** Every Spanish string of the catalog must reach the built app. */
+export function verifySpanishStrings(catalog, built) {
+  for (const [key, entry] of Object.entries(catalog?.strings ?? {})) {
+    const expected = entry.localizations?.es?.stringUnit?.value;
+    requireValue(
+      expected && built?.[key] === expected,
+      `The build is missing the Spanish for "${key}" (es.lproj/Localizable.strings).`,
+    );
+  }
+}
+
 export function verifyAdMobApplicationIdentifier(identifier) {
   requireValue(
     identifier === EXPECTED_ADMOB_APP_ID,
@@ -88,6 +103,20 @@ export function verifyBuiltApp(appBundlePath) {
     );
   }
   verifyShortcutMetadata(metadata);
+
+  let spanish;
+  try {
+    spanish = JSON.parse(
+      execFileSync(
+        "plutil",
+        ["-convert", "json", "-o", "-", resolve(appBundle, "es.lproj/Localizable.strings")],
+        { encoding: "utf8" },
+      ),
+    );
+  } catch (error) {
+    throw new Error(`Could not read the Spanish strings of ${appBundle}: ${error.message}`);
+  }
+  verifySpanishStrings(JSON.parse(readFileSync(STRING_CATALOG, "utf8")), spanish);
 
   let adMobApplicationIdentifier;
   try {

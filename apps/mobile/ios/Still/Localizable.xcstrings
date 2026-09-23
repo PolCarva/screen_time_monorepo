@@ -1,0 +1,96 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "App name" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de la app"
+          }
+        }
+      }
+    },
+    "Continue in Still to decide whether to open the app." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continúa en Still para decidir si abres la app."
+          }
+        }
+      }
+    },
+    "Create the app-opening shortcut with the name shown by Still." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea el atajo que abre la app con el nombre que muestra Still."
+          }
+        }
+      }
+    },
+    "Enter the name of the app you want Still to pause." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe el nombre de la app que Still debe pausar."
+          }
+        }
+      }
+    },
+    "Pause Before Opening" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar antes de abrir"
+          }
+        }
+      }
+    },
+    "Pause before opening ${appName}" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar antes de abrir ${appName}"
+          }
+        }
+      }
+    },
+    "Shows a Still pause when an app-opening personal automation runs." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra la pausa de Still cuando una automatización personal abre una app."
+          }
+        }
+      }
+    },
+    "The name Still should show, for example Instagram." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El nombre que muestra Still, por ejemplo Instagram."
+          }
+        }
+      }
+    },
+    "This pause expired. Open the app again to retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta pausa expiró. Abre la app otra vez para volver a intentarlo."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
