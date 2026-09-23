@@ -15,10 +15,10 @@ Supabase owns Auth, PostgreSQL, RLS, and donation-proof storage. The mobile app 
 | Concern                             | Authoritative state                           | Local/offline projection                           |
 | ----------------------------------- | --------------------------------------------- | -------------------------------------------------- |
 | Rewarded pass balance               | Append-only `token_ledger`                    | SQLite + native App Group/SharedPreferences wallet |
-| Emergency allowance                 | UTC-day ledger count and active remote config | Cached wallet for offline use                      |
-| Unlock duration and timestamps      | Active config + PostgreSQL clock              | Monotonic native deadline for enforcement          |
+| Unlock duration and timestamps      | Window the user chose + PostgreSQL clock      | Monotonic native deadline for enforcement          |
 | Selected apps and detailed activity | Native device-only storage/framework          | Never uploaded                                     |
-| Weekly Impact totals/status         | `impact_weeks`, revenue, votes, donations     | Read cache only; no demo fallback                  |
+| Ads watched and their value         | `ad_views` (one row per AdMob-confirmed ad)   | None                                               |
+| Weekly Impact totals/status         | `impact_week_totals()` over `ad_views`, `revenue_daily`, `wellbeing_daily`, votes and donations | Read cache only; no demo fallback |
 | Runtime switches                    | Active validated `remote_config_versions` row | Last validated config; a cold install fails closed |
 | Identity                            | Supabase Auth                                 | SecureStore session                                |
 
@@ -34,16 +34,18 @@ Account deletion pseudonymizes the financial ledger before deleting the Auth use
 
 1. A native detector finds a locally selected target and presents the native intervention. Platform kill switches are applied locally and rechecked by the unlock database function.
 2. For a React Native unlock, the native engine creates a monotonic session first; only then is the projected wallet spent and the idempotent event reported. This prevents a failed native schedule from consuming a pass. The iOS Shield extension performs the same local spend/outbox sequence atomically before removing the shield.
-3. A rewarded ad starts with a signed, expiring server intent. The trusted SDK callback is claimed server-side before a pass enters the local wallet. AdMob SSV verifies the signed callback with Google's rotating keys and a unique transaction ID. Provisional grants without valid SSV are rejected after 26 hours; an available pass is reversed without creating hidden negative debt.
-4. A scheduled job refreshes an offline OAuth token and imports per-day AdMob Reporting API earnings in USD minor units. Missing report days become explicit zero rows only after a successful report response. An operator closes voting, confirms revenue, uploads a signature-validated proof file, records the actual donation transactionally, and only then publishes the proof.
-5. Public Impact responses return persisted data or explicit unconfigured/empty/error states. Build-time or transient backend failures are never cached as fabricated public totals.
+3. A rewarded ad starts with a signed server intent that lives 24 hours (the Android shield keeps three pre-signed). The trusted SDK callback is claimed server-side before a pass enters the local wallet. AdMob SSV verifies the signed callback with Google's rotating keys and a unique transaction ID. Provisional grants without valid SSV are rejected after 26 hours; an available pass is reversed without creating hidden negative debt. A saved pass is the only way in without an ad (emergency access was removed), and the pause offers it next to the ad. A visit paid by a fresh ad names that ad's intent, so the server spends that ad's pass and never one saved earlier.
+4. Every SSV callback Google signs becomes an `ad_views` row, with or without an intent. Its value is what the SDK reported for that impression (impression-level ad revenue, capped at USD 0.10), else the eCPM observed in the last four weeks of AdMob reports, else the configured `estimatedRewardedEcpmUsd`. Test impressions (unknown precision, zero value) count for nothing.
+5. A scheduled job refreshes an offline OAuth token and imports per-day AdMob Reporting API earnings in micros, in `America/Los_Angeles` days. An unconfirmed week is computed live by `impact_week_totals()`: settled report days use AdMob's figure, recent days the larger of the partial report and the ads' estimates. Weeks open and close their voting by themselves; an operator confirms revenue, uploads a signature-validated proof file, records the actual donation transactionally, and only then publishes the proof.
+6. People and time returned come from the per-device local days the app uploads (up to 14 at a time); the server computes the minutes from the counts and the active configuration.
+7. Public Impact responses return persisted data or explicit unconfigured/empty/error states. Build-time or transient backend failures are never cached as fabricated public totals.
 
 ## Operational invariants
 
 - `token_ledger` is append-only; grants, reversals, and spends have unique idempotency keys.
 - Per-user advisory locks serialize reward claims, reconciliation, and unlock spending in a consistent lock order.
 - Reward creation accepts only the implemented AdMob provider and enforces the active reward switch, balance cap, and UTC daily limit in PostgreSQL.
-- Unlock insertion and rewarded-token spending happen in one database transaction; server config owns duration and platform enablement.
+- Unlock insertion and rewarded-token spending happen in one database transaction; the recorded duration is the window the user chose (60 s to 24 h) and server config owns platform enablement.
 - Voting requires a linked identity, an open week, an active candidate, and the active voting switch.
 - A week snapshots the impact/platform percentages; later config changes cannot rewrite history.
 - Native unlock expiry uses monotonic uptime and boot identity rather than the editable wall clock.

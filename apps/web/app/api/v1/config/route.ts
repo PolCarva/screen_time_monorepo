@@ -36,7 +36,10 @@ export async function GET(request: Request) {
     if (request.headers.get("if-none-match") === etag) {
       return new Response(null, { status: 304, headers: { etag } });
     }
-    return Response.json(config, {
+    // Builds from before 2026-09-23 require the emergency allowance and would
+    // fall back to a closed default without it. It is always 0 now that
+    // emergency access is gone; drop it once no older build is in use.
+    return Response.json({ ...config, dailyEmergencyUnlocks: 0 }, {
       headers: {
         etag,
         "cache-control": "public, max-age=60, stale-while-revalidate=300",

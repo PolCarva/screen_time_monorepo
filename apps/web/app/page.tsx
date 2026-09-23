@@ -5,7 +5,12 @@ import { AttentionField } from "@/components/attention-field";
 import { AndroidDownloadLink } from "@/components/android-download-link";
 import { BetaSignupForm } from "@/components/beta-signup-form";
 import { BrandLockup } from "@/components/brand-mark";
-import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
+import {
+  ImpactCard,
+  ImpactUnavailable,
+  formatFund,
+  formatReturnedTime,
+} from "@/components/impact-card";
 import { InterventionDemo } from "@/components/intervention-demo";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentImpactWeek } from "@/lib/impact";
@@ -52,7 +57,11 @@ export default async function HomePage() {
         <dl className="hero-v3__facts">
           <div>
             <dt>Tiempo recuperado</dt>
-            <dd>En tu dispositivo</dd>
+            <dd>
+              {impact && impact.allTime.minutesReturned > 0
+                ? `${formatReturnedTime(impact.allTime.minutesReturned)} · ${impact.allTime.people} ${impact.allTime.people === 1 ? "persona" : "personas"}`
+                : "En tu dispositivo"}
+            </dd>
           </div>
           <div>
             <dt>Apps protegidas</dt>
@@ -62,11 +71,7 @@ export default async function HomePage() {
             <dt>Fondo semanal</dt>
             <dd>
               {impact
-                ? new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: impact.currency,
-                    maximumFractionDigits: 0,
-                  }).format(impact.impactFundMinor / 100)
+                ? formatFund(impact.impactFundMinor, impact.currency)
                 : "Sin publicar"}
             </dd>
           </div>
@@ -273,7 +278,7 @@ export default async function HomePage() {
             <ul>
               <li>
                 <span />
-                Ingresos registrados, no promesas por anuncio.
+                Cada anuncio suma lo que se estima que generó; AdMob lo confirma al día siguiente.
               </li>
               <li>
                 <span />

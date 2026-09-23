@@ -23,7 +23,7 @@ const sections = [
   },
   {
     title: "4. Publicidad opcional",
-    body: "Los anuncios recompensados son opcionales. Still usa Google AdMob y Google User Messaging Platform para solicitar consentimiento cuando corresponde. El MVP pide anuncios no personalizados o limitados. Completar un anuncio elegible concede un pase no transferible. Still asigna un porcentaje de su ingreso publicitario al fondo; un anuncio individual no dona dinero por sí mismo.",
+    body: "Los anuncios recompensados son opcionales. Still usa Google AdMob y Google User Messaging Platform para solicitar consentimiento cuando corresponde. El MVP pide anuncios no personalizados o limitados. Completar un anuncio elegible concede un pase no transferible. Still guarda cuándo AdMob confirmó cada anuncio y cuánto se estima que generó, para mostrar el fondo semanal en vivo. Still asigna un porcentaje de su ingreso publicitario al fondo; un anuncio individual no dona dinero por sí mismo.",
   },
   {
     title: "5. Analytics y diagnóstico",
@@ -35,7 +35,7 @@ const sections = [
   },
   {
     title: "7. Tus opciones y derechos",
-    body: "Puedes rechazar el consentimiento publicitario, usar accesos de emergencia cuando no haya anuncios, revocar permisos de plataforma, exportar los datos de la cuenta o solicitar su eliminación desde Privacidad. La eliminación borra perfil, dispositivos, agregados y push tokens. Los asientos financieros pueden conservarse seudonimizados cuando sea legalmente necesario.",
+    body: "Puedes rechazar el consentimiento publicitario, entrar después de una pausa breve cuando no haya anuncios ni pases, revocar permisos de plataforma, exportar los datos de la cuenta o solicitar su eliminación desde Privacidad. La eliminación borra perfil, dispositivos, agregados y push tokens. Los asientos financieros y el registro de anuncios confirmados pueden conservarse seudonimizados, sin tu identidad, cuando sea legalmente necesario o para que los totales del fondo sigan siendo exactos.",
   },
   {
     title: "8. Procesamiento internacional y seguridad",

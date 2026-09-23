@@ -42,7 +42,7 @@ Suggested disclosure: “Still uses Accessibility to detect when you open only t
 
 ## Ads and impact
 
-- Use Google UMP in the EEA, UK, and Switzerland. The MVP requests non-personalized/limited ads and preserves Emergency Unlock when ads are unavailable.
+- Use Google UMP in the EEA, UK, and Switzerland. The MVP requests non-personalized/limited ads. When no ad is available and no pass is saved, a 15-second pause still lets the user in for five minutes, so nobody is locked out.
 - Use test ad unit IDs in every non-production build.
 - Product copy must say: “The platform allocates a percentage of its advertising revenue to the Impact Fund.” Never attribute a specific donation to a specific ad.
 - Mark an open week's revenue as estimated. Show “donated” only after an operator records a real payment and public proof.

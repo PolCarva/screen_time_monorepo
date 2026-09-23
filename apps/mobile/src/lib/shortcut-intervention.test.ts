@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   completeShortcutAndReturn,
-  getInterventionUnlockAction,
+  getInterventionOptions,
 } from "./shortcut-intervention";
 
 const base = {
@@ -14,50 +14,57 @@ const base = {
   rewardedPassesRemainingToday: 4,
   rewardedBalance: 1,
   maxRewardTokenBalance: 5,
-  emergencyRemaining: 1,
 };
 
-describe("direct intervention unlock action", () => {
-  it("offers the prepared ad directly on iOS Shortcuts or Android", () => {
-    expect(getInterventionUnlockAction(base)).toBe("watch_ad");
+describe("what the pause can offer", () => {
+  it("offers the prepared ad and the saved pass side by side", () => {
+    expect(getInterventionOptions(base)).toEqual({ ad: "ready", pass: true });
+  });
+
+  it("offers the ad alone to someone without a saved pass", () => {
+    expect(getInterventionOptions({ ...base, rewardedBalance: 0 })).toEqual({
+      ad: "ready",
+      pass: false,
+    });
   });
 
   it("waits for an eligible ad to finish preparing", () => {
     expect(
-      getInterventionUnlockAction({ ...base, rewardStatus: "preparing" }),
-    ).toBe("preparing_ad");
+      getInterventionOptions({ ...base, rewardStatus: "preparing" }),
+    ).toEqual({ ad: "preparing", pass: true });
   });
 
-  it("falls back to an existing pass when the ad is unavailable", () => {
+  it("keeps the saved pass when the ad is unavailable", () => {
     expect(
-      getInterventionUnlockAction({ ...base, rewardStatus: "unavailable" }),
-    ).toBe("use_rewarded_pass");
+      getInterventionOptions({ ...base, rewardStatus: "unavailable" }),
+    ).toEqual({ ad: "none", pass: true });
   });
 
-  it("falls back to Emergency Access when rewards cannot be used", () => {
+  it("offers only the pass once the wallet is full, since an ad could not add one", () => {
     expect(
-      getInterventionUnlockAction({
+      getInterventionOptions({ ...base, rewardedBalance: 5 }),
+    ).toEqual({ ad: "none", pass: true });
+  });
+
+  it("offers neither once today's passes are used up", () => {
+    expect(
+      getInterventionOptions({ ...base, rewardedPassesRemainingToday: 0 }),
+    ).toEqual({ ad: "none", pass: false });
+  });
+
+  it("leaves nothing but the pause without an ad or a pass", () => {
+    expect(
+      getInterventionOptions({
         ...base,
         rewardStatus: "unavailable",
         rewardedBalance: 0,
       }),
-    ).toBe("use_emergency");
-  });
-
-  it("offers retry when neither an ad nor an allowance is available", () => {
-    expect(
-      getInterventionUnlockAction({
-        ...base,
-        rewardStatus: "unavailable",
-        rewardedBalance: 0,
-        emergencyRemaining: 0,
-      }),
-    ).toBe("retry_ad");
+    ).toEqual({ ad: "none", pass: false });
   });
 
   it("does not enable direct ads on an unsupported intervention", () => {
     expect(
-      getInterventionUnlockAction({ ...base, supportsDirectAd: false }),
+      getInterventionOptions({ ...base, supportsDirectAd: false }),
     ).toBeNull();
   });
 });

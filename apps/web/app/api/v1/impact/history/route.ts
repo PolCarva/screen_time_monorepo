@@ -1,6 +1,7 @@
 import { impactHistorySchema } from "@screen-time/contracts";
 
 import { HttpError, routeError } from "@/lib/http";
+import { loadWeekTotals } from "@/lib/impact";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function GET() {
@@ -26,18 +27,28 @@ export async function GET() {
         "impact_unavailable",
         "Impact history is temporarily unavailable",
       );
-    const history = (data ?? []).map((week) => {
+    const weeks = data ?? [];
+    // Weeks not yet confirmed show the live estimate, like the current week.
+    const totals = await loadWeekTotals(client, weeks).catch(() => {
+      throw new HttpError(
+        503,
+        "impact_unavailable",
+        "Impact history is temporarily unavailable",
+      );
+    });
+    const history = weeks.map((week) => {
       const donation = Array.isArray(week.donations)
         ? week.donations[0]
         : week.donations;
+      const amounts = totals.get(week.id)!;
       return {
         id: week.id,
         weekStart: week.week_start,
         weekEnd: week.week_end,
         status: week.status,
         currency: week.currency,
-        grossRevenueMinor: Number(week.gross_revenue_minor),
-        impactFundMinor: Number(week.impact_fund_minor),
+        grossRevenueMinor: amounts.grossRevenueMinor,
+        impactFundMinor: amounts.impactFundMinor,
         impactPercentage: Number(week.impact_percentage),
         isEstimated: week.revenue_is_estimated,
         donationProofUrl: donation?.proof_url ?? null,

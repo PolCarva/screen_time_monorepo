@@ -9,13 +9,16 @@ import {
 import {
   type InterventionFlowEvent,
   type InterventionFlowState,
+  type InterventionGate,
+  NOTHING_LEFT,
   PAUSE_ALLOWANCE_SECONDS,
   PAUSE_SECONDS,
   accessSecondsFor,
   canChooseDuration,
   createInterventionFlow,
   enterMethod,
-  gateFromUnlockAction,
+  gateFrom,
+  isTimedPause,
   keepsRewardOnLeave,
   transition,
 } from "./intervention-flow";
@@ -24,21 +27,25 @@ function run(state: InterventionFlowState, ...events: InterventionFlowEvent[]) {
   return events.reduce(transition, state);
 }
 
-const atAdGate = () => createInterventionFlow({ gate: "watch_ad" });
+const AD: InterventionGate = { ad: "ready", pass: false };
+const PREPARING: InterventionGate = { ad: "preparing", pass: false };
+const PASS: InterventionGate = { ad: "none", pass: true };
+const AD_AND_PASS: InterventionGate = { ad: "ready", pass: true };
+const atAdGate = () => createInterventionFlow({ gate: AD });
 const ticks = (count: number): InterventionFlowEvent[] =>
   Array.from({ length: count }, () => ({ type: "PAUSE_TICK" }) as const);
 
 describe("intervention gate selection", () => {
-  it("passes through every friction the unlock table can offer", () => {
-    expect(gateFromUnlockAction("watch_ad")).toBe("watch_ad");
-    expect(gateFromUnlockAction("preparing_ad")).toBe("preparing_ad");
-    expect(gateFromUnlockAction("use_rewarded_pass")).toBe("use_rewarded_pass");
-    expect(gateFromUnlockAction("use_emergency")).toBe("use_emergency");
+  it("passes through what the platform can offer", () => {
+    expect(gateFrom(AD_AND_PASS)).toEqual(AD_AND_PASS);
+    expect(isTimedPause(AD_AND_PASS)).toBe(false);
+    expect(isTimedPause(PASS)).toBe(false);
+    expect(isTimedPause(PREPARING)).toBe(false);
   });
 
   it("turns 'nothing left' into the timed pause so nobody is stranded", () => {
-    expect(gateFromUnlockAction("retry_ad")).toBe("timed_pause");
-    expect(gateFromUnlockAction(null)).toBe("timed_pause");
+    expect(gateFrom(null)).toEqual(NOTHING_LEFT);
+    expect(isTimedPause(NOTHING_LEFT)).toBe(true);
   });
 
   it("keeps the free pause short compared with a paid unlock", () => {
@@ -110,12 +117,12 @@ describe("intervention flow: ad first, decision after", () => {
     const failed = run(
       atAdGate(),
       { type: "WATCH_AD" },
-      { type: "GATE_CHANGED", gate: "use_rewarded_pass" },
+      { type: "GATE_CHANGED", gate: PASS },
       { type: "AD_FAILED" },
     );
     expect(failed).toMatchObject({
       phase: "gate",
-      gate: "use_rewarded_pass",
+      gate: PASS,
       notice: "ad_failed",
     });
 
@@ -123,7 +130,7 @@ describe("intervention flow: ad first, decision after", () => {
       atAdGate(),
       { type: "WATCH_AD" },
       { type: "AD_EARNED" },
-      { type: "GATE_CHANGED", gate: "timed_pause" },
+      { type: "GATE_CHANGED", gate: NOTHING_LEFT },
       { type: "CLAIM_FAILED" },
     );
     expect(rejected).toMatchObject({
@@ -134,7 +141,7 @@ describe("intervention flow: ad first, decision after", () => {
   });
 
   it("does not start an ad from a gate that has no ad to show", () => {
-    for (const gate of ["preparing_ad", "use_rewarded_pass"] as const) {
+    for (const gate of [PREPARING, PASS]) {
       const state = createInterventionFlow({ gate });
       expect(run(state, { type: "WATCH_AD" })).toEqual(state);
     }
@@ -145,34 +152,54 @@ describe("intervention flow: ad first, decision after", () => {
       atAdGate(),
       { type: "WATCH_AD" },
       { type: "AD_DISMISSED" },
-      { type: "GATE_CHANGED", gate: "watch_ad" },
+      { type: "GATE_CHANGED", gate: AD },
       { type: "WATCH_AD" },
     );
     expect(retried).toMatchObject({ phase: "ad", notice: null });
   });
 });
 
-describe("intervention flow: stored pass and emergency access", () => {
-  it("sends a paid pass to the same duration choice the ad earns", () => {
-    for (const gate of ["use_rewarded_pass", "use_emergency"] as const) {
-      const deciding = run(createInterventionFlow({ gate }), {
-        type: "USE_PASS",
-      });
-      expect(deciding).toMatchObject({ phase: "decision", earnedBy: "wallet" });
-      expect(canChooseDuration(deciding)).toBe(true);
-      expect(enterMethod(deciding)).toBe("wallet");
-      expect(run(deciding, { type: "ENTER" }).phase).toBe("entering");
-    }
+describe("intervention flow: saved pass", () => {
+  it("sends a saved pass to the same duration choice the ad earns", () => {
+    const deciding = run(createInterventionFlow({ gate: PASS }), {
+      type: "USE_PASS",
+    });
+    expect(deciding).toMatchObject({ phase: "decision", earnedBy: "wallet" });
+    expect(canChooseDuration(deciding)).toBe(true);
+    expect(enterMethod(deciding)).toBe("wallet");
+    expect(run(deciding, { type: "ENTER" }).phase).toBe("entering");
   });
 
-  it("ignores a pass tap when the gate is about an ad", () => {
+  it("lets a saved pass in without watching the ad that is ready", () => {
+    const gate = createInterventionFlow({ gate: AD_AND_PASS });
+    expect(gate.phase).toBe("gate");
+    expect(run(gate, { type: "USE_PASS" })).toMatchObject({
+      phase: "decision",
+      earnedBy: "wallet",
+    });
+    // The ad stays an option for whoever prefers to keep the pass.
+    expect(run(gate, { type: "WATCH_AD" }).phase).toBe("ad");
+  });
+
+  it("ignores a pass tap when there is no pass", () => {
     const state = atAdGate();
     expect(run(state, { type: "USE_PASS" })).toEqual(state);
   });
 
+  it("keeps offering the pass when the ad fails", () => {
+    const failed = run(
+      createInterventionFlow({ gate: AD_AND_PASS }),
+      { type: "WATCH_AD" },
+      { type: "GATE_CHANGED", gate: PASS },
+      { type: "AD_FAILED" },
+    );
+    expect(failed).toMatchObject({ phase: "gate", gate: PASS, notice: "ad_failed" });
+    expect(run(failed, { type: "USE_PASS" }).phase).toBe("decision");
+  });
+
   it("keeps the chosen window on screen if the wallet unlock fails", () => {
     const back = run(
-      createInterventionFlow({ gate: "use_emergency" }),
+      createInterventionFlow({ gate: PASS }),
       { type: "USE_PASS" },
       { type: "CHOOSE_DURATION", seconds: 1_800 },
       { type: "ENTER" },
@@ -189,22 +216,22 @@ describe("intervention flow: stored pass and emergency access", () => {
 
 describe("intervention flow: timed pause", () => {
   it("starts the pause immediately when nothing else is available", () => {
-    expect(createInterventionFlow({ gate: "timed_pause" })).toMatchObject({
+    expect(createInterventionFlow({ gate: NOTHING_LEFT })).toMatchObject({
       phase: "pause",
       pauseSecondsLeft: PAUSE_SECONDS,
     });
   });
 
   it("starts the pause when the ad being prepared never arrives", () => {
-    const paused = run(createInterventionFlow({ gate: "preparing_ad" }), {
+    const paused = run(createInterventionFlow({ gate: PREPARING }), {
       type: "GATE_CHANGED",
-      gate: "timed_pause",
+      gate: NOTHING_LEFT,
     });
     expect(paused.phase).toBe("pause");
   });
 
   it("only offers to enter after the full countdown", () => {
-    const paused = createInterventionFlow({ gate: "timed_pause" });
+    const paused = createInterventionFlow({ gate: NOTHING_LEFT });
     const almost = run(paused, ...ticks(PAUSE_SECONDS - 1));
     expect(almost).toMatchObject({ phase: "pause", pauseSecondsLeft: 1 });
     expect(run(almost, { type: "ENTER" }).phase).toBe("pause");
@@ -217,7 +244,7 @@ describe("intervention flow: timed pause", () => {
 
   it("can be abandoned at any second", () => {
     const leaving = run(
-      createInterventionFlow({ gate: "timed_pause" }),
+      createInterventionFlow({ gate: NOTHING_LEFT }),
       ...ticks(4),
       { type: "DECLINE" },
     );
@@ -226,20 +253,20 @@ describe("intervention flow: timed pause", () => {
 
   it("is never swapped for an ad once it has started", () => {
     const state = run(
-      createInterventionFlow({ gate: "timed_pause" }),
+      createInterventionFlow({ gate: NOTHING_LEFT }),
       ...ticks(3),
-      { type: "GATE_CHANGED", gate: "watch_ad" },
+      { type: "GATE_CHANGED", gate: AD },
     );
     expect(state).toMatchObject({
       phase: "pause",
-      gate: "watch_ad",
+      gate: AD,
       pauseSecondsLeft: PAUSE_SECONDS - 3,
     });
   });
 
   it("goes back to the decision, not the countdown, if the unlock fails", () => {
     const back = run(
-      createInterventionFlow({ gate: "timed_pause" }),
+      createInterventionFlow({ gate: NOTHING_LEFT }),
       ...ticks(PAUSE_SECONDS),
       { type: "ENTER" },
       { type: "ENTER_FAILED", stage: "unlock" },
@@ -270,10 +297,10 @@ describe("intervention flow: hand-back and setup test", () => {
   });
 
   it("shows the connected screen instead of any friction during a setup test", () => {
-    const test = createInterventionFlow({ gate: "watch_ad", isSetupTest: true });
+    const test = createInterventionFlow({ gate: AD, isSetupTest: true });
     expect(test.phase).toBe("setup_test");
     expect(run(test, { type: "WATCH_AD" })).toEqual(test);
-    expect(run(test, { type: "GATE_CHANGED", gate: "timed_pause" }).phase).toBe(
+    expect(run(test, { type: "GATE_CHANGED", gate: NOTHING_LEFT }).phase).toBe(
       "setup_test",
     );
     expect(run(test, { type: "TEST_ACKNOWLEDGED" })).toMatchObject({
@@ -306,7 +333,7 @@ describe("intervention flow: choosing the window after paying", () => {
 
   it("can start from the window this device chose last time", () => {
     const seeded = createInterventionFlow({
-      gate: "watch_ad",
+      gate: AD,
       durationSeconds: 1_800,
     });
     expect(seeded.durationSeconds).toBe(1_800);
@@ -335,7 +362,7 @@ describe("intervention flow: choosing the window after paying", () => {
 
   it("gives the free pause a fixed short window the user cannot stretch", () => {
     const decision = run(
-      createInterventionFlow({ gate: "timed_pause" }),
+      createInterventionFlow({ gate: NOTHING_LEFT }),
       ...ticks(PAUSE_SECONDS),
     );
     expect(canChooseDuration(decision)).toBe(false);
@@ -359,7 +386,7 @@ describe("intervention flow: choosing the window after paying", () => {
 
   it("keeps the chosen window when the gate changes underneath", () => {
     const chosen = run(afterAd(), { type: "CHOOSE_DURATION", seconds: 3_600 });
-    const moved = run(chosen, { type: "GATE_CHANGED", gate: "timed_pause" });
+    const moved = run(chosen, { type: "GATE_CHANGED", gate: NOTHING_LEFT });
     expect(moved).toMatchObject({ phase: "decision", durationSeconds: 3_600 });
   });
 });

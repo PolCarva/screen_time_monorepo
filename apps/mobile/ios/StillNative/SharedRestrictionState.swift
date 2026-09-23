@@ -59,9 +59,10 @@ enum SharedRestrictionState {
     let bootEpoch: TimeInterval
   }
 
+  /// Saved passes only: emergency access was removed. A wallet written by an
+  /// older build still decodes, because its extra `emergency` key is ignored.
   struct LocalWallet: Codable {
     var rewarded: Int
-    var emergency: Int
     var resetAt: Date
   }
 
@@ -386,14 +387,12 @@ enum SharedRestrictionState {
 
   static func syncWallet(
     rewarded: Int,
-    emergency: Int,
     resetAt: Date,
     estimatedMinutesPerAvoidedOpen: Double,
     unlockDurationSeconds: Int,
     restrictionsEnabled: Bool
   ) {
-    let wallet = LocalWallet(
-      rewarded: max(0, rewarded), emergency: max(0, emergency), resetAt: resetAt)
+    let wallet = LocalWallet(rewarded: max(0, rewarded), resetAt: resetAt)
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
     defaults.set(
       max(0, min(estimatedMinutesPerAvoidedOpen, 60)), forKey: estimatedMinutesPerAvoidedOpenKey)
@@ -402,34 +401,21 @@ enum SharedRestrictionState {
     applyShields()
   }
 
-  /// Spends the normal balance first, preserving Emergency Unlocks whenever a
-  /// verified Unlock Token is available. Shield extensions cannot offer more
-  /// than two actions, so this keeps the fallback usable from the native
-  /// shield even while a reward verification is pending.
+  /// Spends one saved pass, the only way in without an ad now that emergency
+  /// access is gone. Returns nil when there is none to spend.
   static func consumeAvailableUnlock() -> String? {
     guard restrictionsEnabled else { return nil }
     var wallet = loadWallet()
-    let source: String
-    if wallet.rewarded > 0 {
-      wallet.rewarded -= 1
-      source = "rewarded"
-    } else if wallet.emergency > 0 {
-      wallet.emergency -= 1
-      source = "emergency"
-    } else {
-      return nil
-    }
+    guard wallet.rewarded > 0 else { return nil }
+    wallet.rewarded -= 1
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
-    return source
+    return "rewarded"
   }
 
   static func refundUnlock(_ source: String) {
+    guard source == "rewarded" else { return }
     var wallet = loadWallet()
-    if source == "rewarded" {
-      wallet.rewarded += 1
-    } else if source == "emergency" {
-      wallet.emergency += 1
-    }
+    wallet.rewarded += 1
     defaults.set(try? JSONEncoder().encode(wallet), forKey: walletKey)
   }
 
@@ -539,9 +525,9 @@ enum SharedRestrictionState {
     guard let data = defaults.data(forKey: walletKey),
       let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
       // Corrupt or missing shared state must never mint access. The JS layer
-      // synchronizes the server-owned emergency allowance before enabling shields.
+      // synchronizes the server-owned wallet before enabling shields.
     else {
-      return LocalWallet(rewarded: 0, emergency: 0, resetAt: Date().addingTimeInterval(86_400))
+      return LocalWallet(rewarded: 0, resetAt: Date().addingTimeInterval(86_400))
     }
     return wallet
   }

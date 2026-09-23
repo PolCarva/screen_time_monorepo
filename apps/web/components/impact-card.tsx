@@ -1,12 +1,29 @@
-import type { ImpactWeek } from "@screen-time/contracts";
+import {
+  type ImpactWeek,
+  impactAmountFractionDigits,
+  returnedTimeParts,
+} from "@screen-time/contracts";
 import { AttentionField } from "@/components/attention-field";
 import type { ImpactWeekResult } from "@/lib/impact";
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
+/** Cents while the fund is small, so a young fund never reads as zero. */
+export function formatFund(minor: number, currency = "USD"): string {
+  const digits = impactAmountFractionDigits(minor);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(minor / 100);
+}
+
+const count = new Intl.NumberFormat("es");
+const decimal = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
+
+export function formatReturnedTime(minutes: number): string {
+  const { value, unit } = returnedTimeParts(minutes);
+  return `${decimal.format(value)} ${unit}`;
+}
 const statusLabels: Record<ImpactWeek["status"], string> = {
   draft: "En preparación",
   open: "Votación abierta",
@@ -22,7 +39,7 @@ export function ImpactCard({
   week: ImpactWeek;
   compact?: boolean;
 }) {
-  const amount = money.format(week.impactFundMinor / 100);
+  const amount = formatFund(week.impactFundMinor, week.currency);
   return (
     <article
       className={`impact-ledger${compact ? " impact-ledger--compact" : ""}`}
@@ -46,7 +63,10 @@ export function ImpactCard({
       <div className="impact-ledger__amount">
         <p>{amount}</p>
         <span>
-          {week.impactPercentage}% del ingreso publicitario registrado
+          {week.impactPercentage}% del ingreso publicitario de la semana
+          {week.isEstimated && week.estimatedRevenueMinor > 0
+            ? ". Incluye lo estimado por cada anuncio que AdMob todavía no informó."
+            : ""}
         </span>
       </div>
       <AttentionField
@@ -80,18 +100,38 @@ export function ImpactCard({
       </div>
       <dl className="impact-ledger__meta">
         <div>
-          <dt>Participantes</dt>
-          <dd>{week.participants.toLocaleString()}</dd>
+          <dt>Anuncios vistos</dt>
+          <dd>{count.format(week.rewardedAds)}</dd>
         </div>
         <div>
-          <dt>Acciones verificadas</dt>
-          <dd>{week.rewardedAds.toLocaleString()}</dd>
+          <dt>Personas que aportaron</dt>
+          <dd>{count.format(week.participants)}</dd>
+        </div>
+        <div>
+          <dt>Tiempo recuperado</dt>
+          <dd>
+            {formatReturnedTime(week.minutesReturned)}
+            {week.people > 0
+              ? ` · ${count.format(week.people)} ${week.people === 1 ? "persona" : "personas"}`
+              : ""}
+          </dd>
         </div>
         <div>
           <dt>Estado del monto</dt>
-          <dd>{week.isEstimated ? "A confirmar" : "Conciliado"}</dd>
+          <dd>{week.isEstimated ? "Estimado" : "Conciliado"}</dd>
         </div>
       </dl>
+      <p className="impact-ledger__all-time">
+        Desde el inicio: {count.format(week.allTime.people)}{" "}
+        {week.allTime.people === 1 ? "persona" : "personas"} recuperaron{" "}
+        {formatReturnedTime(week.allTime.minutesReturned)} ·{" "}
+        {count.format(week.allTime.rewardedAds)}{" "}
+        {week.allTime.rewardedAds === 1 ? "anuncio visto" : "anuncios vistos"}
+        {week.allTime.donatedMinor > 0
+          ? ` · ${formatFund(week.allTime.donatedMinor)} donados`
+          : ""}
+        .
+      </p>
     </article>
   );
 }

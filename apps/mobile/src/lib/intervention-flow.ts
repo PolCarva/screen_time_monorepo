@@ -1,8 +1,6 @@
 import { DEFAULT_ACCESS_DURATION_SECONDS } from "@screen-time/contracts";
 
-import type { InterventionUnlockAction } from "./shortcut-intervention";
-
-/** Length of the breathing pause offered when there is no ad, pass or emergency access. */
+/** Length of the breathing pause offered when there is no ad and no saved pass. */
 export const PAUSE_SECONDS = 15;
 /**
  * A pause costs nothing, so it buys a short window and the user does not get to
@@ -11,12 +9,22 @@ export const PAUSE_SECONDS = 15;
  */
 export const PAUSE_ALLOWANCE_SECONDS = 5 * 60;
 
-export type InterventionGate =
-  | "watch_ad"
-  | "preparing_ad"
-  | "use_rewarded_pass"
-  | "use_emergency"
-  | "timed_pause";
+/**
+ * What the gate offers. The ad and a saved pass are independent: whoever has a
+ * pass can always go in without watching an ad, even when one is ready
+ * (docs/real-impact-stats-plan.md, D2-D3). With neither, the timed pause.
+ */
+export type InterventionGate = {
+  ad: "ready" | "preparing" | "none";
+  pass: boolean;
+};
+
+/** No ad and no pass: the timed pause is all that is left. */
+export const NOTHING_LEFT: InterventionGate = { ad: "none", pass: false };
+
+export function isTimedPause(gate: InterventionGate): boolean {
+  return gate.ad === "none" && !gate.pass;
+}
 
 export type InterventionNotice =
   | "ad_dismissed"
@@ -69,22 +77,9 @@ export type InterventionFlowEvent =
   | { type: "FINISHED" }
   | { type: "TEST_ACKNOWLEDGED" };
 
-/**
- * `retry_ad` is only ever returned when there is no ad, no stored pass and no
- * emergency access, which is exactly when the timed pause takes over.
- */
-export function gateFromUnlockAction(
-  action: InterventionUnlockAction | null,
-): InterventionGate {
-  switch (action) {
-    case "watch_ad":
-    case "preparing_ad":
-    case "use_rewarded_pass":
-    case "use_emergency":
-      return action;
-    default:
-      return "timed_pause";
-  }
+/** A platform that cannot offer anything falls back to the timed pause. */
+export function gateFrom(options: InterventionGate | null): InterventionGate {
+  return options ?? NOTHING_LEFT;
 }
 
 export function createInterventionFlow(input: {
@@ -111,7 +106,7 @@ function settleAtGate(
   state: InterventionFlowState,
   notice: InterventionNotice | null,
 ): InterventionFlowState {
-  if (state.gate === "timed_pause")
+  if (isTimedPause(state.gate))
     return {
       ...state,
       phase: "pause",
@@ -127,6 +122,11 @@ export function transition(
   event: InterventionFlowEvent,
 ): InterventionFlowState {
   if (event.type === "GATE_CHANGED") {
+    if (
+      event.gate.ad === state.gate.ad &&
+      event.gate.pass === state.gate.pass
+    )
+      return state;
     const next = { ...state, gate: event.gate };
     // A pause that already started is never swapped for something else.
     return state.phase === "gate" ? settleAtGate(next, state.notice) : next;
@@ -139,14 +139,11 @@ export function transition(
         : state;
 
     case "gate":
-      if (event.type === "WATCH_AD" && state.gate === "watch_ad")
+      if (event.type === "WATCH_AD" && state.gate.ad === "ready")
         return { ...state, phase: "ad", notice: null };
-      // A stored pass and emergency access are paid for too, so they also get
-      // to choose how long the window lasts.
-      if (
-        event.type === "USE_PASS" &&
-        (state.gate === "use_rewarded_pass" || state.gate === "use_emergency")
-      )
+      // A saved pass was paid for with an earlier ad, so it also gets to
+      // choose how long the window lasts.
+      if (event.type === "USE_PASS" && state.gate.pass)
         return { ...state, phase: "decision", earnedBy: "wallet", notice: null };
       if (event.type === "DECLINE")
         return { ...state, phase: "leaving", notice: null };

@@ -14,7 +14,7 @@ vi.mock("react-native-google-mobile-ads", () => ({
     setRequestConfiguration: mocks.setRequestConfiguration,
   })),
   AdsConsent: { gatherConsent: mocks.gatherConsent },
-  AdEventType: { CLOSED: "closed", ERROR: "error" },
+  AdEventType: { CLOSED: "closed", ERROR: "error", PAID: "paid" },
   RewardedAd: { createForAdRequest: mocks.createForAdRequest },
   RewardedAdEventType: { EARNED_REWARD: "earned", LOADED: "loaded" },
   TestIds: { REWARDED: "test-rewarded" },
@@ -115,5 +115,37 @@ describe("AdMob reward provider initialization", () => {
 
     await expect(preload).resolves.toBe("ready");
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("returns what the impression paid with an earned reward", async () => {
+    const listeners = new Map<string, (payload?: unknown) => void>();
+    mocks.createForAdRequest.mockReturnValue({
+      addAdEventListener: vi.fn(
+        (event: string, listener: (payload?: unknown) => void) => {
+          listeners.set(event, listener);
+          return vi.fn(() => listeners.delete(event));
+        },
+      ),
+      load: vi.fn(() => queueMicrotask(() => listeners.get("loaded")?.())),
+      show: vi.fn(async () => {
+        listeners.get("paid")?.({ value: 0.0042, currency: "USD", precision: 3 });
+        listeners.get("earned")?.();
+        listeners.get("closed")?.();
+      }),
+    });
+    const { admobRewardProvider } = await import("./reward-provider");
+    const intent = {
+      id: "reward-intent",
+      customData: "signed-data",
+      userId: "anonymous",
+      expiresAt: "2026-09-07T00:00:00.000Z",
+    };
+
+    await expect(admobRewardProvider.preload(intent)).resolves.toBe("ready");
+    await expect(admobRewardProvider.show(intent)).resolves.toEqual({
+      status: "earned",
+      clientEventId: "event-id",
+      adValue: { valueMicros: 4_200, currency: "USD", precision: "precise" },
+    });
   });
 });

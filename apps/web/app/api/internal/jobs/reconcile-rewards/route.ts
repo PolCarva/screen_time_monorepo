@@ -1,4 +1,5 @@
 import { HttpError, routeError } from "@/lib/http";
+import { ensureCurrentImpactWeek } from "@/lib/impact";
 import { createAdminClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,9 @@ export async function GET(request: Request) {
         "reconciliation_failed",
         "Reward reconciliation failed",
       );
+    // Also runs on the AdMob job; either one keeps the week current even if
+    // the other fails (docs/real-impact-stats-plan.md, D9).
+    await ensureCurrentImpactWeek(client);
     return Response.json(
       { reconciled: Number(data ?? 0) },
       { headers: { "cache-control": "no-store" } },

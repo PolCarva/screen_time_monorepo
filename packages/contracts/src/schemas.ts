@@ -8,12 +8,15 @@ export const remoteConfigSchema = z
   .object({
     version: z.number().int().positive(),
     unlockDurationSeconds: z.number().int().min(60).max(86_400),
-    dailyEmergencyUnlocks: z.number().int().min(0).max(20),
     maxRewardedAdsPerUtcDay: z.number().int().min(0).max(30),
     maxRewardTokenBalance: z.number().int().min(0).max(20),
     impactPercentage: z.number().min(0).max(100),
     platformPercentage: z.number().min(0).max(100),
     estimatedMinutesPerAvoidedOpen: z.number().min(0).max(60),
+    // What a thousand rewarded views earn when neither the SDK nor AdMob's
+    // reports say (docs/real-impact-stats-plan.md, D5). Rewarded Android ads
+    // in Latin America earn about 2-4 USD per thousand.
+    estimatedRewardedEcpmUsd: z.number().min(0).max(200).default(3),
     rewardProvider: z.enum(["admob", "disabled"]),
     votingEnabled: z.boolean(),
     iosRestrictionEnabled: z.boolean(),
@@ -39,12 +42,12 @@ export type RemoteConfig = z.infer<typeof remoteConfigSchema>;
 export const defaultRemoteConfig: RemoteConfig = {
   version: 0,
   unlockDurationSeconds: 600,
-  dailyEmergencyUnlocks: 0,
   maxRewardedAdsPerUtcDay: 0,
   maxRewardTokenBalance: 0,
   impactPercentage: 0,
   platformPercentage: 100,
   estimatedMinutesPerAvoidedOpen: 0,
+  estimatedRewardedEcpmUsd: 3,
   rewardProvider: "disabled",
   votingEnabled: false,
   iosRestrictionEnabled: false,
@@ -72,7 +75,6 @@ export const registerDeviceResponseSchema = z.object({
 export const walletSchema = z.object({
   rewardedBalance: z.number().int().nonnegative(),
   rewardedPassesRemainingToday: z.number().int().nonnegative(),
-  emergencyRemaining: z.number().int().nonnegative(),
   unresolvedRewardClaims: z.number().int().nonnegative(),
   rewardAdsRemainingToday: z.number().int().nonnegative(),
   resetAt: isoDateTimeSchema,
@@ -90,12 +92,24 @@ export const createRewardIntentRequestSchema = z.object({
   provider: z.literal("admob").default("admob"),
 });
 
+/**
+ * What the Google Mobile Ads SDK said one impression paid (impression-level ad
+ * revenue). The server caps it and only counts it once AdMob confirms the ad.
+ */
+export const adValueSchema = z.object({
+  valueMicros: z.number().int().min(0).max(10_000_000),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  precision: z.enum(["unknown", "estimated", "publisher_provided", "precise"]),
+});
+
 export const claimRewardRequestSchema = z.object({
   clientEventId: uuidSchema,
   earnedAt: isoDateTimeSchema,
+  adValue: adValueSchema.optional(),
 });
 
-export const unlockSourceSchema = z.enum(["rewarded", "emergency"]);
+/** A pass is the only way in without an ad; emergency access was removed. */
+export const unlockSourceSchema = z.enum(["rewarded"]);
 
 export const createUnlockSessionRequestSchema = z.object({
   clientSessionId: uuidSchema,
@@ -106,6 +120,11 @@ export const createUnlockSessionRequestSchema = z.object({
     .enum(["social", "video", "news", "games", "communication", "other"])
     .default("other"),
   startedAt: isoDateTimeSchema,
+  /**
+   * The intent of the ad the user just watched to pay for this visit. The
+   * server then spends the pass that ad earned, never one saved earlier.
+   */
+  rewardIntentId: uuidSchema.optional(),
 });
 
 export const unlockDurationSecondsSchema = z.union([
@@ -127,6 +146,25 @@ export const updateUserPreferencesRequestSchema = userPreferencesSchema.omit({
   updatedAt: true,
 });
 
+/** One local day of Still's own counters, as the phone keeps them. */
+export const wellbeingDaySchema = z.object({
+  date: isoDateSchema,
+  openAttempts: z.number().int().min(0).max(5_000),
+  unlocks: z.number().int().min(0).max(5_000),
+  avoidedOpens: z.number().int().min(0).max(5_000),
+});
+
+/**
+ * The days a device still remembers (up to two weeks), sent together so a day
+ * the user never opened Still is not lost. The server computes the minutes.
+ */
+export const wellbeingSyncSchema = z.object({
+  deviceId: uuidSchema,
+  platform: devicePlatformSchema,
+  days: z.array(wellbeingDaySchema).min(1).max(14),
+});
+
+/** Legacy single-day report from builds before `wellbeingSyncSchema`. */
 export const wellbeingDailySchema = z.object({
   deviceId: uuidSchema,
   date: isoDateSchema,
@@ -182,10 +220,31 @@ export const impactWeekSchema = z.object({
   impactFundMinor: z.number().int().nonnegative(),
   impactPercentage: z.number().min(0).max(100),
   isEstimated: z.boolean(),
+  /** People with at least one AdMob-confirmed ad this week: who funded it. */
   participants: z.number().int().nonnegative(),
+  /** Rewarded ads AdMob confirmed this week (test ads never count). */
   rewardedAds: z.number().int().nonnegative(),
   candidates: z.array(impactCandidateSchema),
   donationProofUrl: z.string().url().nullable(),
+  // Added with the live fund; defaults keep a newer app readable against an
+  // older API.
+  voters: z.number().int().nonnegative().default(0),
+  /** People Still paused an app for at least once this week. */
+  people: z.number().int().nonnegative().default(0),
+  /** Estimated minutes those people got back this week. */
+  minutesReturned: z.number().nonnegative().default(0),
+  /** Part of the gross still estimated from the ads themselves (not yet in AdMob's report). */
+  estimatedRevenueMinor: z.number().int().nonnegative().default(0),
+  /** Part of the gross that comes from AdMob's own report. */
+  reportedRevenueMinor: z.number().int().nonnegative().default(0),
+  allTime: z
+    .object({
+      people: z.number().int().nonnegative(),
+      minutesReturned: z.number().nonnegative(),
+      rewardedAds: z.number().int().nonnegative(),
+      donatedMinor: z.number().int().nonnegative(),
+    })
+    .default({ people: 0, minutesReturned: 0, rewardedAds: 0, donatedMinor: 0 }),
 });
 
 export const impactWeekSummarySchema = impactWeekSchema.pick({
@@ -226,6 +285,7 @@ export type RewardIntent = z.infer<typeof rewardIntentSchema>;
 export type CreateRewardIntentRequest = z.infer<
   typeof createRewardIntentRequestSchema
 >;
+export type AdValue = z.infer<typeof adValueSchema>;
 export type ClaimRewardRequest = z.infer<typeof claimRewardRequestSchema>;
 export type UnlockSource = z.infer<typeof unlockSourceSchema>;
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
@@ -236,6 +296,8 @@ export type CreateUnlockSessionRequest = z.infer<
   typeof createUnlockSessionRequestSchema
 >;
 export type WellbeingDaily = z.infer<typeof wellbeingDailySchema>;
+export type WellbeingDay = z.infer<typeof wellbeingDaySchema>;
+export type WellbeingSync = z.infer<typeof wellbeingSyncSchema>;
 export type Charity = z.infer<typeof charitySchema>;
 export type ImpactWeek = z.infer<typeof impactWeekSchema>;
 export type ImpactWeekSummary = z.infer<typeof impactWeekSummarySchema>;

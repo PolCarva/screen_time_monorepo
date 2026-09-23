@@ -1,12 +1,7 @@
+import type { InterventionGate } from "./intervention-flow";
+
 export type InterventionRewardStatus =
   "idle" | "preparing" | "ready" | "unavailable";
-
-export type InterventionUnlockAction =
-  | "watch_ad"
-  | "preparing_ad"
-  | "use_rewarded_pass"
-  | "use_emergency"
-  | "retry_ad";
 
 type ShortcutReturnSession = {
   returnUrl: string;
@@ -16,12 +11,18 @@ type ShortcutReturnSession = {
 
 type ShortcutUnlock = (
   contextId: string,
-  options: { freshReward?: boolean; durationSeconds: number },
+  options: {
+    freshReward?: boolean;
+    durationSeconds: number;
+    rewardIntentId?: string;
+  },
 ) => Promise<ShortcutReturnSession>;
 
 type CompleteShortcutAndReturnInput = {
   contextId: string;
   freshReward?: boolean;
+  /** The ad that paid for this visit, so the server spends that ad's pass. */
+  rewardIntentId?: string;
   /** The window the user chose on the slider, in seconds. */
   durationSeconds: number;
   unlockShortcut: ShortcutUnlock;
@@ -40,10 +41,14 @@ type InterventionUnlockInput = {
   rewardedPassesRemainingToday: number;
   rewardedBalance: number;
   maxRewardTokenBalance: number;
-  emergencyRemaining: number;
 };
 
-export function getInterventionUnlockAction({
+/**
+ * What the gate can offer right now. The ad and a saved pass are independent,
+ * so a pass is always usable without watching the ad that is ready. Mirrored in
+ * `InterventionActivity.currentGate()` on Android.
+ */
+export function getInterventionOptions({
   supportsDirectAd,
   hasDevice,
   rewardProvider,
@@ -52,8 +57,7 @@ export function getInterventionUnlockAction({
   rewardedPassesRemainingToday,
   rewardedBalance,
   maxRewardTokenBalance,
-  emergencyRemaining,
-}: InterventionUnlockInput): InterventionUnlockAction | null {
+}: InterventionUnlockInput): InterventionGate | null {
   if (!supportsDirectAd) return null;
 
   const directAdEligible =
@@ -63,21 +67,23 @@ export function getInterventionUnlockAction({
     rewardedPassesRemainingToday > 0 &&
     rewardedBalance < maxRewardTokenBalance;
 
-  if (directAdEligible && rewardStatus === "ready") return "watch_ad";
-  if (
-    directAdEligible &&
-    (rewardStatus === "idle" || rewardStatus === "preparing")
-  )
-    return "preparing_ad";
-  if (rewardedBalance > 0 && rewardedPassesRemainingToday > 0)
-    return "use_rewarded_pass";
-  if (emergencyRemaining > 0) return "use_emergency";
-  return "retry_ad";
+  const ad = !directAdEligible
+    ? "none"
+    : rewardStatus === "ready"
+      ? "ready"
+      : rewardStatus === "idle" || rewardStatus === "preparing"
+        ? "preparing"
+        : "none";
+  return {
+    ad,
+    pass: rewardedBalance > 0 && rewardedPassesRemainingToday > 0,
+  };
 }
 
 export async function completeShortcutAndReturn({
   contextId,
   freshReward = false,
+  rewardIntentId,
   durationSeconds,
   unlockShortcut,
   onUnlockActivated,
@@ -87,6 +93,7 @@ export async function completeShortcutAndReturn({
   const session = await unlockShortcut(contextId, {
     freshReward,
     durationSeconds,
+    ...(rewardIntentId ? { rewardIntentId } : {}),
   });
   await onUnlockActivated?.();
   try {

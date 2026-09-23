@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       p_duration_seconds: input.durationSeconds,
       p_app_category: input.appCategory,
       p_started_at: input.startedAt,
+      p_reward_intent_id: input.rewardIntentId ?? null,
     });
     if (error)
       throw databaseHttpError(
@@ -39,12 +40,6 @@ export async function POST(request: Request) {
             409,
             "insufficient_balance",
             "No rewarded pass is available",
-          ],
-          [
-            "daily_emergency_limit_reached",
-            409,
-            "emergency_limit",
-            "Daily emergency limit reached",
           ],
           [
             "daily_pass_limit_reached",

@@ -1,4 +1,9 @@
-import { impactWeekSchema, type ImpactWeek } from "@screen-time/contracts";
+import {
+  impactAmountFractionDigits,
+  impactWeekSchema,
+  returnedTimeParts,
+  type ImpactWeek,
+} from "@screen-time/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { useFocusEffect } from "expo-router";
@@ -47,6 +52,22 @@ function weekRange(start: string, end: string) {
     month: "short",
   });
   return `${format.format(new Date(`${start}T12:00:00`))} – ${format.format(new Date(`${end}T12:00:00`))}`;
+}
+
+const count = new Intl.NumberFormat(undefined);
+const decimal = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+
+/** "45 min" or "3,4 h", from the minutes the server estimated. */
+function returnedTime(minutes: number) {
+  const { value, unit } = returnedTimeParts(minutes);
+  return `${decimal.format(value)} ${unit}`;
+}
+
+function people(value: number) {
+  return localize(
+    `${count.format(value)} ${value === 1 ? "person" : "people"}`,
+    `${count.format(value)} ${value === 1 ? "persona" : "personas"}`,
+  );
 }
 
 function StateNotice({
@@ -189,11 +210,14 @@ export default function ImpactScreen() {
     }
   }
 
+  // Cents while the fund is small, so a young fund never reads as zero.
+  const fractionDigits = week ? impactAmountFractionDigits(week.impactFundMinor) : 0;
   const amount = week
     ? new Intl.NumberFormat(undefined, {
         style: "currency",
         currency: week.currency,
-        maximumFractionDigits: 0,
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
       }).format(week.impactFundMinor / 100)
     : "—";
   const stage = week?.isEstimated
@@ -272,6 +296,12 @@ export default function ImpactScreen() {
                 "of this week's ad revenue",
                 "del ingreso por anuncios de la semana",
               )}
+              {week.isEstimated
+                ? localize(
+                    ". It grows with every ad watched, and AdMob confirms it the next day.",
+                    ". Crece con cada anuncio visto y AdMob lo confirma al día siguiente.",
+                  )
+                : ""}
             </Body>
             <AttentionField
               mode="impact"
@@ -283,12 +313,14 @@ export default function ImpactScreen() {
             />
             <View style={styles.fundMeta}>
               <View>
-                <Eyebrow>{localize("PARTICIPANTS", "PARTICIPANTES")}</Eyebrow>
-                <Mono>{week.participants}</Mono>
+                <Eyebrow>{localize("ADS WATCHED", "ANUNCIOS VISTOS")}</Eyebrow>
+                <Mono>{count.format(week.rewardedAds)}</Mono>
               </View>
               <View>
-                <Eyebrow>{localize("ADS WATCHED", "ANUNCIOS VISTOS")}</Eyebrow>
-                <Mono>{week.rewardedAds}</Mono>
+                <Eyebrow>
+                  {localize("PEOPLE WHO CHIPPED IN", "PERSONAS QUE APORTARON")}
+                </Eyebrow>
+                <Mono>{count.format(week.participants)}</Mono>
               </View>
               <View>
                 <Eyebrow>{localize("STATUS", "ESTADO")}</Eyebrow>
@@ -322,6 +354,36 @@ export default function ImpactScreen() {
                 )}
               </Body>
             )}
+          </View>
+
+          <View style={styles.returned}>
+            <Eyebrow>{localize("TIME GIVEN BACK", "TIEMPO RECUPERADO")}</Eyebrow>
+            <Data style={styles.returnedAmount}>
+              {returnedTime(week.minutesReturned)}
+            </Data>
+            <Body>
+              {week.people > 0
+                ? localize(
+                    `${people(week.people)} got it back this week with Still.`,
+                    `${people(week.people)} lo ${week.people === 1 ? "recuperó" : "recuperaron"} esta semana con Still.`,
+                  )
+                : localize(
+                    "This week's time appears here once Still pauses an app.",
+                    "El tiempo de esta semana aparece aquí cuando Still pausa una app.",
+                  )}
+            </Body>
+            <Body style={styles.muted}>
+              {localize(
+                `Since the start: ${returnedTime(week.allTime.minutesReturned)} for ${people(week.allTime.people)}, and ${count.format(week.allTime.rewardedAds)} ads watched.`,
+                `Desde el inicio: ${returnedTime(week.allTime.minutesReturned)} para ${people(week.allTime.people)}, y ${count.format(week.allTime.rewardedAds)} anuncios vistos.`,
+              )}
+            </Body>
+            <Body style={styles.footnoteLeft}>
+              {localize(
+                `Estimated at ${config.estimatedMinutesPerAvoidedOpen} min for each time someone chose not to go in.`,
+                `Estimado en ${config.estimatedMinutesPerAvoidedOpen} min por cada vez que alguien decidió no entrar.`,
+              )}
+            </Body>
           </View>
 
           <View style={styles.candidateHeading}>
@@ -539,6 +601,22 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
     color: colors.warning,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  returned: {
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.fog,
+  },
+  returnedAmount: {
+    fontSize: 44,
+    lineHeight: 46,
+    letterSpacing: -1.8,
+  },
+  footnoteLeft: {
+    color: colors.graphiteSoft,
     fontSize: 12,
     lineHeight: 18,
   },

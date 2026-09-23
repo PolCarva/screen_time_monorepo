@@ -21,7 +21,6 @@ export async function GET(request: Request) {
 
     const [
       balanceResult,
-      emergencyResult,
       claimsResult,
       configResult,
       earnedTodayResult,
@@ -29,12 +28,6 @@ export async function GET(request: Request) {
       preferencesResult,
     ] = await Promise.all([
       client.rpc("rewarded_balance", { p_user_id: user.id }),
-      client
-        .from("token_ledger")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("entry_type", "emergency_spend")
-        .gte("created_at", startOfDay.toISOString()),
       client
         .from("reward_intents")
         .select("id", { count: "exact", head: true })
@@ -68,7 +61,6 @@ export async function GET(request: Request) {
     ]);
     const walletError =
       balanceResult.error ??
-      emergencyResult.error ??
       claimsResult.error ??
       configResult.error ??
       earnedTodayResult.error ??
@@ -99,10 +91,9 @@ export async function GET(request: Request) {
           preferences.dailyPassLimit - (rewardedUnlocksTodayResult.count ?? 0),
           0,
         ),
-        emergencyRemaining: Math.max(
-          config.dailyEmergencyUnlocks - (emergencyResult.count ?? 0),
-          0,
-        ),
+        // Required by builds from before 2026-09-23; always 0 now that
+        // emergency access is gone. Drop it once no older build is in use.
+        emergencyRemaining: 0,
         unresolvedRewardClaims: claimsResult.count ?? 0,
         rewardAdsRemainingToday: Math.max(
           preferences.maxRewardedAdsPerUtcDay - (earnedTodayResult.count ?? 0),

@@ -133,7 +133,12 @@ export async function recordDonation(
   }
 }
 
-export async function openNextWeek(
+/**
+ * Weeks open by themselves (ensure_current_impact_week, run by the daily jobs
+ * and on every read). This only runs the same rollover now, for an operator
+ * who just added the first project or published the first configuration.
+ */
+export async function openCurrentWeek(
   _previous: AdminActionState,
   _formData: FormData,
 ): Promise<AdminActionState> {
@@ -143,72 +148,12 @@ export async function openNextWeek(
   if (!admin.configured || !admin.user)
     return actionError("Supabase no está configurado.");
   const client = createAdminClient()!;
-  const { data: active, error: activeError } = await client
-    .from("impact_weeks")
-    .select("id")
-    .in("status", ["open", "voting_closed", "donation_pending"])
-    .limit(1)
-    .maybeSingle();
-  if (activeError) return actionError("No se pudo revisar la semana activa.");
-  if (active)
-    return actionError("Completa la semana activa antes de abrir otra.");
-
-  const { data: latestWeek, error: latestWeekError } = await client
-    .from("impact_weeks")
-    .select("week_end")
-    .order("week_start", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (latestWeekError)
-    return actionError("No se pudo revisar la última semana.");
-  const now = new Date();
-  const day = now.getUTCDay();
-  const currentMonday = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() - ((day + 6) % 7),
-    ),
-  );
-  const afterLatest = latestWeek?.week_end
-    ? new Date(`${latestWeek.week_end}T00:00:00.000Z`).getTime() + 86_400_000
-    : 0;
-  const monday = new Date(Math.max(currentMonday.getTime(), afterLatest));
-  const sunday = new Date(monday.getTime() + 6 * 86_400_000);
-  const dateOnly = (date: Date) => date.toISOString().slice(0, 10);
-  const [configResult, charitiesResult] = await Promise.all([
-    client
-      .from("remote_config_versions")
-      .select("payload")
-      .eq("is_active", true)
-      .maybeSingle(),
-    client
-      .from("charities")
-      .select("id")
-      .eq("is_active", true)
-      .order("created_at")
-      .limit(3),
-  ]);
-  if (configResult.error || charitiesResult.error)
-    return actionError("No se pudo cargar la configuración de impacto.");
-  const config = remoteConfigSchema.safeParse(configResult.data?.payload);
-  const charities = charitiesResult.data;
-  if (!charities || charities.length === 0)
-    return actionError("Se necesita al menos una entidad activa.");
-  if (!config.success)
-    return actionError("Publica una configuración operativa válida antes de abrir la semana.");
-  const impactPercentage = config.data.impactPercentage;
-  const platformPercentage = config.data.platformPercentage;
-  const { data: weekId, error } = await client.rpc("admin_open_impact_week", {
-    p_admin_user_id: admin.user.id,
-    p_week_start: dateOnly(monday),
-    p_week_end: dateOnly(sunday),
-    p_impact_percentage: impactPercentage,
-    p_platform_percentage: platformPercentage,
-    p_charity_ids: charities.map((charity) => charity.id),
-  });
-  if (error || !weekId)
-    return actionError("No se pudo abrir la semana de impacto.");
+  const { data: weekId, error } = await client.rpc("ensure_current_impact_week");
+  if (error) return actionError("No se pudo abrir la semana de impacto.");
+  if (!weekId)
+    return actionError(
+      "Publica una configuración y crea al menos una entidad activa para abrir la semana.",
+    );
   revalidatePath("/admin");
   revalidatePath("/impact");
   return actionSuccess("Semana de impacto abierta.");
@@ -228,7 +173,6 @@ export async function publishConfig(
       unlockDurationSeconds: Math.round(
         Number(formData.get("unlockDurationMinutes")) * 60,
       ),
-      dailyEmergencyUnlocks: Number(formData.get("dailyEmergencyUnlocks")),
       maxRewardedAdsPerUtcDay: Number(formData.get("maxRewardedAdsPerUtcDay")),
       maxRewardTokenBalance: Number(formData.get("maxRewardTokenBalance")),
       impactPercentage,
@@ -236,6 +180,7 @@ export async function publishConfig(
       estimatedMinutesPerAvoidedOpen: Number(
         formData.get("estimatedMinutesPerAvoidedOpen"),
       ),
+      estimatedRewardedEcpmUsd: Number(formData.get("estimatedRewardedEcpmUsd")),
       rewardProvider: String(formData.get("rewardProvider")),
       votingEnabled: formData.get("votingEnabled") === "on",
       iosRestrictionEnabled: formData.get("iosRestrictionEnabled") === "on",

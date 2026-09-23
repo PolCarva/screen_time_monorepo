@@ -17,7 +17,7 @@ import {
   useStillSheet,
 } from "@/components/still-sheet";
 import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize, t } from "@/i18n";
+import { localize } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
 import { colors, spacing } from "@/theme/tokens";
@@ -71,6 +71,7 @@ export default function TokensScreen() {
             body: JSON.stringify({
               clientEventId: result.clientEventId,
               earnedAt: new Date().toISOString(),
+              ...(result.adValue ? { adValue: result.adValue } : {}),
             }),
             headers: { "idempotency-key": result.clientEventId },
           },
@@ -86,19 +87,12 @@ export default function TokensScreen() {
         if (rechargeRequest) setEarnedForRecharge(rechargeRequest);
         return true;
       } catch {
-        const emergency = wallet.emergencyRemaining;
         void sheet.show({
           title: localize("The ad didn't load", "El anuncio no cargó"),
-          message:
-            emergency > 0
-              ? localize(
-                  `Try again in a moment. You have ${emergency} emergency ${emergency === 1 ? "access" : "accesses"} for today.`,
-                  `Prueba otra vez en un momento. Tienes ${emergency} ${emergency === 1 ? "acceso" : "accesos"} de emergencia para hoy.`,
-                )
-              : localize(
-                  "Try again in a moment.",
-                  "Prueba otra vez en un momento.",
-                ),
+          message: localize(
+            "Try again in a moment.",
+            "Prueba otra vez en un momento.",
+          ),
           actions: [
             retryAction(() => {
               void earn(rechargeRequest);
@@ -120,7 +114,6 @@ export default function TokensScreen() {
       retry,
       sheet,
       showPrepared,
-      wallet.emergencyRemaining,
     ],
   );
   const balanceCapped = wallet.rewardedBalance >= config.maxRewardTokenBalance;
@@ -259,8 +252,8 @@ export default function TokensScreen() {
             </Heading>
             <Body style={styles.note}>
               {localize(
-                "Each one opens one selected app for as long as you choose when you use it, from 1 minute to the rest of the day.",
-                "Cada uno abre una app seleccionada durante el tiempo que elijas al usarlo, desde 1 minuto hasta el resto del día.",
+                `Each one lets you into a paused app without watching an ad, for as long as you choose when you use it. You can keep up to ${config.maxRewardTokenBalance}.`,
+                `Cada uno te deja entrar a una app pausada sin ver un anuncio, por el tiempo que elijas al usarlo. Puedes guardar hasta ${config.maxRewardTokenBalance}.`,
               )}
             </Body>
           </View>
@@ -304,20 +297,6 @@ export default function TokensScreen() {
           )}
         </Body>
       )}
-
-      <View style={styles.emergency}>
-        <View style={styles.sectionTop}>
-          <Eyebrow>{localize("EMERGENCY", "EMERGENCIA")}</Eyebrow>
-          <Data style={styles.emergencyCount}>{wallet.emergencyRemaining}</Data>
-        </View>
-        <Heading>{t("emergency")}</Heading>
-        <Body style={styles.note}>
-          {localize(
-            "To go in without an ad when you need it. They renew every day.",
-            "Para entrar sin anuncio cuando lo necesites. Se renuevan cada día.",
-          )}
-        </Body>
-      </View>
 
       <View style={styles.policy}>
         <View style={styles.sectionTop}>
@@ -390,19 +369,11 @@ const styles = StyleSheet.create({
     color: colors.graphiteSoft,
     fontSize: 13,
   },
-  emergency: {
-    paddingVertical: spacing.xl,
-    gap: spacing.md,
-    borderTopWidth: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.fog,
-  },
   sectionTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  emergencyCount: { fontSize: 34, lineHeight: 36 },
   policy: {
     paddingVertical: spacing.xl,
     gap: spacing.md,

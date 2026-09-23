@@ -9,6 +9,11 @@ export type PendingAdResult = {
   clientEventId: string;
   intentId: string;
   earnedAt: string;
+  /** What the SDK said the impression paid, in micros; absent when it said nothing. */
+  adValueMicros?: number;
+  adValueCurrency?: string;
+  /** 0 unknown, 1 estimated, 2 publisher provided, 3 precise. */
+  adValuePrecision?: number;
 };
 
 /** How Still was installed and on what device (Android), for onboarding + repair. */
@@ -80,9 +85,12 @@ export type AccessWindow = {
 };
 export type PendingUnlockEvent = {
   clientSessionId: string;
-  source: "rewarded" | "emergency";
+  /** A pass is the only paid way in; older builds may still queue "emergency". */
+  source: "rewarded";
   durationSeconds: number;
   startedAt: string;
+  /** Set when a fresh ad paid for the visit: its reward must be claimed first. */
+  rewardIntentId?: string;
 };
 /** Still's own counters for today and the last seven local days (oldest first). */
 export type LocalWellbeingStats = {
@@ -120,7 +128,6 @@ export interface RestrictionEngine {
   getHealth(): Promise<RestrictionHealth>;
   syncWallet(
     rewarded: number,
-    emergency: number,
     resetAt: string,
     estimatedMinutesPerAvoidedOpen: number,
     unlockDurationSeconds: number,

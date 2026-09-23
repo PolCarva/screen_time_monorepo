@@ -1,20 +1,164 @@
 import { remoteConfigSchema, type RemoteConfig } from "@screen-time/contracts";
 
 import { BrandLockup } from "@/components/brand-mark";
-import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
+import {
+  ImpactCard,
+  ImpactUnavailable,
+  formatFund,
+} from "@/components/impact-card";
 import { requireAdminPage } from "@/lib/admin";
-import { getCurrentImpactWeek } from "@/lib/impact";
+import {
+  type OperatorWeek,
+  type RecentAdView,
+  getCurrentImpactWeek,
+  getRecentAdViews,
+  getWeeksAwaitingOperator,
+} from "@/lib/impact";
 import { createAdminClient } from "@/lib/supabase";
 
 import {
   closeVoting,
   confirmRevenue,
   createCharity,
-  openNextWeek,
+  openCurrentWeek,
   publishConfig,
   recordDonation,
 } from "./actions";
 import { AdminActionForm } from "./admin-action-form";
+import { signOutAdmin } from "./login/actions";
+
+const ESTIMATE_SOURCES: Record<RecentAdView["estimateSource"], string> = {
+  paid_event: "Valor del SDK",
+  observed_ecpm: "eCPM observado",
+  default_ecpm: "eCPM por defecto",
+  test_ad: "Anuncio de prueba",
+};
+
+function usdFromMicros(micros: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(micros / 1_000_000);
+}
+
+function PendingWeeks({ weeks }: { weeks: OperatorWeek[] }) {
+  if (weeks.length === 0) return null;
+  return (
+    <section className="admin-pending">
+      <p className="mono-label">SEMANAS POR CERRAR / {weeks.length}</p>
+      <div className="admin-grid">
+        {weeks.map((week) => (
+          <section className="operation-card" key={week.id}>
+            <p className="mono-label">
+              {week.weekStart} — {week.weekEnd}
+            </p>
+            {week.status === "voting_closed" ? (
+              <AdminActionForm
+                action={confirmRevenue}
+                label={`Confirmar y congelar ${week.impactPercentage}/${100 - week.impactPercentage}`}
+                pendingLabel="Confirmando…"
+              >
+                <input type="hidden" name="weekId" value={week.id} />
+                <h2>Confirmar ingreso</h2>
+                <p>
+                  Estimado hoy: {formatFund(week.totals.grossRevenueMinor)} (
+                  {formatFund(week.totals.reportedRevenueMinor)} según AdMob,{" "}
+                  {formatFund(week.totals.estimatedRevenueMinor)} por anuncios
+                  que AdMob aún no informó) · {week.totals.rewardedAds}{" "}
+                  anuncios de {week.totals.participants} personas.
+                </p>
+                <label>
+                  Ingreso bruto confirmado (USD)
+                  <input
+                    defaultValue={(week.totals.grossRevenueMinor / 100).toFixed(2)}
+                    min="0"
+                    name="grossRevenue"
+                    required
+                    step="0.01"
+                    type="number"
+                  />
+                </label>
+              </AdminActionForm>
+            ) : week.winner ? (
+              <AdminActionForm
+                action={recordDonation}
+                label="Registrar y publicar"
+                pendingLabel="Publicando…"
+              >
+                <input type="hidden" name="weekId" value={week.id} />
+                <input type="hidden" name="charityId" value={week.winner.id} />
+                <h2>Registrar donación</h2>
+                <p>
+                  Ganadora: <strong>{week.winner.name}</strong> · fondo{" "}
+                  {formatFund(week.totals.impactFundMinor)}
+                </p>
+                <label>
+                  Monto (USD)
+                  <input
+                    defaultValue={(week.totals.impactFundMinor / 100).toFixed(2)}
+                    min="0.01"
+                    name="amount"
+                    required
+                    step="0.01"
+                    type="number"
+                  />
+                </label>
+                <label>
+                  Comprobante (PDF, PNG o JPEG; máx. 5 MB)
+                  <input
+                    accept="application/pdf,image/png,image/jpeg"
+                    name="proofFile"
+                    required
+                    type="file"
+                  />
+                </label>
+              </AdminActionForm>
+            ) : (
+              <p>La semana no tiene proyectos para elegir una ganadora.</p>
+            )}
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecentAds({ views }: { views: RecentAdView[] }) {
+  return (
+    <section className="operation-card admin-ads">
+      <p className="mono-label">ANUNCIOS RECIENTES / VALOR ESTIMADO</p>
+      <h2>Cada anuncio, con lo que se estima que generó</h2>
+      {views.length === 0 ? (
+        <p>Todavía no hay anuncios confirmados por AdMob.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Momento</th>
+              <th>Plataforma</th>
+              <th>Valor</th>
+              <th>Origen</th>
+              <th>AdMob</th>
+            </tr>
+          </thead>
+          <tbody>
+            {views.map((view, index) => (
+              <tr key={`${view.viewedAt}:${index}`}>
+                <td>{view.viewedAt.slice(0, 16).replace("T", " ")}</td>
+                <td>{view.platform ?? "—"}</td>
+                <td>{usdFromMicros(view.estimatedValueMicros)}</td>
+                <td>{ESTIMATE_SOURCES[view.estimateSource]}</td>
+                <td>{view.verified ? "Confirmado" : "Pendiente"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -48,10 +192,6 @@ function OperationalSetup({
             />
           </label>
           <label>
-            Accesos de emergencia por día
-            <input defaultValue={config?.dailyEmergencyUnlocks ?? 0} max="20" min="0" name="dailyEmergencyUnlocks" required type="number" />
-          </label>
-          <label>
             Anuncios recompensados por día
             <input defaultValue={config?.maxRewardedAdsPerUtcDay ?? 0} max="30" min="0" name="maxRewardedAdsPerUtcDay" required type="number" />
           </label>
@@ -66,6 +206,10 @@ function OperationalSetup({
           <label>
             Minutos estimados por apertura evitada
             <input defaultValue={config?.estimatedMinutesPerAvoidedOpen ?? 0} max="60" min="0" name="estimatedMinutesPerAvoidedOpen" required step="0.1" type="number" />
+          </label>
+          <label>
+            eCPM estimado de anuncios recompensados (USD por 1000)
+            <input defaultValue={config?.estimatedRewardedEcpmUsd ?? 3} max="200" min="0" name="estimatedRewardedEcpmUsd" required step="0.01" type="number" />
           </label>
           <label>
             Proveedor de recompensas
@@ -123,7 +267,6 @@ function OperationalSetup({
 
 export default async function AdminPage() {
   const access = await requireAdminPage();
-  const result = await getCurrentImpactWeek();
 
   if (!access.configured) {
     return (
@@ -151,9 +294,13 @@ export default async function AdminPage() {
   }
 
   const client = createAdminClient()!;
-  const [configResult, charitiesResult] = await Promise.all([
+  // The current week is ensured first, so the weeks it closes show up below.
+  const result = await getCurrentImpactWeek();
+  const [configResult, charitiesResult, pendingWeeks, recentAds] = await Promise.all([
     client.from("remote_config_versions").select("payload").eq("is_active", true).maybeSingle(),
     client.from("charities").select("id, name, website, category").eq("is_active", true).order("created_at"),
+    getWeeksAwaitingOperator(),
+    getRecentAdViews(),
   ]);
   const parsedConfig = remoteConfigSchema.safeParse(configResult.data?.payload);
   const setup = (
@@ -168,7 +315,14 @@ export default async function AdminPage() {
       <main className="admin-shell shell-wide">
         <header className="admin-header">
           <BrandLockup />
-          <span>OPERACIONES / {access.user.email}</span>
+          <span className="admin-header__session">
+            OPERACIONES / {access.user.email}
+            <form action={signOutAdmin}>
+              <button className="text-link" type="submit">
+                Cerrar sesión
+              </button>
+            </form>
+          </span>
         </header>
         <section className="admin-title">
           <p className="mono-label">SEMANA ACTIVA</p>
@@ -183,14 +337,15 @@ export default async function AdminPage() {
             <section className="operation-card">
               <p className="mono-label">SIGUIENTE ACCIÓN</p>
               <AdminActionForm
-                action={openNextWeek}
+                action={openCurrentWeek}
                 label="Abrir semana actual"
                 pendingLabel="Abriendo…"
               >
-                <h2>Abrir una semana</h2>
+                <h2>La semana se abre sola</h2>
                 <p>
-                  Crea el primer registro con las entidades activas y la
-                  configuración vigente.
+                  Cada lunes se abre la semana con la configuración vigente y
+                  los proyectos de la anterior. Hace falta una configuración
+                  publicada y al menos una entidad activa.
                 </p>
               </AdminActionForm>
             </section>
@@ -202,107 +357,55 @@ export default async function AdminPage() {
   }
 
   const week = result.week;
-
-  const selected = week.candidates.slice().sort((a, b) => b.votes - a.votes)[0];
   return (
     <main className="admin-shell shell-wide">
       <header className="admin-header">
         <BrandLockup />
-        <span>OPERACIONES / {access.user.email}</span>
+        <span className="admin-header__session">
+          OPERACIONES / {access.user.email}
+          <form action={signOutAdmin}>
+            <button className="text-link" type="submit">
+              Cerrar sesión
+            </button>
+          </form>
+        </span>
       </header>
       <section className="admin-title">
         <p className="mono-label">SEMANA ACTIVA</p>
         <h1>Fondo de impacto</h1>
-        <p>Cada cambio queda registrado en el audit log.</p>
+        <p>
+          Las semanas se abren y cierran su votación solas. Confirmar el
+          ingreso y registrar la donación sigue siendo manual y queda en el
+          audit log.
+        </p>
       </section>
       <div className="admin-grid">
         <ImpactCard week={week} compact />
         <section className="operation-card">
-          <p className="mono-label">SIGUIENTE ACCIÓN</p>
-          {week.status === "open" && (
+          <p className="mono-label">ESTA SEMANA</p>
+          {week.status === "open" ? (
             <AdminActionForm
               action={closeVoting}
-              label="Cerrar votación"
+              label="Cerrar votación ahora"
               pendingLabel="Cerrando…"
             >
               <input type="hidden" name="weekId" value={week.id} />
-              <h2>Cerrar votación</h2>
+              <h2>Votación abierta</h2>
               <p>
-                Congela la votación. Esta acción no elige automáticamente una
-                entidad.
+                Se cierra sola el domingo. Ciérrala antes solo si hace falta;
+                esta acción no elige automáticamente una entidad.
               </p>
             </AdminActionForm>
-          )}
-          {week.status === "voting_closed" && (
-            <AdminActionForm
-              action={confirmRevenue}
-              label={`Confirmar y congelar ${week.impactPercentage}/${100 - week.impactPercentage}`}
-              pendingLabel="Confirmando…"
-            >
-              <input type="hidden" name="weekId" value={week.id} />
-              <h2>Confirmar ingreso</h2>
-              <label>
-                Ingreso bruto confirmado (USD)
-                <input
-                  name="grossRevenue"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                />
-              </label>
-            </AdminActionForm>
-          )}
-          {week.status === "donation_pending" && selected && (
-            <AdminActionForm
-              action={recordDonation}
-              label="Registrar y publicar"
-              pendingLabel="Publicando…"
-            >
-              <input type="hidden" name="weekId" value={week.id} />
-              <input
-                type="hidden"
-                name="charityId"
-                value={selected.charity.id}
-              />
-              <h2>Registrar donación</h2>
-              <p>
-                Ganadora actual: <strong>{selected.charity.name}</strong>
-              </p>
-              <label>
-                Monto (USD)
-                <input
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </label>
-              <label>
-                Comprobante (PDF, PNG o JPEG; máx. 5 MB)
-                <input
-                  name="proofFile"
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg"
-                  required
-                />
-              </label>
-            </AdminActionForm>
-          )}
-          {week.status === "donated" && (
+          ) : (
             <>
-              <h2>Semana completada</h2>
-              <p>La donación y su comprobante ya están publicados.</p>
-              <AdminActionForm
-                action={openNextWeek}
-                label="Abrir semana actual"
-                pendingLabel="Abriendo…"
-              />
+              <h2>Votación cerrada</h2>
+              <p>Sus acciones pendientes aparecen en «Semanas por cerrar».</p>
             </>
           )}
         </section>
       </div>
+      <PendingWeeks weeks={pendingWeeks} />
+      <RecentAds views={recentAds} />
       {setup}
     </main>
   );

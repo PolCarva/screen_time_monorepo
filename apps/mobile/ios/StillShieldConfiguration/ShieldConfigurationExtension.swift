@@ -5,7 +5,6 @@ import UIKit
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   private struct LocalWallet: Codable {
     let rewarded: Int
-    let emergency: Int
     let resetAt: Date
   }
 
@@ -105,15 +104,13 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     return minutes < 60 ? "\(formatted) min" : "\(formatted) h"
   }
 
-  private enum AvailableUnlock { case rewarded, emergency, none }
+  private enum AvailableUnlock { case rewarded, none }
   private var availableUnlock: AvailableUnlock {
     guard let defaults = UserDefaults(suiteName: appGroup),
           let data = defaults.data(forKey: walletKey),
           let wallet = try? JSONDecoder().decode(LocalWallet.self, from: data)
     else { return .none }
-    if wallet.rewarded > 0 { return .rewarded }
-    if wallet.emergency > 0 { return .emergency }
-    return .none
+    return wallet.rewarded > 0 ? .rewarded : .none
   }
 
   private func fieldIcon() -> UIImage {
@@ -143,9 +140,6 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     case .rewarded:
       canUnlock = true
       secondaryButtonText = copy("Use 1 pass · \(unlockDurationLabel)", "Usar 1 pase · \(unlockDurationLabel)")
-    case .emergency:
-      canUnlock = true
-      secondaryButtonText = copy("Emergency access · \(unlockDurationLabel)", "Acceso de emergencia · \(unlockDurationLabel)")
     case .none:
       canUnlock = false
       secondaryButtonText = copy("Open Still to get a pass", "Abrir Still para conseguir un pase")

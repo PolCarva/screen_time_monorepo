@@ -264,7 +264,6 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun syncWallet(
     rewarded: Int,
-    emergency: Int,
     resetAt: String,
     estimatedMinutesPerAvoidedOpen: Double,
     unlockDurationSeconds: Int,
@@ -273,7 +272,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   ) {
     preferences.edit()
       .putInt(KEY_REWARDED_BALANCE, rewarded.coerceAtLeast(0))
-      .putInt(KEY_EMERGENCY_REMAINING, emergency.coerceAtLeast(0))
+      // Emergency access was removed; drop what older builds stored.
+      .remove(LEGACY_KEY_EMERGENCY_REMAINING)
       .putString(KEY_WALLET_RESET_AT, resetAt)
       .putFloat(KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, estimatedMinutesPerAvoidedOpen.coerceIn(0.0, 60.0).toFloat())
       .putInt(KEY_UNLOCK_DURATION_SECONDS, unlockDurationSeconds.coerceIn(60, 86400))
@@ -346,6 +346,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
             putString("clientEventId", item.optString("clientEventId"))
             putString("intentId", item.optString("intentId"))
             putString("earnedAt", item.optString("earnedAt"))
+            // What the SDK said the impression paid, when it said anything.
+            if (item.has("adValueMicros")) {
+              putDouble("adValueMicros", item.optLong("adValueMicros").toDouble())
+              putString("adValueCurrency", item.optString("adValueCurrency"))
+              putInt("adValuePrecision", item.optInt("adValuePrecision"))
+            }
           })
         }
       }
@@ -391,6 +397,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
             putString("source", item.optString("source"))
             putInt("durationSeconds", item.optInt("durationSeconds"))
             putString("startedAt", item.optString("startedAt"))
+            // The ad that paid for the visit: the server spends its pass only.
+            item.optString("rewardIntentId").takeIf { it.isNotEmpty() }?.let {
+              putString("rewardIntentId", it)
+            }
           })
         }
       }
@@ -624,7 +634,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val METRIC_APP_UNLOCKS = "app_unlocks"
     const val KEY_LAST_RESTORED = "last_restored_at"
     const val KEY_REWARDED_BALANCE = "rewarded_balance"
-    const val KEY_EMERGENCY_REMAINING = "emergency_remaining"
+    /** Emergency access was removed; only cleared, never read. */
+    private const val LEGACY_KEY_EMERGENCY_REMAINING = "emergency_remaining"
     const val KEY_WALLET_RESET_AT = "wallet_reset_at"
     const val KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN = "estimated_minutes_per_avoided_open"
     const val KEY_UNLOCK_DURATION_SECONDS = "unlock_duration_seconds"

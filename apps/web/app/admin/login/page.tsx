@@ -1,23 +1,97 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
 import { BrandLockup } from "@/components/brand-mark";
+import { createServerSupabaseClient } from "@/lib/server-supabase";
+import { isAdminUser } from "@/lib/supabase";
 
-import { requestAdminLink } from "./actions";
+import { chooseAnotherEmail, requestAdminCode, verifyAdminCode } from "./actions";
 
-export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+const ERRORS: Record<string, string> = {
+  email: "Escribe un correo válido.",
+  code: "El código no es correcto o ya venció. Revisa el último correo.",
+  rate: "Demasiados intentos. Espera unos minutos y vuelve a probar.",
+  expired: "Pasó demasiado tiempo. Pide un código nuevo.",
+  configuration: "El acceso no está disponible en este momento.",
+  "not-admin": "Esta cuenta no tiene acceso a operaciones.",
+  "invalid-link": "El enlace ya no es válido. Pide un código nuevo.",
+  "missing-code": "El enlace ya no es válido. Pide un código nuevo.",
+  signin: "No se pudo iniciar sesión. Vuelve a intentarlo.",
+};
+
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const params = await searchParams;
+  // An operator who is already signed in goes straight to the console.
+  const client = await createServerSupabaseClient();
+  const { data } = client ? await client.auth.getUser() : { data: { user: null } };
+  if (data.user && (await isAdminUser(data.user.id))) redirect("/admin");
+
+  const pendingEmail = (await cookies()).get("still_admin_login")?.value;
+  const askingForCode = params.step === "code" && Boolean(pendingEmail);
+  const error = typeof params.error === "string" ? ERRORS[params.error] : null;
+
   return (
     <main className="admin-login">
       <section className="login-card">
         <BrandLockup />
         <p className="mono-label">OPERACIONES / ACCESO PRIVADO</p>
         <h1>Acceso privado</h1>
-        <p>Recibirás un enlace de acceso. La cuenta debe existir en <code>admin_users</code>.</p>
-        {params.sent === "1" && <p className="notice notice--success">Revisa tu correo para continuar.</p>}
-        {params.error && <p className="notice notice--error">No se pudo iniciar sesión o la cuenta no tiene acceso.</p>}
-        <form action={requestAdminLink}>
-          <label htmlFor="email">Correo de administración</label>
-          <input id="email" name="email" type="email" required autoComplete="email" />
-          <button className="button button--dark" type="submit">Enviar enlace</button>
-        </form>
+        {askingForCode ? (
+          <>
+            <p>
+              Si <strong>{pendingEmail}</strong> tiene acceso, le enviamos un
+              código. Escríbelo aquí; esta sesión quedará abierta en este
+              navegador.
+            </p>
+            {error ? <p className="notice notice--error">{error}</p> : null}
+            <form action={verifyAdminCode}>
+              <label htmlFor="code">Código</label>
+              <input
+                autoComplete="one-time-code"
+                autoFocus
+                id="code"
+                inputMode="numeric"
+                maxLength={10}
+                name="code"
+                pattern="[0-9 ]{6,12}"
+                required
+              />
+              <button className="button button--dark" type="submit">
+                Entrar
+              </button>
+            </form>
+            <form action={chooseAnotherEmail}>
+              <button className="text-link" type="submit">
+                Usar otro correo
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <p>
+              Te enviamos un código de acceso. Solo lo reciben las cuentas de
+              operaciones; a cualquier otro correo no se le envía nada.
+            </p>
+            {error ? <p className="notice notice--error">{error}</p> : null}
+            <form action={requestAdminCode}>
+              <label htmlFor="email">Correo de administración</label>
+              <input
+                autoComplete="email"
+                id="email"
+                name="email"
+                required
+                type="email"
+              />
+              <button className="button button--dark" type="submit">
+                Enviar código
+              </button>
+            </form>
+          </>
+        )}
       </section>
     </main>
   );

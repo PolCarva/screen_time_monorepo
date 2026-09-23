@@ -18,7 +18,9 @@ export async function POST(request: Request) {
     const client = createAdminClient()!;
 
     const intentId = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1_000).toISOString();
+    // A day, so the Android shield's pre-signed buffer outlives the gaps
+    // between times Still is opened (docs/real-impact-stats-plan.md, D10).
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
     const customData = signRewardIntent({
       intentId,
       userId: user.id,

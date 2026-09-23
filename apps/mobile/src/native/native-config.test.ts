@@ -43,12 +43,17 @@ describe("committed native production configuration", () => {
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
     // The shield shows the rewarded ad and the decision in the same screen,
-    // with the pass / emergency / pause fallbacks all native (no jump to RN).
+    // with a saved pass beside the ad and the pause all native (no jump to RN).
+    // Emergency access is gone (docs/real-impact-stats-plan.md, D1-D3).
     expect(intervention).toContain("StillRewardedAdManager.show(this)");
     expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
-    expect(intervention).toContain("USE_REWARDED_PASS");
-    expect(intervention).toContain("USE_EMERGENCY");
-    expect(intervention).toContain("TIMED_PAUSE");
+    expect(intervention).toContain('"Usar 1 pase · Abrir $appLabel"');
+    expect(intervention).toContain("if (gate.passAvailable)");
+    expect(intervention).toContain("if (gate.adReady)");
+    expect(intervention).toContain("renderPause()");
+    expect(intervention.toLowerCase()).not.toContain("emergency");
+    // A visit paid by a fresh ad names that ad, so it never spends a saved pass.
+    expect(intervention).toContain('report.put("rewardIntentId", rewardIntentId)');
     expect(intervention).toContain("KEY_UNLOCK_OUTBOX");
     // The old deep-link jump into React Native is gone.
     expect(intervention).not.toContain('scheme("still")');
@@ -145,12 +150,10 @@ describe("committed native production configuration", () => {
     expect(info).toContain("<key>NSFamilyControlsUsageDescription</key>");
     expect(info).toContain("<string>UIInterfaceOrientationPortrait</string>");
     expect(info).not.toContain("ca-app-pub-3940256099942544");
-    expect(sharedState).toContain(
-      "LocalWallet(rewarded: 0, emergency: 0, resetAt:",
-    );
-    expect(sharedState).not.toContain(
-      "LocalWallet(rewarded: 0, emergency: 3, resetAt:",
-    );
+    // Missing shared state never mints access, and there is no emergency
+    // allowance to fall back on any more.
+    expect(sharedState).toContain("LocalWallet(rewarded: 0, resetAt:");
+    expect(sharedState).not.toContain("wallet.emergency");
     expect(sharedState).toContain("beginExternalBrowserBypass");
     expect(sharedState).toContain("externalBrowserBypassActive");
     expect(sharedState).toContain("still.external-browser");

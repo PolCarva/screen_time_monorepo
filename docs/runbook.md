@@ -60,10 +60,13 @@ The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates
 ## Scheduled and weekly operations
 
 - Daily at 03:17 UTC: Vercel calls `GET /api/internal/jobs/reconcile-rewards`; stale provisional grants older than 26 hours are rejected and an available pass is reversed idempotently.
-- Daily at 08:42 UTC: Vercel calls `GET /api/internal/jobs/admob-revenue`; the job refreshes the configured Google OAuth token, reads the previous 14 days from the AdMob Reporting API, upserts estimates, and recomputes overlapping open weeks. `POST` remains available only for explicitly publisher-provided corrections.
-- Monday: use `/admin` to open the week. The function snapshots the active impact/platform percentages and selected charities.
-- Sunday: close voting, import/reconcile final revenue, and confirm the gross amount.
+- Daily at 08:42 UTC: Vercel calls `GET /api/internal/jobs/admob-revenue`; the job refreshes the configured Google OAuth token and reads the previous 14 days from the AdMob Reporting API in `America/Los_Angeles` days (the only time zone the API accepts), storing each day in micros. `POST` remains available only for explicitly publisher-provided corrections. Both daily jobs also run `ensure_current_impact_week()`.
+- Weeks run by themselves (`docs/real-impact-stats-plan.md`, D9): each Monday (Los Angeles calendar) the current week opens with the active percentages and the previous week's projects (or the three oldest active charities), and weeks that ended stop taking votes. Reading the Impact API does the same, so a missed cron never leaves an old week on screen.
+- The fund of a week that is not confirmed is live: every rewarded ad AdMob confirms (SSV) is stored in `ad_views` with its estimated value (the SDK's impression value, else the observed eCPM, else `estimatedRewardedEcpmUsd`), and each day switches to AdMob's own report once it was imported a full day after the day closed.
+- After a week ends, `/admin` lists it under «Semanas por cerrar»: confirm the gross (prefilled with the live figure) and later record the donation.
 - After payment: upload the actual proof and record the donation. Publication occurs only after the database transition succeeds.
+- If the AdMob job fails with `invalid_grant`, the Reporting refresh token expired or was revoked: create a new one for the same OAuth client with the `https://www.googleapis.com/auth/admob.readonly` scope and update `ADMOB_REFRESH_TOKEN` in Vercel. Until then the fund shows only the per-ad estimates.
+- Impression-level ad revenue must be on in AdMob (Settings → Account) for the SDK to report each impression's value; without it every ad is priced by eCPM.
 
 Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable while pending and return inline success/error feedback; retry only after checking the current week state.
 

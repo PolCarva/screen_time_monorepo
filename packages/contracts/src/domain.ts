@@ -182,6 +182,44 @@ export function calculateImpactFundMinor(
   return Math.floor((grossRevenueMinor * impactPercentage) / 100);
 }
 
+/** Micros (millionths of a unit) to minor units (cents), to the nearest cent. */
+export function microsToMinor(micros: number): number {
+  return Math.round(Math.max(0, micros) / 10_000);
+}
+
+/**
+ * The fund's share of a gross measured in micros, floored to the cent so the
+ * fund is never overstated (the same rule as the stored weekly column).
+ */
+export function impactFundMinorFromMicros(
+  grossMicros: number,
+  impactPercentage: number,
+): number {
+  if (impactPercentage < 0 || impactPercentage > 100) {
+    throw new Error("Impact percentage must be between 0 and 100");
+  }
+  return Math.floor((Math.max(0, grossMicros) * impactPercentage) / 100 / 10_000);
+}
+
+/**
+ * Cents while the fund is under 100 units, so a young fund never reads as
+ * zero; whole units after that, where cents are only noise.
+ */
+export function impactAmountFractionDigits(minor: number): 0 | 2 {
+  return Math.abs(minor) < 10_000 ? 2 : 0;
+}
+
+/** Minutes below an hour, hours with one decimal after that. */
+export function returnedTimeParts(minutes: number): {
+  value: number;
+  unit: "min" | "h";
+} {
+  const safe = Math.max(0, minutes);
+  const wholeMinutes = Math.round(safe);
+  if (wholeMinutes < 60) return { value: wholeMinutes, unit: "min" };
+  return { value: Math.round((safe / 60) * 10) / 10, unit: "h" };
+}
+
 export function estimateMinutesAvoided(
   avoidedOpens: number,
   minutesPerAvoid: number,

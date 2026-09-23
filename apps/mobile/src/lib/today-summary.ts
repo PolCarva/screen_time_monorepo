@@ -3,7 +3,7 @@
  * Still's own counters (docs/ui-clarity-plan.md, D5). Pure, so both platforms
  * and the tests share one definition:
  * - pauses: open attempts Still paused (never fewer than the entries);
- * - entered: unlocks, whatever paid for them (ad, pass, emergency, free wait);
+ * - entered: unlocks, whatever paid for them (ad, saved pass, free wait);
  * - notEntered: pauses that did not end in the app ("Go back", or leaving the
  *   pause without choosing);
  * - minutes returned (estimated): notEntered × minutes per avoided open.

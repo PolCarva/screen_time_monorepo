@@ -43,7 +43,7 @@ export default async function ImpactPage() {
       state: "ACTIVO",
       done: true,
       title: "Semana abierta",
-      body: "El ingreso se actualiza como estimación. La votación permanece abierta hasta el cierre publicado.",
+      body: "Cada anuncio confirmado por AdMob suma lo que se estima que generó, y el informe diario de AdMob lo ajusta. La votación queda abierta hasta el domingo.",
     },
     {
       index: "02",

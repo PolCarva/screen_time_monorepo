@@ -8,8 +8,12 @@ import {
   canRequestReward,
   estimateMinutesAvoided,
   formatAccessDuration,
+  impactAmountFractionDigits,
+  impactFundMinorFromMicros,
+  microsToMinor,
   nearestAccessDurationStep,
   resolveAccessDurationSeconds,
+  returnedTimeParts,
   secondsUntilEndOfDay,
   transitionRestriction,
   transitionReward,
@@ -48,7 +52,6 @@ describe("wallet rules", () => {
   const operationalConfig = {
     ...defaultRemoteConfig,
     version: 1,
-    dailyEmergencyUnlocks: 3,
     maxRewardedAdsPerUtcDay: 10,
     maxRewardTokenBalance: 3,
     impactPercentage: 80,
@@ -63,7 +66,6 @@ describe("wallet rules", () => {
   const wallet = {
     rewardedBalance: 2,
     rewardedPassesRemainingToday: 2,
-    emergencyRemaining: 3,
     unresolvedRewardClaims: 0,
     rewardAdsRemainingToday: 8,
     resetAt: "2026-08-24T00:00:00.000Z",
@@ -177,5 +179,33 @@ describe("access duration slider", () => {
       "Resto del día",
     );
     expect(formatAccessDuration(REST_OF_DAY_SECONDS, "en")).toBe("Rest of day");
+  });
+});
+
+describe("live impact amounts", () => {
+  it("converts micros to cents to the nearest cent", () => {
+    expect(microsToMinor(24_000)).toBe(2);
+    expect(microsToMinor(4_999)).toBe(0);
+    expect(microsToMinor(5_000)).toBe(1);
+  });
+
+  it("floors the fund's share so it is never overstated", () => {
+    // $0.024 gross at 80% is $0.0192: one cent, not two.
+    expect(impactFundMinorFromMicros(24_000, 80)).toBe(1);
+    expect(impactFundMinorFromMicros(1_000_000_000, 80)).toBe(80_000);
+    expect(() => impactFundMinorFromMicros(1, 101)).toThrow();
+  });
+
+  it("shows cents while the fund is small and whole units after", () => {
+    expect(impactAmountFractionDigits(42)).toBe(2);
+    expect(impactAmountFractionDigits(9_999)).toBe(2);
+    expect(impactAmountFractionDigits(10_000)).toBe(0);
+  });
+
+  it("reads time returned in minutes, then hours", () => {
+    expect(returnedTimeParts(0)).toEqual({ value: 0, unit: "min" });
+    expect(returnedTimeParts(45.4)).toEqual({ value: 45, unit: "min" });
+    expect(returnedTimeParts(59.6)).toEqual({ value: 1, unit: "h" });
+    expect(returnedTimeParts(204)).toEqual({ value: 3.4, unit: "h" });
   });
 });

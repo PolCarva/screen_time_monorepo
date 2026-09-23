@@ -390,17 +390,18 @@ export default function SettingsScreen() {
       : lastSyncedAt
         ? formatDayAndTime(new Date(lastSyncedAt))
         : localize("Updating…", "Actualizando…");
-  // The server resets passes at UTC midnight; say when that is here.
+  // The server resets the daily limits at UTC midnight; say when that is here.
+  // Saved passes never expire, so only the limits start over.
   const resetAt = new Date(wallet.resetAt);
   const passesRenewal =
     Number.isFinite(resetAt.getTime()) && resetAt.getTime() > 0
       ? localize(
-          `Your passes renew every day at ${formatClockTime(resetAt)}.`,
-          `Tus pases se renuevan cada día a las ${formatClockTime(resetAt)}.`,
+          `These limits start over every day at ${formatClockTime(resetAt)}. Saved passes stay saved.`,
+          `Estos límites vuelven a empezar cada día a las ${formatClockTime(resetAt)}. Los pases guardados se mantienen.`,
         )
       : localize(
-          "Your passes renew every day.",
-          "Tus pases se renuevan cada día.",
+          "These limits start over every day. Saved passes stay saved.",
+          "Estos límites vuelven a empezar cada día. Los pases guardados se mantienen.",
         );
 
   return (

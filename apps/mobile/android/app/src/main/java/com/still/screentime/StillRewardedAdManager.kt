@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdValue
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
@@ -47,8 +48,12 @@ object StillRewardedAdManager {
   @Volatile private var loadedAd: RewardedAd? = null
   @Volatile private var loadedAtElapsed = 0L
 
-  /** Latest earned reward that still has to be reported by React Native. */
-  data class AdOutcome(val earned: Boolean, val reason: String)
+  /**
+   * How the ad ended. [intentId] is the pre-signed intent it was shown with, so
+   * the visit it pays for can name it; null when the buffer was empty and the
+   * ad ran without one.
+   */
+  data class AdOutcome(val earned: Boolean, val reason: String, val intentId: String? = null)
 
   fun isAdReady(): Boolean {
     val ad = loadedAd ?: return false
@@ -117,7 +122,7 @@ object StillRewardedAdManager {
    * outbox for React Native to claim, and reloads for next time.
    *
    * Returns false when no ad is ready, so the caller can fall back to the
-   * timeout / pass / emergency / pause chain (D3).
+   * saved pass or the timed pause (D3).
    */
   fun show(activity: Activity, onOutcome: (AdOutcome) -> Unit): Boolean {
     val ad = if (isAdReady()) loadedAd else null
@@ -141,13 +146,26 @@ object StillRewardedAdManager {
     }
 
     var earned = false
+    // What this impression paid (impression-level ad revenue). It fires on the
+    // impression, before the reward, and only once the AdMob account has the
+    // feature on; without it the server prices the ad by eCPM.
+    var paid: AdValue? = null
+    ad.onPaidEventListener = com.google.android.gms.ads.OnPaidEventListener { value ->
+      paid = value
+    }
     ad.fullScreenContentCallback = object : FullScreenContentCallback() {
       override fun onAdDismissedFullScreenContent() {
         if (earned && intent != null) {
-          enqueueAdResult(preferences, intent.id)
+          enqueueAdResult(preferences, intent.id, paid)
         }
         preload(activity, "after-dismiss")
-        onOutcome(AdOutcome(earned = earned, reason = if (earned) "earned" else "dismissed"))
+        onOutcome(
+          AdOutcome(
+            earned = earned,
+            reason = if (earned) "earned" else "dismissed",
+            intentId = intent?.id,
+          ),
+        )
       }
 
       override fun onAdFailedToShowFullScreenContent(error: AdError) {
@@ -210,15 +228,20 @@ object StillRewardedAdManager {
       .put("expiresAt", expiry.toString())
 
   /** Queue an earned result for React Native to claim (idempotent by clientEventId). */
-  private fun enqueueAdResult(preferences: SharedPreferences, intentId: String) {
+  private fun enqueueAdResult(preferences: SharedPreferences, intentId: String, paid: AdValue?) {
     val raw = preferences.getString(StillRestrictionModule.KEY_AD_OUTBOX, null)
     val array = runCatching { if (raw != null) JSONArray(raw) else JSONArray() }.getOrDefault(JSONArray())
-    array.put(
-      JSONObject()
-        .put("clientEventId", UUID.randomUUID().toString())
-        .put("intentId", intentId)
-        .put("earnedAt", Instant.now().toString()),
-    )
+    val result = JSONObject()
+      .put("clientEventId", UUID.randomUUID().toString())
+      .put("intentId", intentId)
+      .put("earnedAt", Instant.now().toString())
+    if (paid != null) {
+      result
+        .put("adValueMicros", paid.valueMicros)
+        .put("adValueCurrency", paid.currencyCode)
+        .put("adValuePrecision", paid.precisionType)
+    }
+    array.put(result)
     preferences.edit().putString(StillRestrictionModule.KEY_AD_OUTBOX, array.toString()).apply()
   }
 }

@@ -1,7 +1,7 @@
 import { formatAccessDuration } from "@screen-time/contracts";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
@@ -13,19 +13,19 @@ import { localize } from "@/i18n";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import {
+  type InterventionGate,
   type InterventionNotice,
   accessSecondsFor,
   canChooseDuration,
   createInterventionFlow,
   enterMethod,
-  gateFromUnlockAction,
   keepsRewardOnLeave,
   transition,
 } from "@/lib/intervention-flow";
 import { normalizeAppName } from "@/lib/ios-app-catalog";
 import {
   completeShortcutAndReturn,
-  getInterventionUnlockAction,
+  getInterventionOptions,
 } from "@/lib/shortcut-intervention";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
@@ -98,18 +98,22 @@ export function ShortcutIntervention({
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   const { targets, disableScheme } = useShortcutTargets();
 
-  const gate = gateFromUnlockAction(
-    getInterventionUnlockAction({
-      supportsDirectAd: true,
-      hasDevice: Boolean(deviceId),
-      rewardProvider: config.rewardProvider,
-      rewardStatus: adStatus,
-      rewardAdsRemainingToday: wallet.rewardAdsRemainingToday,
-      rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday,
-      rewardedBalance: wallet.rewardedBalance,
-      maxRewardTokenBalance: config.maxRewardTokenBalance,
-      emergencyRemaining: wallet.emergencyRemaining,
-    }),
+  const offer = getInterventionOptions({
+    supportsDirectAd: true,
+    hasDevice: Boolean(deviceId),
+    rewardProvider: config.rewardProvider,
+    rewardStatus: adStatus,
+    rewardAdsRemainingToday: wallet.rewardAdsRemainingToday,
+    rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday,
+    rewardedBalance: wallet.rewardedBalance,
+    maxRewardTokenBalance: config.maxRewardTokenBalance,
+  });
+  const offeredAd = offer?.ad ?? "none";
+  const offeredPass = offer?.pass ?? false;
+  // Stable between renders, so the gate only changes when what it offers does.
+  const gate = useMemo<InterventionGate>(
+    () => ({ ad: offeredAd, pass: offeredPass }),
+    [offeredAd, offeredPass],
   );
   const [flow, dispatch] = useReducer(transition, undefined, () =>
     createInterventionFlow({
@@ -119,6 +123,8 @@ export function ShortcutIntervention({
     }),
   );
   const working = useRef(false);
+  /** The ad just watched, so the visit spends that ad's pass and no saved one. */
+  const paidByIntent = useRef<string | null>(null);
 
   useEffect(() => {
     dispatch({ type: "GATE_CHANGED", gate });
@@ -137,7 +143,7 @@ export function ShortcutIntervention({
     );
 
   const watchAd = useCallback(async () => {
-    if (working.current || flow.phase !== "gate" || flow.gate !== "watch_ad")
+    if (working.current || flow.phase !== "gate" || flow.gate.ad !== "ready")
       return;
     working.current = true;
     dispatch({ type: "WATCH_AD" });
@@ -166,10 +172,12 @@ export function ShortcutIntervention({
             body: JSON.stringify({
               clientEventId: result.clientEventId,
               earnedAt: new Date().toISOString(),
+              ...(result.adValue ? { adValue: result.adValue } : {}),
             }),
             headers: { "idempotency-key": result.clientEventId },
           },
         );
+        paidByIntent.current = intent.id;
         dispatch({ type: "CLAIM_CONFIRMED" });
       } catch {
         dispatch({ type: "CLAIM_FAILED" });
@@ -182,7 +190,7 @@ export function ShortcutIntervention({
     }
   }, [flow.gate, flow.phase, retry, showPrepared]);
 
-  /** A stored pass and emergency access buy the same choice the ad does. */
+  /** A saved pass buys the same choice the ad does, without watching one. */
   const choosePass = useCallback(() => {
     if (working.current) return;
     dispatch({ type: "USE_PASS" });
@@ -194,12 +202,9 @@ export function ShortcutIntervention({
     working.current = true;
     const method = enterMethod(flow);
     const durationSeconds = accessSecondsFor(flow);
-    const source =
-      method === "pause"
-        ? "pause"
-        : method === "fresh_reward" || flow.gate === "use_rewarded_pass"
-          ? "rewarded"
-          : "emergency";
+    const source = method === "pause" ? "pause" : "rewarded";
+    const rewardIntentId =
+      method === "fresh_reward" ? (paidByIntent.current ?? undefined) : undefined;
     dispatch({ type: "ENTER" });
     const stage: { current: "unlock" | "return" } = { current: "unlock" };
     try {
@@ -207,6 +212,7 @@ export function ShortcutIntervention({
       await completeShortcutAndReturn({
         contextId: shortcutId,
         freshReward: method === "fresh_reward",
+        rewardIntentId,
         durationSeconds,
         unlockShortcut:
           method === "pause"
@@ -379,42 +385,64 @@ export function ShortcutIntervention({
     );
   }
 
-  let continueLabel: string;
-  let continueAction: (() => void) | null = null;
+  // Every way forward on this screen. At the gate a saved pass and the ad sit
+  // side by side: a pass never has to wait for, or give way to, an ad.
+  type Option = { key: string; label: string; action: (() => void) | null };
+  const options: Option[] = [];
   if (flow.phase === "decision") {
-    continueLabel = chooses
-      ? localize(
-          `I want to go in · ${unlockLabel}`,
-          `Quiero entrar · ${unlockLabel}`,
-        )
-      : localize("I want to go in", "Quiero entrar");
-    continueAction = () => void enter();
+    options.push({
+      key: "enter",
+      label: chooses
+        ? localize(
+            `I want to go in · ${unlockLabel}`,
+            `Quiero entrar · ${unlockLabel}`,
+          )
+        : localize("I want to go in", "Quiero entrar"),
+      action: () => void enter(),
+    });
   } else if (flow.phase === "pause") {
-    continueLabel = localize(
-      `I want to go in · ${flow.pauseSecondsLeft}s`,
-      `Quiero entrar · ${flow.pauseSecondsLeft} s`,
-    );
+    options.push({
+      key: "pause",
+      label: localize(
+        `I want to go in · ${flow.pauseSecondsLeft}s`,
+        `Quiero entrar · ${flow.pauseSecondsLeft} s`,
+      ),
+      action: null,
+    });
   } else if (flow.phase === "ad" || flow.phase === "claiming") {
-    continueLabel = localize("Ad in progress…", "Anuncio en curso…");
+    options.push({
+      key: "ad",
+      label: localize("Ad in progress…", "Anuncio en curso…"),
+      action: null,
+    });
   } else if (flow.phase === "entering") {
-    continueLabel = localize("Opening…", "Abriendo…");
-  } else if (flow.gate === "watch_ad") {
-    continueLabel = localize("Watch ad", "Ver anuncio");
-    continueAction = () => void watchAd();
-  } else if (flow.gate === "use_rewarded_pass") {
-    continueLabel = localize(
-      `Use 1 pass · Open ${appLabel}`,
-      `Usar 1 pase · Abrir ${appLabel}`,
-    );
-    continueAction = choosePass;
-  } else if (flow.gate === "use_emergency") {
-    continueLabel = localize(
-      `Emergency access · Open ${appLabel}`,
-      `Acceso de emergencia · Abrir ${appLabel}`,
-    );
-    continueAction = choosePass;
+    options.push({
+      key: "entering",
+      label: localize("Opening…", "Abriendo…"),
+      action: null,
+    });
   } else {
-    continueLabel = localize("Preparing the ad…", "Preparando el anuncio…");
+    if (flow.gate.pass)
+      options.push({
+        key: "pass",
+        label: localize(
+          `Use 1 pass · Open ${appLabel}`,
+          `Usar 1 pase · Abrir ${appLabel}`,
+        ),
+        action: choosePass,
+      });
+    if (flow.gate.ad === "ready")
+      options.push({
+        key: "ad",
+        label: localize("Watch ad", "Ver anuncio"),
+        action: () => void watchAd(),
+      });
+    else if (flow.gate.ad === "preparing")
+      options.push({
+        key: "ad",
+        label: localize("Preparing the ad…", "Preparando el anuncio…"),
+        action: null,
+      });
   }
 
   return (
@@ -488,20 +516,23 @@ export function ShortcutIntervention({
               )}
               onPress={() => void decline()}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy || !continueAction }}
-              disabled={busy || !continueAction}
-              onPress={continueAction ?? undefined}
-              style={({ pressed }) => [
-                styles.secondary,
-                pressed && styles.pressed,
-                (busy || !continueAction) && styles.disabled,
-              ]}
-            >
-              <Text style={styles.secondaryLabel}>{continueLabel}</Text>
-              <Text style={styles.secondaryArrow}>→</Text>
-            </Pressable>
+            {options.map((option) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy || !option.action }}
+                disabled={busy || !option.action}
+                key={option.key}
+                onPress={option.action ?? undefined}
+                style={({ pressed }) => [
+                  styles.secondary,
+                  pressed && styles.pressed,
+                  (busy || !option.action) && styles.disabled,
+                ]}
+              >
+                <Text style={styles.secondaryLabel}>{option.label}</Text>
+                <Text style={styles.secondaryArrow}>→</Text>
+              </Pressable>
+            ))}
             <Body style={styles.note}>
               {localize(
                 "Going in is a choice too.",

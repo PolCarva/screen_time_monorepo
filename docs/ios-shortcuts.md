@@ -98,16 +98,18 @@ section 10 of the plan; no other code changes are needed.
    intent finishes in the background and YouTube stays visible.
 4. Otherwise it stores an app-scoped intervention and conditionally brings
    Still to the foreground.
-5. Still shows the gate: **Watch ad** or **I don't want to go in anymore**. On
-   a cold start it waits up to 12 seconds for AdMob. A stored pass or Emergency
-   Access is offered only when a direct ad is unavailable, times out or is
-   capped; when none of those exist, a 15-second pause takes over.
+5. Still shows the gate: **Use 1 pass · Open YouTube** when a pass is saved,
+   **Watch ad** when an ad is ready, and **I don't want to go in anymore**. A
+   saved pass never waits for or gives way to the ad. On a cold start the ad
+   waits up to 12 seconds for AdMob; with neither an ad nor a pass, a 15-second
+   pause takes over. Emergency access was removed
+   (`docs/real-impact-stats-plan.md`, D1-D3).
 6. Only after the ad is completed and the reward is confirmed does the window
    get chosen: a slider from **1 min** to **Rest of day**, with
    **I want to go in · <window>** / **I don't want to go in anymore** under it.
    Closing the ad early returns to the gate with no penalty and no reward.
-   Nothing about the window is configured in advance; a stored pass and
-   Emergency Access reach the same slider. The stops are
+   Nothing about the window is configured in advance; a saved pass reaches
+   the same slider. The stops are
    `ACCESS_DURATION_STEPS` in `packages/contracts/src/domain.ts`, and
    **Rest of day** is resolved to the time left until local midnight at the
    moment access is granted.
@@ -204,7 +206,8 @@ there. Stand in for it with a plain shortcut that runs the same action.
 Observed on the iOS 26.0 simulator (2026-09-22), driving the flow with a
 pending context written straight into the App Group so the automation did not
 have to fire: the gate says the window is chosen in the next step; a stored
-pass, Emergency Access and a completed ad all lead to the slider; the slider
+pass and a completed ad both lead to the slider (the Emergency Access checked
+then has since been removed); the slider
 runs 1 min → Rest of day and the primary action reads **I want to go in ·
 &lt;window&gt;**; choosing 1 min stored an allowance ending exactly 60 seconds
 later and registered `still.window-ended.<targetKey>`; Still opened News
@@ -252,7 +255,7 @@ installing the native build, with `iosRestrictionEnabled` on:
    YouTube; reopening Still shows Today, not the old pause. With the flag off
    it ends on the **Done. You stayed out.** screen (or runs `Still - Inicio`
    when that helper shortcut was marked as installed).
-10. In Airplane Mode with no stored pass and no Emergency Access, open YouTube:
+10. In Airplane Mode with no stored pass, open YouTube:
     a 15-second countdown runs, the final options appear when it ends, and
     going in keeps YouTube open for five minutes only.
 11. Configure the app outside the catalog including its `Still - [App name]`

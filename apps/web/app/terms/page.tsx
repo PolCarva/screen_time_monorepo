@@ -23,7 +23,7 @@ const sections = [
   },
   {
     title: "4. Permisos y control del dispositivo",
-    body: "Las restricciones de Android requieren permisos explícitos del sistema, incluidos Accesibilidad y Acceso al uso. Puedes revocarlos desde los ajustes del dispositivo. Still no garantiza que cada fabricante o versión de Android aplique las restricciones de la misma manera; los accesos de emergencia existen para evitar un bloqueo sin salida.",
+    body: "Las restricciones de Android requieren permisos explícitos del sistema, incluidos Accesibilidad y Acceso al uso. Puedes revocarlos desde los ajustes del dispositivo. Still no garantiza que cada fabricante o versión de Android aplique las restricciones de la misma manera; si no hay anuncio ni pase disponible, una pausa breve permite entrar igual, para evitar un bloqueo sin salida.",
   },
   {
     title: "5. Anuncios y pases",

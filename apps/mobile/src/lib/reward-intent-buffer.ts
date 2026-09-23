@@ -3,9 +3,10 @@
  * offline. React Native tops it up while it is in the foreground so the ad flow
  * never has to reach the network mid-intervention (Android parity plan §2).
  *
- * Pure and React-Native-free so it can be unit tested (D6). The server allows at
- * most three active intents per user and expires each one 15 minutes after
- * creation, so the buffer mirrors those limits.
+ * Pure and React-Native-free so it can be unit tested (D6). The server lets at
+ * most five intents wait per user and expires each one a day after creation
+ * (docs/real-impact-stats-plan.md, D10); the shield keeps three, which leaves
+ * room for the one the app prepares for its own ad.
  */
 export type SignedRewardIntent = {
   id: string;
@@ -15,7 +16,7 @@ export type SignedRewardIntent = {
   expiresAt: string;
 };
 
-/** Matches the server's per-user active-intent cap. */
+/** Three for the shield; the server allows five waiting per user. */
 export const REWARD_INTENT_BUFFER_CAPACITY = 3;
 
 /**

@@ -1,4 +1,7 @@
-import { impactWeekSchema } from "@screen-time/contracts";
+import {
+  impactAmountFractionDigits,
+  impactWeekSchema,
+} from "@screen-time/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
@@ -221,11 +224,13 @@ export default function TodayScreen() {
             : null;
 
   const impact = impactQuery.data;
+  const impactDigits = impact ? impactAmountFractionDigits(impact.impactFundMinor) : 0;
   const impactAmount = impact
     ? new Intl.NumberFormat(undefined, {
         style: "currency",
         currency: impact.currency,
-        maximumFractionDigits: 0,
+        minimumFractionDigits: impactDigits,
+        maximumFractionDigits: impactDigits,
       }).format(impact.impactFundMinor / 100)
     : null;
 

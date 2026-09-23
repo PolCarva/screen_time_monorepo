@@ -39,7 +39,6 @@ values (
   jsonb_build_object(
     'version', 900000001,
     'unlockDurationSeconds', 600,
-    'dailyEmergencyUnlocks', 3,
     'maxRewardedAdsPerUtcDay', 10,
     'maxRewardTokenBalance', 3,
     'impactPercentage', 80,
@@ -114,7 +113,7 @@ select throws_ok(
     '90000000-0000-4000-8000-000000000001',
     '90000000-0000-4000-8000-000000000004',
     '90000000-0000-4000-8000-000000000002',
-    'emergency', 600, 'other', now()
+    'rewarded', 600, 'other', now()
   )$$,
   'P0001', 'restrictions_disabled',
   'database platform switch blocks stale clients'
@@ -159,6 +158,20 @@ insert into public.reward_intents (
     '90000000-0000-4000-8000-000000000002',
     'admob', 'intent', 'active-intent-three', now() + interval '15 minutes',
     'active-intent-three'
+  ),
+  (
+    '90000000-0000-4000-8000-000000000014',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'intent', 'active-intent-four', now() + interval '15 minutes',
+    'active-intent-four'
+  ),
+  (
+    '90000000-0000-4000-8000-000000000015',
+    '90000000-0000-4000-8000-000000000001',
+    '90000000-0000-4000-8000-000000000002',
+    'admob', 'intent', 'active-intent-five', now() + interval '15 minutes',
+    'active-intent-five'
   );
 
 select throws_ok(
@@ -166,8 +179,8 @@ select throws_ok(
     '90000000-0000-4000-8000-000000000013',
     '90000000-0000-4000-8000-000000000001',
     '90000000-0000-4000-8000-000000000002',
-    'admob', 'active-intent-four', now() + interval '15 minutes',
-    'active-intent-four'
+    'admob', 'active-intent-six', now() + interval '15 minutes',
+    'active-intent-six'
   )$$,
   'P0001', 'pending_reward_intent_limit_reached',
   'abandoned active reward intents are bounded independently of SSV'
@@ -272,8 +285,8 @@ select is(
     select duration_seconds from public.unlock_sessions
     where client_session_id = '91000000-0000-4000-8000-000000000003'
   ),
-  86400,
-  'the server applies the user all-day duration instead of the client value'
+  600,
+  'the server records the window the user chose, not the old Settings duration'
 );
 select throws_ok(
   $$select public.create_unlock_session(

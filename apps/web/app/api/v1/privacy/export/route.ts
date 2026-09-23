@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       sessions,
       wellbeing,
       votes,
+      adViews,
     ] =
       await Promise.all([
         client.from("profiles").select("*").eq("id", user.id).maybeSingle(),
@@ -50,6 +51,12 @@ export async function POST(request: Request) {
           .from("votes")
           .select("impact_week_id, charity_id, created_at, updated_at")
           .eq("user_id", user.id),
+        client
+          .from("ad_views")
+          .select(
+            "platform, viewed_at, verified_at, paid_value_micros, paid_currency, paid_precision, estimated_value_micros, estimate_source",
+          )
+          .eq("user_id", user.id),
       ]);
     const queryError =
       profile.error ??
@@ -59,7 +66,8 @@ export async function POST(request: Request) {
       ledger.error ??
       sessions.error ??
       wellbeing.error ??
-      votes.error;
+      votes.error ??
+      adViews.error;
     if (queryError)
       throw new HttpError(
         503,
@@ -107,6 +115,7 @@ export async function POST(request: Request) {
       unlockSessions: sessions.data,
       wellbeing: wellbeing.data,
       votes: votes.data,
+      adViews: adViews.data,
     });
   } catch (error) {
     return routeError(error);

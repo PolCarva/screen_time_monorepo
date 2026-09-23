@@ -26,7 +26,10 @@ function decodeBase64Url(value: string): Buffer {
 }
 
 export type VerifiedSsv = {
-  customData: string;
+  /** Absent when the app showed the ad without a pre-signed intent. */
+  customData: string | null;
+  /** AdMob's numeric id of the ad unit that served the ad. */
+  adUnit: string | null;
   transactionId: string;
   timestampMs: number;
 };
@@ -70,11 +73,16 @@ export async function verifyAdMobSsv(url: string): Promise<VerifiedSsv> {
   if (content === undefined) throw new Error("Invalid AdMob SSV signature");
 
   const params = new URLSearchParams(content);
-  const customData = params.get("custom_data");
   const transactionId = params.get("transaction_id");
-  const timestampMs = Number(params.get("timestamp"));
-  if (!customData || !transactionId || !Number.isFinite(timestampMs)) {
+  const timestamp = params.get("timestamp");
+  const timestampMs = Number(timestamp);
+  if (!transactionId || !timestamp || !Number.isFinite(timestampMs)) {
     throw new Error("SSV payload is incomplete");
   }
-  return { customData, transactionId, timestampMs };
+  return {
+    customData: params.get("custom_data") || null,
+    adUnit: params.get("ad_unit") || null,
+    transactionId,
+    timestampMs,
+  };
 }

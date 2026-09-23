@@ -948,8 +948,16 @@ img {
 .impact-ledger__meta {
   padding-top: 24px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
+}
+.impact-ledger__all-time {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--fog);
+  color: var(--graphite-soft);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .impact-ledger__meta div {
   display: flex;
@@ -1285,6 +1293,11 @@ img {
   border-bottom: 1px solid var(--fog);
   font-size: 11px;
 }
+.admin-header__session {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 .admin-title {
   padding: var(--space-4xl) 0;
 }
@@ -1330,6 +1343,36 @@ img {
   border: 1px solid var(--mineral-light);
   border-radius: 4px;
   background: var(--chalk);
+}
+.admin-pending {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.admin-ads {
+  margin-top: 40px;
+  overflow-x: auto;
+}
+.admin-ads table {
+  width: 100%;
+  margin-top: 18px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-ads th,
+.admin-ads td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--fog);
+  text-align: left;
+  white-space: nowrap;
+}
+.admin-ads th {
+  color: var(--graphite-soft);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 .setup-grid {
   margin-top: 30px;

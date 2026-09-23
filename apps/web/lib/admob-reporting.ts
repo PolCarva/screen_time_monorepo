@@ -33,8 +33,17 @@ const reportChunkSchema = z.object({
 export type AdMobRevenueDay = {
   date: string;
   grossRevenueMinor: number;
+  /** Exact earnings: a young fund earns fractions of a cent a day. */
+  grossRevenueMicros: number;
   impressions: number;
 };
+
+/**
+ * The only time zone the Reporting API accepts. Still's revenue days, ad days
+ * and impact weeks all use it so a report day lines up with the ads it paid
+ * for (docs/real-impact-stats-plan.md, D6).
+ */
+export const ADMOB_REPORT_TIME_ZONE = "America/Los_Angeles";
 
 type AdMobCredentials = {
   publisherAccount: string;
@@ -71,6 +80,14 @@ function compactDate(value: string): string {
   const match = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
   if (!match) throw new Error(`Invalid AdMob DATE dimension: ${value}`);
   return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+function parseMicros(value: string): number {
+  const micros = BigInt(value);
+  if (micros < 0n) throw new Error("AdMob earnings cannot be negative");
+  const result = Number(micros);
+  if (!Number.isSafeInteger(result)) throw new Error("AdMob earnings exceed safe integer range");
+  return result;
 }
 
 export function microsToMinorUnits(value: string): number {
@@ -136,6 +153,7 @@ export async function fetchAdMobRevenue(
           dimensions: ["DATE"],
           metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
           localizationSettings: { currencyCode: "USD", languageCode: "en-US" },
+          timeZone: ADMOB_REPORT_TIME_ZONE,
         },
       }),
       cache: "no-store",
@@ -157,11 +175,18 @@ export async function fetchAdMobRevenue(
     byDate.set(date, {
       date,
       grossRevenueMinor: microsToMinorUnits(earnings),
+      grossRevenueMicros: parseMicros(earnings),
       impressions,
     });
   }
 
   return requestedDates.map(
-    (date) => byDate.get(date) ?? { date, grossRevenueMinor: 0, impressions: 0 },
+    (date) =>
+      byDate.get(date) ?? {
+        date,
+        grossRevenueMinor: 0,
+        grossRevenueMicros: 0,
+        impressions: 0,
+      },
   );
 }

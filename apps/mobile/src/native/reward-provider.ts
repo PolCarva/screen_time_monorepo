@@ -5,8 +5,12 @@ import mobileAds, {
   RewardedAdEventType,
   TestIds,
 } from "react-native-google-mobile-ads";
+import type { AdValue } from "@screen-time/contracts";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
+
+// Relative, so the provider stays loadable in Vitest without the app alias.
+import { adValueFromPaidEvent } from "../lib/ad-value";
 
 export type RewardIntent = {
   id: string;
@@ -15,7 +19,12 @@ export type RewardIntent = {
   expiresAt: string;
 };
 export type RewardResult =
-  | { status: "earned"; clientEventId: string }
+  | {
+      status: "earned";
+      clientEventId: string;
+      /** What the SDK said this impression paid, when it said anything. */
+      adValue?: AdValue;
+    }
   | { status: "dismissed" | "unavailable" | "failed"; code?: string };
 export interface RewardProvider {
   prepare(): Promise<"ready" | "unavailable">;
@@ -138,6 +147,7 @@ export const admobRewardProvider: RewardProvider = {
       let earned = false;
       let closed = false;
       let settled = false;
+      let adValue: AdValue | undefined;
       let closeGraceTimer: ReturnType<typeof setTimeout> | undefined;
       const cleanups: Array<() => void> = [];
       const cleanup = () => {
@@ -151,7 +161,18 @@ export const admobRewardProvider: RewardProvider = {
         resolve(result);
       };
       const finishEarned = () =>
-        finish({ status: "earned", clientEventId: Crypto.randomUUID() });
+        finish({
+          status: "earned",
+          clientEventId: Crypto.randomUUID(),
+          ...(adValue ? { adValue } : {}),
+        });
+      // Fired on the impression, before the reward: what this ad paid
+      // (impression-level ad revenue, turned on in the AdMob account).
+      cleanups.push(
+        ad.addAdEventListener(AdEventType.PAID, (event) => {
+          adValue = adValueFromPaidEvent(event) ?? adValue;
+        }),
+      );
       cleanups.push(
         ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
           earned = true;
