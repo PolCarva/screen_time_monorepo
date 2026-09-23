@@ -48,8 +48,7 @@ pnpm --filter mobile acceptance:shield -- \
 ```
 
 1. From the visual Android setup screen, enable the disclosed Accessibility
-   service and select a launchable app. Usage Access is optional and only gates
-   real foreground-time totals.
+   service and select a launchable app.
 2. Confirm `TYPE_WINDOW_STATE_CHANGED` produces the intervention within one second.
 3. Confirm “Ahora no” returns Home, clears the pending target, records the
    avoided opening for that app, and Back cannot bypass it.
@@ -57,7 +56,7 @@ pnpm --filter mobile acceptance:shield -- \
    pass and confirm the package launch intent reopens the exact target without
    briefly re-shielding it.
 5. Kill Still and verify detection remains active; reboot and confirm stale sessions no longer apply.
-6. Disable Accessibility, revoke Usage Access, and uninstall a selected target; Settings must show a recoverable health state and open the relevant system control.
+6. Disable Accessibility and uninstall a selected target; Settings must show a recoverable health state and open the relevant system control.
 7. Disable `androidRestrictionEnabled` remotely, foreground Still, and confirm the service stops intervening while preserving the local selection; re-enable it and confirm detection returns.
 8. Delete the account and confirm local selections, sessions, wallet projection, and SQLite state are cleared.
 

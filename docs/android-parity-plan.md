@@ -40,7 +40,7 @@ Heredadas del trabajo iOS y confirmadas por el usuario, más las tomadas aquí.
 | D6 | Lógica nueva en **módulos puros con tests Vitest** que no importen React Native; textos con `localize(en, es)`. | Repo |
 | **D7** | **Camino A2 elegido: el shield sigue siendo Kotlin y el anuncio se muestra ahí** con el SDK nativo. Se descarta A1 (shield RN). Ver §2 con latencias. | Este plan |
 | **D8** | El overlay con `SYSTEM_ALERT_WINDOW` **queda descartado como vía para el anuncio**: un rewarded exige una Activity en primer plano. El shield es una Activity, no un overlay. | Este plan / [fuente] |
-| **D9** | **Tutorial de setup con capturas reales del sistema** (Accesibilidad de Android), con el patrón de iOS: recortar la captura real, guardar las coordenadas del anillo en un manifiesto generado y dibujar el anillo desde la app, nunca quemarlo en el JPEG. Se retira la UI de sistema **falsa** que dibuja hoy `android-setup-visual.tsx`. | Usuario, 2026-09-21 |
+| **D9** | ~~**Tutorial de setup con capturas reales del sistema**~~ — **reemplazada** por la D7 de [`ui-clarity-plan.md`](ui-clarity-plan.md) (2026-09-22): las pantallas de Accesibilidad se dibujan en código, en el idioma del teléfono, y los PNG se borraron. Texto original: tutorial (Accesibilidad de Android), con el patrón de iOS: recortar la captura real, guardar las coordenadas del anillo en un manifiesto generado y dibujar el anillo desde la app, nunca quemarlo en el JPEG. Se retira la UI de sistema **falsa** que dibuja hoy `android-setup-visual.tsx`. | Usuario, 2026-09-21 |
 | **D10** | **Comunicación en voz de producto.** No hablar de "Android" ni del mecanismo interno; Still es quien actúa ("Still se encarga del resto"). Centrar el texto en lo que le importa al usuario, no en nuestro proceso. Se reescribe el copy de `android-setup.tsx` y del shield. | Usuario, 2026-09-21 |
 
 ---
@@ -282,6 +282,12 @@ ahí se usa una **captura real** con el control exacto rodeado (abajo), no una
 explicación.
 
 ### Guía de permiso con capturas reales (D9)
+
+> **Reemplazada** (2026-09-22): la guía ya no usa capturas. Las tres pantallas
+> se dibujan en código (`src/components/guide/android-settings-screens.tsx`),
+> ver D7 y §4.4 de [`ui-clarity-plan.md`](ui-clarity-plan.md). Lo que sigue
+> queda como registro.
+
 Se replica el patrón de iOS (`scripts/shortcut-guide/build.swift` + `spec.json`
 + `src/components/shortcut-guide-image.tsx`), adaptado a Android:
 

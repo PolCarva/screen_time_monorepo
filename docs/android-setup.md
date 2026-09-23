@@ -15,9 +15,14 @@ The in-app **Activate Still and choose apps** button runs these steps as one
 progressive flow: it opens the system permission first and, when the user
 returns, opens app selection automatically.
 
-**Usage Access is optional.** Enabling it adds Android's real foreground-time
-totals. Accessibility alone still supports pauses, direct return, and the
-individual open/avoided/unlock counters used by the intervention.
+Under the first step, the setup screen shows the three Accessibility screens
+the user will see (the Still row, the **Use Still** switch and the
+**Allow** confirmation), drawn in code from Android 14's Settings in the
+phone's language (`src/components/guide/android-settings-screens.tsx`), with
+the control to tap ringed. Tapping one runs the same flow as the button.
+
+Today counts Still's own pauses per local day, the same as on iOS. Still does
+not ask for Usage Access.
 
 ## What happens when a selected app opens
 
@@ -42,11 +47,10 @@ the operation and rolls back the temporary allowance before a pass is spent.
 2. Open Gmail and confirm the heading and daily number name Gmail.
 3. Tap **Go back** and confirm Android Home appears without another Still loop.
 4. Open YouTube and confirm its own heading and daily number are independent.
-5. Tap **Watch ad**, earn the reward, and confirm Android returns directly to
-   YouTube for the duration configured in Settings.
-6. Return to Still and verify Today shows the updated per-app activity.
-7. Optionally enable Usage Access and verify the real screen-time total changes
-   after using one of the selected apps.
+5. Tap **Watch ad**, earn the reward, choose how long, and confirm Android
+   returns directly to YouTube for that time.
+6. Return to Still and verify Today counts both pauses: one **Didn't go in**
+   (Gmail) and one **Went in** (YouTube).
 
 For an attached debug device, the attribution portion can also be run with:
 

@@ -41,9 +41,6 @@ type ReplicaApi = {
 
 const ReplicaContext = createContext<ReplicaApi | null>(null);
 
-/** QA only: hide the rings to compare a replica with its old screenshot. */
-export const replicaDebug = { hideTaps: false };
-
 function sameRect(a: Rect | undefined, b: Rect) {
   return (
     a !== undefined &&
@@ -263,7 +260,7 @@ export function Replica({ width, children }: { width: number; children: ReactNod
         <ReplicaContext.Provider value={{ scale, root, register, track }}>
           {children}
         </ReplicaContext.Provider>
-        {(replicaDebug.hideTaps ? [] : entries).map(([n, rect]) => (
+        {entries.map(([n, rect]) => (
           <Ring
             index={Number(n)}
             key={n}

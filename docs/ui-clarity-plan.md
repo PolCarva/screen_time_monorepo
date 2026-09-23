@@ -578,7 +578,82 @@ este archivo: qué se hizo, desvíos, capturas finales y lo que queda para el iP
 
 ## 10. Resultados
 
-(Se completa al implementar.)
+Implementado el 22 y 23-09-2026 en `feat/access-duration-slider-and-live-expiry`, un
+commit por fase. Al cerrar: `pnpm check` verde (mobile 186 tests, web 29, contracts 21),
+`acceptance:shield` verde en el emulador Pixel 6 API 34 y `acceptance:ios-shortcuts` verde
+sobre el build de simulador firmado. El simulador del usuario (`D7C2610B…`) no se tocó.
+
+### 10.1 Qué se hizo
+
+| Fase | Commit | Entrega | Verificación |
+|---|---|---|---|
+| 1 | `aa80d9b` | `StillSheet`/`StillToast` y cola de hojas; los 25 avisos migrados, cada uno con el botón que resuelve lo que pide; aviso previo a notificaciones solo en iOS; Android deja de pedir notificaciones; test contra `Alert`. | Simulador es-419: Conecta Google, Eliminar cuenta, aviso de notificaciones. Emulador: divulgación, Falta activar Still, Elige tus apps. |
+| 2 | `49e5719` | Textos de §5.2; `system-strings.ts` con Atajos y Ajustes de Android en en / es / es-419; horas en 24 h en español. | `pnpm check`, `compileDebugKotlin`, `acceptance:shield`. |
+| 3 | `0361a36` | Día local en iOS y Android; `getLocalWellbeing` con siete días; `today-summary.ts` (D5); fuera Usage Access y los reportes nativos de Hoy. | Build iOS firmado e `installDebug`: siete días que terminan en la fecha local cuando en UTC ya era el día siguiente. |
+| 4 | `7d252b1` | Hoy nuevo (§3.3), igual en las dos plataformas. | Pausas reales en simulador y emulador: mismos bloques y números. |
+| 5 | `b7a3d38` | 16 pantallas de Atajos dibujadas en código; pasos de §4.5; apps propias con Tilo y Copiar; fuera los 16 JPG y su script. | Lado a lado con cada JPG (≤1 pt); Atajos real en es-419 (flujos completos) y en es-ES (pasada rápida). |
+| 6 | `42cb7fc` | 3 pantallas de Accesibilidad dibujadas en código; `android-setup` de §4.5; fuera los 3 PNG y su script. | Lado a lado con cada PNG (≤0,2 dp); capturas en es-419 y es-ES para revisión. |
+| 7 | `9d878c0` | Acción de Still en español (`ios/Still/Localizable.xcstrings`, D12). | Atajos en es-419: al buscar "Still" aparece «Pausar antes de abrir»; réplicas medidas contra la pantalla real (≤0,33 pt). |
+| 8 | este | Docs (README, `ios-shortcuts.md`, `android-setup.md`, `store-compliance.md`, `native-feasibility.md`, D9 del plan Android), capturas finales y este apartado; fuera el interruptor de QA `replicaDebug`. | `pnpm check`; `acceptance:shield`. |
+
+### 10.2 Desvíos
+
+- **Apéndice A.** En es-419 la acción se llama «Obtener la app actual», con artículo (la
+  tabla decía «Obtener app actual»); corregido en `system-strings.ts`. El resumen de la
+  tarjeta sí dice «Obtener app Actual(es)», como estaba previsto.
+- **El español envuelve distinto que el inglés** y las réplicas siguen a la pantalla real:
+  el subtítulo de auto-01 (dos líneas; la banda crece), los títulos de los recuadros de
+  auto-05, el último ítem del menú de return-03, el marcador «Nombre de la app»
+  seleccionado (entero en la segunda línea, con su menú a la izquierda; fase 7) y el
+  diálogo «Permitir» de Android (crece una línea por cada línea de más).
+- El vidrio desenfocado detrás de los menús de return-03 y single-03 se dibuja opaco.
+- **Android.** Los títulos de categoría («Apps descargadas») salen en Roboto normal, no
+  Medium: así los dibuja el emulador, que no tiene la fuente de titulares. La página que
+  queda bajo el velo del diálogo usa dos cadenas de la misma fuente AOSP que no estaban en
+  el Apéndice B (`accessibility_screen_option`, `accessibility_shortcut_title`). La
+  descripción del servicio de Still sigue en inglés porque la app Android no la traduce
+  (ver 10.4).
+- El ejemplo del parámetro de la acción («for example YouTube») pasa a Instagram (D8).
+- **Extra:** `acceptance:ios-shortcuts` ahora exige que el español de la acción llegue a
+  la app compilada, y un test ata las cadenas de la guía al catálogo de traducciones.
+- `acceptance:shield`: en la fase 8 la primera corrida falló porque YouTube ya tenía un
+  intento más del esperado (antes se lo había abierto a mano con `monkey` mientras Still
+  estaba al frente); la segunda pasó. Mismo patrón que en la fase 2: si reaparece en el
+  teléfono, mirar si una sola apertura de YouTube cuenta dos veces.
+- El build de desarrollo de Android necesitó `installDebug` al sumar `expo-clipboard`
+  (módulo nativo).
+
+### 10.3 Capturas finales
+
+iOS en el simulador de QA (iPhone 15, iOS 26.0, es-419); Android en el emulador Pixel 6
+API 34 (inglés).
+
+| | iOS | Android |
+|---|---|---|
+| Hoy, tras pausas reales de hoy | ![Hoy en iOS](ui-clarity/ios-today.jpg) | ![Hoy en Android](ui-clarity/android-today.jpg) |
+| Una hoja | ![Conecta Google para votar](ui-clarity/ios-sheet.jpg) | ![Still usa Accesibilidad](ui-clarity/android-sheet.jpg) |
+| Guía: primer paso | ![Paso 01 de Atajos](ui-clarity/ios-guide-1.jpg) | ![Paso 1 de Accesibilidad](ui-clarity/android-guide-1.jpg) |
+| Guía: pasos siguientes | ![Pasos 10 y 11 con «Pausar antes de abrir»](ui-clarity/ios-guide-2.jpg) | ![Pasos 2 y 3 de Accesibilidad](ui-clarity/android-guide-2.jpg) |
+
+### 10.4 Lo que queda para los teléfonos reales
+
+- **Build nativo nuevo en los dos.** `expo-clipboard` y `expo-symbols` son módulos
+  nativos, y el proyecto iOS suma `Localizable.xcstrings`: el build que está hoy en los
+  teléfonos no los tiene.
+- **iPhone (iOS 27).** Comparar cada réplica con Atajos en tu idioma (se midieron en iOS
+  26.0); confirmar que la acción aparece como «Pausar antes de abrir» y que las
+  automatizaciones ya creadas siguen funcionando; el disparo real de "Cuando se abra…",
+  que el simulador no ejecuta (H1–H9 de `ios-shortcuts-v2-plan.md`); el enlace Instalar
+  Atajos (`id915249334`) y el aviso previo a notificaciones.
+- **Xiaomi (MIUI).** Las réplicas muestran los Ajustes de Android 14 de un Pixel; los de
+  MIUI se ven distintos y pueden nombrar los botones de otra forma. Revisar que la guía se
+  entienda igual en tu teléfono.
+- **Descripción del servicio de Accesibilidad en español.** Android la muestra en inglés
+  en un teléfono en español porque solo existe `res/values/strings.xml`. Es el texto que
+  revisa Google Play (D14), así que la traducción queda para ti.
+- Los simuladores de QA creados para esto, "Still QA" (`2407287A…`, es-419) y "Still QA
+  es-ES" (`01D24005…`), se pueden borrar con `xcrun simctl delete <udid>`. El emulador
+  quedó con la build vc10 y Accesibilidad apagada.
 
 ---
 

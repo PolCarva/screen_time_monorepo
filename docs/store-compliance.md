@@ -34,7 +34,7 @@ When the user declines, the intended ending is the iOS Home Screen. iOS has no p
 - Accessibility is a core intervention feature, but the app is not an accessibility tool.
 - Submit the in-app prominent disclosure, affirmative consent evidence, declaration form, and a video showing detection, intervention, cancellation, unlock, and Settings recovery.
 - Declare package visibility only through the launcher `<queries>` intent. Do not add `QUERY_ALL_PACKAGES` without a new policy review.
-- Keep Usage Access limited to local wellbeing statistics and verification.
+- Still does not request Usage Access (`PACKAGE_USAGE_STATS`); Today uses Still's own pause counters. Adding it back needs a new policy review.
 
 Suggested disclosure: “Still uses Accessibility to detect when you open only the apps you selected, show an intentional pause, and close a floating video window that would cover that pause. It does not type for you and does not collect, store, or share your screen content, messages, or the names of your selected apps. Processing stays on this device. You can disable access at any time in Android Settings.”
 
