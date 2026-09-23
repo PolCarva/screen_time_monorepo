@@ -127,7 +127,7 @@ y tiempo recuperado, y decidir qué hacer con los pases de emergencia.
    `202609200001`, que estaba pendiente). El comando quedó bloqueado por los
    permisos de la sesión.
 2. Desplegar la web/API después de la migración (al revés, la API nueva falla).
-3. Renovar `ADMOB_REFRESH_TOKEN` y activar "Impression-level ad revenue" (§3).
+3. ~~Renovar `ADMOB_REFRESH_TOKEN` y activar "Impression-level ad revenue" (§3).~~ Hecho el 23/9: el token vive en Supabase Vault (`pnpm admob:connect` desde `apps/web`) y el import trajo 14 días reales (0 impresiones: la app aún no está vinculada a Play en AdMob). Ingresos por impresión activado en AdMob.
 4. Builds nuevos de la app. Los builds viejos siguen funcionando contra la API
    nueva salvo por los pases de emergencia, que el servidor ya no acepta.
 5. Probar en dispositivo: pase y anuncio a la vez en la pausa, el valor del

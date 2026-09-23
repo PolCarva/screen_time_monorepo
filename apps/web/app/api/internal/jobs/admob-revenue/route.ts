@@ -2,7 +2,11 @@ import { timingSafeEqual } from "node:crypto";
 
 import { z } from "zod";
 
-import { fetchAdMobRevenue, type AdMobRevenueDay } from "@/lib/admob-reporting";
+import {
+  fetchAdMobRevenue,
+  storedAdMobRefreshToken,
+  type AdMobRevenueDay,
+} from "@/lib/admob-reporting";
 import { HttpError, parseJson, routeError } from "@/lib/http";
 import { ensureCurrentImpactWeek } from "@/lib/impact";
 import { createAdminClient } from "@/lib/supabase";
@@ -69,7 +73,9 @@ export async function GET(request: Request) {
     authorize(request);
     const yesterday = dateOffset(new Date(), -1);
     const startDate = dateOffset(new Date(`${yesterday}T00:00:00.000Z`), -13);
-    const rows = await fetchAdMobRevenue(startDate, yesterday);
+    const client = createAdminClient();
+    const storedToken = client ? await storedAdMobRefreshToken(client) : null;
+    const rows = await fetchAdMobRevenue(startDate, yesterday, storedToken);
     await persistRevenue(rows, "estimated", "admob_api");
     return Response.json({
       imported: rows.length,

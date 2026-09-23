@@ -26,7 +26,7 @@ Public values are bundled into clients and must never contain secrets.
 | `INTERNAL_JOB_SECRET`                                                                      | web          | yes                    | AdMob revenue import bearer token                   |
 | `CRON_SECRET`                                                                              | web          | yes on Vercel          | stale reward reconciliation bearer token            |
 | `WAITLIST_RATE_LIMIT_SECRET`                                                               | web          | recommended            | HMAC key for beta abuse protection                  |
-| `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API                                 |
+| `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API; the refresh token in Vault wins over `ADMOB_REFRESH_TOKEN` |
 | `EXPO_PUBLIC_API_URL`                                                                      | mobile       | yes                    | public HTTPS web/API base URL                       |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                         | mobile       | yes                    | mobile Auth only                                    |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`                                                               | mobile       | yes                    | EAS project binding                                 |
@@ -73,7 +73,7 @@ The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates
 - The fund of a week that is not confirmed is live: every rewarded ad AdMob confirms (SSV) is stored in `ad_views` with its estimated value (the SDK's impression value, else the observed eCPM, else `estimatedRewardedEcpmUsd`), and each day switches to AdMob's own report once it was imported a full day after the day closed.
 - After a week ends, `/admin` lists it under «Semanas por cerrar»: confirm the gross (prefilled with the live figure) and later record the donation.
 - After payment: upload the actual proof and record the donation. Publication occurs only after the database transition succeeds.
-- If the AdMob job fails with `invalid_grant`, the Reporting refresh token expired or was revoked: create a new one for the same OAuth client with the `https://www.googleapis.com/auth/admob.readonly` scope and update `ADMOB_REFRESH_TOKEN` in Vercel. Until then the fund shows only the per-ad estimates.
+- If the AdMob job fails with `invalid_grant`, the Reporting refresh token expired or was revoked: from `apps/web`, run `pnpm admob:connect` and accept with the AdMob owner's Google account. The command checks that the account can read the publisher and stores the token in Supabase Vault (`set_admob_refresh_token`); the next import uses it, with no Vercel change or redeploy. `ADMOB_REFRESH_TOKEN` is only the fallback while Vault has no token. Until then the fund shows only the per-ad estimates.
 - Impression-level ad revenue must be on in AdMob (Settings → Account) for the SDK to report each impression's value; without it every ad is priced by eCPM.
 
 Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable while pending and return inline success/error feedback; retry only after checking the current week state.

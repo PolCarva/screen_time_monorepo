@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -52,11 +53,27 @@ type AdMobCredentials = {
   refreshToken: string;
 };
 
-function requireCredentials(): AdMobCredentials {
+/**
+ * The refresh token `pnpm --filter web admob:connect` stored in Supabase
+ * Vault. Null when none was stored or it cannot be read, so the import falls
+ * back to ADMOB_REFRESH_TOKEN.
+ */
+export async function storedAdMobRefreshToken(
+  client: SupabaseClient,
+): Promise<string | null> {
+  const { data, error } = await client.rpc("admob_refresh_token");
+  if (error) {
+    console.error("Stored AdMob refresh token could not be read", error.message);
+    return null;
+  }
+  return typeof data === "string" && data.length > 0 ? data : null;
+}
+
+function requireCredentials(storedRefreshToken?: string | null): AdMobCredentials {
   const publisherAccount = process.env.ADMOB_PUBLISHER_ACCOUNT;
   const clientId = process.env.ADMOB_CLIENT_ID;
   const clientSecret = process.env.ADMOB_CLIENT_SECRET;
-  const refreshToken = process.env.ADMOB_REFRESH_TOKEN;
+  const refreshToken = storedRefreshToken || process.env.ADMOB_REFRESH_TOKEN;
   if (!publisherAccount || !clientId || !clientSecret || !refreshToken) {
     throw new Error("AdMob reporting credentials are not configured");
   }
@@ -132,9 +149,10 @@ async function accessToken(credentials: AdMobCredentials): Promise<string> {
 export async function fetchAdMobRevenue(
   startDate: string,
   endDate: string,
+  storedRefreshToken?: string | null,
 ): Promise<AdMobRevenueDay[]> {
   const requestedDates = datesBetween(startDate, endDate);
-  const credentials = requireCredentials();
+  const credentials = requireCredentials(storedRefreshToken);
   const token = await accessToken(credentials);
   const response = await fetch(
     `${ADMOB_API_URL}/${accountResource(credentials.publisherAccount)}/networkReport:generate`,
