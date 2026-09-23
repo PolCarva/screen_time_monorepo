@@ -76,6 +76,18 @@ export function parseTargetSpec(specification) {
   return { packageName, label };
 }
 
+/**
+ * Still keys its counters by the phone's own calendar day (StillDay.kt), so
+ * the gate reads the device's date rather than the host's or UTC.
+ */
+export function parseDeviceDate(output) {
+  const day = output.trim().split(/\r?\n/).at(-1)?.trim();
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new Error(`Could not read the device date: ${output.trim()}`);
+  }
+  return day;
+}
+
 export function readPreferenceInteger(xml, key) {
   for (const match of xml.matchAll(/<int\b[^>]*\/>/g)) {
     const entry = attributes(match[0]);
@@ -405,7 +417,7 @@ async function run() {
     }
   }
 
-  const day = new Date().toISOString().slice(0, 10);
+  const day = parseDeviceDate(deviceAdb(serial, ["shell", "date", "+%F"]));
   const attemptBaseline = new Map(
     targets.map((target) => [
       target.packageName,

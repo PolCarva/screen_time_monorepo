@@ -31,9 +31,9 @@ describe("committed native production configuration", () => {
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
     expect(manifest).toContain('android:scheme="still"');
-    expect(manifest).toContain(
-      'android:name="android.permission.PACKAGE_USAGE_STATS"',
-    );
+    // Today counts Still's own pauses on both platforms; screen time is no
+    // longer read, so Usage Access is not requested (ui-clarity-plan D4).
+    expect(manifest).not.toContain("android.permission.PACKAGE_USAGE_STATS");
     expect(manifest).toContain(
       'android:name="android.permission.POST_NOTIFICATIONS"',
     );
@@ -62,9 +62,15 @@ describe("committed native production configuration", () => {
     expect(restrictionModule).toContain("endExternalAuthSession");
     expect(restrictionModule).toContain("cancelCurrentIntervention");
     expect(restrictionModule).toContain("Intent.CATEGORY_HOME");
-    expect(restrictionModule).toContain(
-      'putString("wellbeingAuthorization"',
-    );
+    // Screen time is gone (D4); Today reads seven local days of Still's own
+    // counters, keyed by the phone's day (D6).
+    expect(restrictionModule).not.toContain("wellbeingAuthorization");
+    expect(restrictionModule).not.toContain("UsageStatsManager");
+    expect(restrictionModule).toContain('putArray("history"');
+    for (const source of [restrictionModule, intervention, accessibilityService]) {
+      expect(source).toContain("StillDay.today()");
+      expect(source).not.toContain("ZoneOffset.UTC");
+    }
     expect(restrictionModule).not.toContain(
       'putString("issue", "usage_access_disabled")',
     );

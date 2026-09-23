@@ -1,9 +1,6 @@
 package com.still.screentime
 
 import android.app.Activity
-import android.app.AppOpsManager
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -11,7 +8,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
 import com.facebook.react.bridge.ActivityEventListener
@@ -23,16 +19,12 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import java.util.UUID
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.util.Calendar
 
 class StillRestrictionModule(private val context: ReactApplicationContext) :
   ReactContextBaseJavaModule(context), ActivityEventListener, LifecycleEventListener {
 
   private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
   private var authorizationPromise: Promise? = null
-  private var wellbeingAuthorizationPromise: Promise? = null
   private var pickerPromise: Promise? = null
 
   init {
@@ -114,24 +106,6 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun requestWellbeingAuthorization(promise: Promise) {
-    if (hasUsageAccess()) {
-      promise.resolve("authorized")
-      return
-    }
-    wellbeingAuthorizationPromise?.reject("authorization_replaced", "A newer authorization request replaced this one")
-    wellbeingAuthorizationPromise = promise
-    val opened = runCatching {
-      context.currentActivity?.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-        ?: context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.isSuccess
-    if (!opened) {
-      wellbeingAuthorizationPromise = null
-      promise.resolve("unavailable")
-    }
-  }
-
-  @ReactMethod
   fun presentAppPicker(promise: Promise) {
     StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val activity = context.currentActivity
@@ -175,7 +149,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun cancelCurrentIntervention(promise: Promise) {
     val packageName = preferences.getString(KEY_CURRENT_PACKAGE, null)
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val totalKey = "avoided_opens:$day"
     val editor = preferences.edit()
       .remove(KEY_CURRENT_PACKAGE)
@@ -246,7 +220,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       return
     }
 
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val unlocksKey = "unlocks:$day"
     val appUnlocksKey = appMetricKey(METRIC_APP_UNLOCKS, day, packageName)
     preferences.edit()
@@ -276,11 +250,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       .sanitizePreferences(preferences, context.packageName)
       .size
     val accessibilityEnabled = isAccessibilityEnabled()
-    val usageAccessEnabled = hasUsageAccess()
     val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
     promise.resolve(Arguments.createMap().apply {
       putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
-      putString("wellbeingAuthorization", if (usageAccessEnabled) "authorized" else "denied")
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }
@@ -456,7 +428,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun getSelectedAppsState(promise: Promise) {
     val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val apps = Arguments.createArray()
     selected
       .map { packageName ->
@@ -531,46 +503,26 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(windows)
   }
 
+  /**
+   * Still's own counters: today plus the last seven local days for Today's
+   * week, identical in shape to iOS so both platforms show the same numbers.
+   */
   @ReactMethod
   fun getLocalWellbeing(promise: Promise) {
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
-    val selected = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
-    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    val usageAllowed = hasUsageAccess()
-    var foregroundMillis = 0L
-    var pickups = 0
-    val weeklyMillis = LongArray(7)
-    if (usageAllowed) {
-      val calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-      }
-      val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-      val events = manager.queryEvents(calendar.timeInMillis, System.currentTimeMillis())
-      val event = UsageEvents.Event()
-      while (events.hasNextEvent()) {
-        events.getNextEvent(event)
-        if (event.eventType == UsageEvents.Event.SCREEN_INTERACTIVE) pickups += 1
-      }
-      val aggregate = manager.queryAndAggregateUsageStats(calendar.timeInMillis, System.currentTimeMillis())
-      foregroundMillis = selected.sumOf { aggregate[it]?.totalTimeInForeground ?: 0L }
-      for (index in 0 until 7) {
-        val start = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, index - 6) }
-        val end = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
-        val dayStats = manager.queryAndAggregateUsageStats(start.timeInMillis, minOf(end.timeInMillis, System.currentTimeMillis()))
-        weeklyMillis[index] = selected.sumOf { dayStats[it]?.totalTimeInForeground ?: 0L }
-      }
-    }
+    val today = StillDay.today()
     promise.resolve(Arguments.createMap().apply {
-      putDouble("controlledScreenTimeSeconds", foregroundMillis / 1_000.0)
-      putInt("pickups", pickups)
-      putInt("openAttempts", preferences.getInt("open_attempts:$day", 0))
-      putInt("avoidedOpens", preferences.getInt("avoided_opens:$day", 0))
-      putInt("unlocks", preferences.getInt("unlocks:$day", 0))
-      putArray("weeklyScreenTimeSeconds", Arguments.createArray().apply {
-        weeklyMillis.forEach { pushDouble(it / 1_000.0) }
+      putInt("openAttempts", preferences.getInt("open_attempts:$today", 0))
+      putInt("avoidedOpens", preferences.getInt("avoided_opens:$today", 0))
+      putInt("unlocks", preferences.getInt("unlocks:$today", 0))
+      putArray("history", Arguments.createArray().apply {
+        StillDay.lastDays(HISTORY_DAYS).forEach { day ->
+          pushMap(Arguments.createMap().apply {
+            putString("date", day)
+            putInt("openAttempts", preferences.getInt("open_attempts:$day", 0))
+            putInt("avoidedOpens", preferences.getInt("avoided_opens:$day", 0))
+            putInt("unlocks", preferences.getInt("unlocks:$day", 0))
+          })
+        }
       })
     })
   }
@@ -605,15 +557,6 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       ?.split(':')
       ?.mapNotNull { ComponentName.unflattenFromString(it) }
       ?.any { it == component } == true
-  }
-
-  private fun hasUsageAccess(): Boolean {
-    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-    return appOps.unsafeCheckOpNoThrow(
-      AppOpsManager.OPSTR_GET_USAGE_STATS,
-      Process.myUid(),
-      context.packageName,
-    ) == AppOpsManager.MODE_ALLOWED
   }
 
   private fun browserPackages(): Set<String> {
@@ -661,22 +604,19 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       authorizationPromise = null
       it.resolve(if (isAccessibilityEnabled()) "authorized" else "denied")
     }
-    wellbeingAuthorizationPromise?.let {
-      wellbeingAuthorizationPromise = null
-      it.resolve(if (hasUsageAccess()) "authorized" else "denied")
-    }
   }
 
   override fun onHostPause() = Unit
 
   override fun onHostDestroy() {
     authorizationPromise = null
-    wellbeingAuthorizationPromise = null
     pickerPromise = null
   }
 
   companion object {
     const val PREFERENCES = "still_restrictions"
+    /** Days of history Today's week shows, ending today. */
+    const val HISTORY_DAYS = 7
     const val KEY_SELECTED_PACKAGES = "selected_packages"
     const val KEY_CURRENT_PACKAGE = "current_package"
     const val METRIC_APP_OPEN_ATTEMPTS = "app_open_attempts"

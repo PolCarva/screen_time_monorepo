@@ -31,13 +31,6 @@ final class StillRestrictionEngine: RCTEventEmitter {
     }
   }
 
-  @objc func requestWellbeingAuthorization(
-    _ resolve: RCTPromiseResolveBlock,
-    rejecter reject: RCTPromiseRejectBlock
-  ) {
-    resolve("authorized")
-  }
-
   @objc func presentAppPicker(
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
@@ -429,17 +422,27 @@ final class StillRestrictionEngine: RCTEventEmitter {
     }
   }
 
+  /// Still's own counters: today plus the last seven local days for Today's
+  /// week, identical in shape to Android so both show the same numbers.
   @objc func getLocalWellbeing(
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let metrics = SharedRestrictionState.productMetrics()
+    let history = SharedRestrictionState.lastLocalDays(7).map { day -> [String: Any] in
+      let dayMetrics = SharedRestrictionState.productMetrics(day: day)
+      return [
+        "date": day,
+        "openAttempts": dayMetrics.openAttempts,
+        "avoidedOpens": dayMetrics.avoidedOpens,
+        "unlocks": dayMetrics.unlocks,
+      ]
+    }
     resolve([
-      "controlledScreenTimeSeconds": 0,
       "openAttempts": metrics.openAttempts,
       "avoidedOpens": metrics.avoidedOpens,
       "unlocks": metrics.unlocks,
-      "weeklyScreenTimeSeconds": [],
+      "history": history,
     ])
   }
 

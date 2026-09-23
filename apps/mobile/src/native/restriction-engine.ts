@@ -2,6 +2,7 @@ import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
 import type { SignedRewardIntent } from "@/lib/reward-intent-buffer";
 import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
+import type { DayMetrics } from "@/lib/today-summary";
 
 /** An earned rewarded ad the native shield recorded for React Native to claim. */
 export type PendingAdResult = {
@@ -63,7 +64,6 @@ export type ShortcutTargetHealth = NativeShortcutTarget & {
 };
 export type RestrictionHealth = {
   authorization: PermissionStatus;
-  wellbeingAuthorization?: PermissionStatus;
   engineActive: boolean;
   selectedCount: number;
   /** Shortcut mode only: chosen apps whose automation has fired at least once. */
@@ -84,20 +84,18 @@ export type PendingUnlockEvent = {
   durationSeconds: number;
   startedAt: string;
 };
+/** Still's own counters for today and the last seven local days (oldest first). */
 export type LocalWellbeingStats = {
-  controlledScreenTimeSeconds: number;
-  pickups?: number;
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
-  weeklyScreenTimeSeconds: number[];
+  history: DayMetrics[];
 };
 
 export interface RestrictionEngine {
   beginExternalAuthSession?(): Promise<void>;
   endExternalAuthSession?(): Promise<void>;
   requestAuthorization(): Promise<PermissionStatus>;
-  requestWellbeingAuthorization(): Promise<PermissionStatus>;
   presentAppPicker(): Promise<RestrictedSelection>;
   applyRestrictions(selection: RestrictedSelection): Promise<void>;
   enableShortcutMode(): Promise<void>;
@@ -172,7 +170,6 @@ const bridge = NativeModules.StillRestrictionEngine as
 
 const unavailable: RestrictionEngine = {
   requestAuthorization: async () => "unavailable",
-  requestWellbeingAuthorization: async () => "unavailable",
   presentAppPicker: async () => ({ count: 0, localReference: "unavailable" }),
   applyRestrictions: async () => undefined,
   enableShortcutMode: async () => undefined,
@@ -218,12 +215,10 @@ const unavailable: RestrictionEngine = {
   acknowledgeUnlockEvent: async () => undefined,
   hasPendingIntervention: async () => null,
   getLocalWellbeing: async () => ({
-    controlledScreenTimeSeconds: 0,
-    pickups: 0,
     openAttempts: 0,
     avoidedOpens: 0,
     unlocks: 0,
-    weeklyScreenTimeSeconds: [],
+    history: [],
   }),
   resetLocalData: async () => undefined,
 };

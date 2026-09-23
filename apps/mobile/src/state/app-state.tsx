@@ -43,6 +43,12 @@ import { androidRewardedAdUnitId } from "@/native/reward-provider";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import {
+  dayOutcome,
+  localDateString,
+  minutesReturned,
+  type DayMetrics,
+} from "@/lib/today-summary";
+import {
   addProvisionalReward,
   mergePendingUnlockEvents,
   projectPendingUnlocks,
@@ -57,12 +63,11 @@ import {
 } from "@/native/restriction-engine";
 
 type LocalStats = {
-  screenTimeMinutes: number;
-  pickups: number;
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
-  weeklyScreenTimeMinutes: number[];
+  /** The last seven local days, oldest first (see lib/today-summary). */
+  history: DayMetrics[];
 };
 type SyncStatus = "syncing" | "online" | "offline";
 type AppStateValue = {
@@ -133,12 +138,10 @@ function preferencesFromConfig(config: RemoteConfig): UserPreferences {
   };
 }
 const defaultStats: LocalStats = {
-  screenTimeMinutes: 0,
-  pickups: 0,
   openAttempts: 0,
   avoidedOpens: 0,
   unlocks: 0,
-  weeklyScreenTimeMinutes: [],
+  history: [],
 };
 const defaultHealth: RestrictionHealth = {
   authorization: "notDetermined",
@@ -409,34 +412,32 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
     try {
       const local = await restrictionEngine.getLocalWellbeing();
-      const nextStats = {
-        screenTimeMinutes: Math.round(local.controlledScreenTimeSeconds / 60),
-        pickups: local.pickups ?? 0,
+      const nextStats: LocalStats = {
         openAttempts: local.openAttempts,
         avoidedOpens: local.avoidedOpens,
         unlocks: local.unlocks,
-        weeklyScreenTimeMinutes: local.weeklyScreenTimeSeconds.map((seconds) =>
-          Math.round(seconds / 60),
-        ),
+        history: Array.isArray(local.history) ? local.history : [],
       };
       setStats(nextStats);
       await setJson("localStats", nextStats);
       if (activeDeviceId) {
-        const today = new Date().toISOString().slice(0, 10);
+        // The counters belong to the phone's own day, so the record does too.
+        const today = localDateString(new Date());
         await apiRequest("/api/v1/wellbeing/daily", {
           method: "POST",
           body: JSON.stringify({
             deviceId: activeDeviceId,
             date: today,
             platform: Platform.OS === "ios" ? "ios" : "android",
-            controlledScreenTimeSeconds: Math.round(
-              local.controlledScreenTimeSeconds,
-            ),
+            // Screen time is no longer read on either platform (D4).
+            controlledScreenTimeSeconds: 0,
             openAttempts: local.openAttempts,
             unlocks: local.unlocks,
             avoidedOpens: local.avoidedOpens,
-            estimatedMinutesAvoided:
-              local.avoidedOpens * activeConfig.estimatedMinutesPerAvoidedOpen,
+            estimatedMinutesAvoided: minutesReturned(
+              dayOutcome(local),
+              activeConfig.estimatedMinutesPerAvoidedOpen,
+            ),
             rewardedAdsCompleted: 0,
           }),
           headers: {
@@ -445,7 +446,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         }).catch(() => undefined);
       }
     } catch {
-      setStats(await getJson("localStats", defaultStats));
+      // A cache written by an older build has no history: start it empty.
+      const cached = await getJson<Partial<LocalStats>>("localStats", defaultStats);
+      setStats({
+        ...defaultStats,
+        ...cached,
+        history: Array.isArray(cached.history) ? cached.history : [],
+      });
     }
     try {
       const { walletSchema } = await import("@screen-time/contracts");

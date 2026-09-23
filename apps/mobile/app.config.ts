@@ -90,10 +90,7 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#F1EFE8",
     },
-    permissions: [
-      "android.permission.PACKAGE_USAGE_STATS",
-      "android.permission.POST_NOTIFICATIONS",
-    ],
+    permissions: ["android.permission.POST_NOTIFICATIONS"],
   },
   plugins: [
     "@sentry/react-native",

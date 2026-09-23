@@ -9,7 +9,6 @@ import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
 import { activeTargets } from "@/lib/shortcut-targets";
-import { ActivityReport } from "@/native/activity-report";
 import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
@@ -32,10 +31,6 @@ export default function TodayScreen() {
     queryKey: ["impact-current"],
     queryFn: () => apiFetch("/api/v1/impact/current", impactWeekSchema),
   });
-  const weekly =
-    stats.weeklyScreenTimeMinutes.length === 7
-      ? stats.weeklyScreenTimeMinutes
-      : Array(7).fill(0);
   const recoveredMinutes =
     stats.avoidedOpens * config.estimatedMinutesPerAvoidedOpen;
   const impact = impactQuery.data;
@@ -127,24 +122,6 @@ export default function TodayScreen() {
         </View>
       </View>
 
-      <View style={styles.fieldSection}>
-        <View style={styles.sectionTop}>
-          <Eyebrow>
-            {localize("SELECTED-APP TIME / 7 DAYS", "TIEMPO EN APPS / 7 DÍAS")}
-          </Eyebrow>
-          <Mono>{localize("ON DEVICE", "EN DISPOSITIVO")}</Mono>
-        </View>
-        <View
-          accessibilityLabel={localize(
-            `Selected-app time over seven days: ${weekly.join(", ")} minutes`,
-            `Tiempo en apps seleccionadas durante siete días: ${weekly.join(", ")} minutos`,
-          )}
-          style={styles.weeklyNativeReport}
-        >
-          <ActivityReport context="still.weekly" />
-        </View>
-      </View>
-
       <Pressable
         accessibilityRole="button"
         onPress={() => router.push("/(tabs)/(impact)" as never)}
@@ -180,17 +157,6 @@ export default function TodayScreen() {
         <Text style={styles.arrow}>→</Text>
       </Pressable>
 
-      <View style={styles.nativeDetail}>
-        <View style={styles.sectionTop}>
-          <Eyebrow>
-            {localize("DEVICE DETAIL", "DETALLE DEL DISPOSITIVO")}
-          </Eyebrow>
-          <Mono>{localize("PRIVATE", "PRIVADO")}</Mono>
-        </View>
-        <View style={styles.nativeReport}>
-          <ActivityReport context="still.daily" />
-        </View>
-      </View>
     </Screen>
   );
 }

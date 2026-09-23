@@ -458,12 +458,12 @@ enum SharedRestrictionState {
   }
 
   static func recordOpenAttempt(targetMetricScope: String) {
-    recordOpenAttempt(at: "productMetrics:\(utcDay())")
+    recordOpenAttempt(at: "productMetrics:\(localDay())")
     recordOpenAttempt(at: targetMetricsKey(targetMetricScope))
   }
 
   static func recordOutcome(targetMetricScope: String, avoided: Bool, unlocked: Bool) {
-    recordOutcome(at: "productMetrics:\(utcDay())", avoided: avoided, unlocked: unlocked)
+    recordOutcome(at: "productMetrics:\(localDay())", avoided: avoided, unlocked: unlocked)
     recordOutcome(at: targetMetricsKey(targetMetricScope), avoided: avoided, unlocked: unlocked)
   }
 
@@ -495,7 +495,7 @@ enum SharedRestrictionState {
   }
 
   static func rollbackUnlockedIntervention(targetMetricScope: String) {
-    rollbackUnlockedIntervention(at: "productMetrics:\(utcDay())")
+    rollbackUnlockedIntervention(at: "productMetrics:\(localDay())")
     rollbackUnlockedIntervention(at: targetMetricsKey(targetMetricScope))
   }
 
@@ -516,8 +516,12 @@ enum SharedRestrictionState {
   }
 
   static func productMetrics() -> DailyProductMetrics {
-    let key = "productMetrics:\(utcDay())"
-    guard let data = defaults.data(forKey: key),
+    productMetrics(day: localDay())
+  }
+
+  /// One day's counters; `day` is `yyyy-MM-dd` as written by `localDay()`.
+  static func productMetrics(day: String) -> DailyProductMetrics {
+    guard let data = defaults.data(forKey: "productMetrics:\(day)"),
       let metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
     else { return DailyProductMetrics() }
     return metrics
@@ -563,7 +567,7 @@ enum SharedRestrictionState {
   }
 
   private static func targetMetricsKey(_ scope: String) -> String {
-    "\(targetProductMetricsPrefix)\(scope):\(utcDay())"
+    "\(targetProductMetricsPrefix)\(scope):\(localDay())"
   }
 
   private static var externalBrowserBypassActive: Bool {
@@ -576,13 +580,24 @@ enum SharedRestrictionState {
   private static func bootEpoch() -> TimeInterval {
     Date().timeIntervalSince1970 - ProcessInfo.processInfo.systemUptime
   }
-  private static func utcDay() -> String {
+  /// The phone's own calendar day, so "today" starts at local midnight (not
+  /// at UTC midnight, which is 21:00 in Uruguay). Mirrors Android's StillDay.
+  private static func localDay(_ date: Date = Date()) -> String {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .gregorian)
     formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.timeZone = TimeZone.current
     formatter.dateFormat = "yyyy-MM-dd"
-    return formatter.string(from: Date())
+    return formatter.string(from: date)
+  }
+
+  /// The last `count` local days as `yyyy-MM-dd`, oldest first, ending today.
+  static func lastLocalDays(_ count: Int) -> [String] {
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+    return (0..<count).reversed().map { offset in
+      localDay(calendar.date(byAdding: .day, value: -offset, to: today) ?? today)
+    }
   }
   private static func tokenKey<T: Encodable>(_ token: T) -> String {
     ((try? JSONEncoder().encode(token)) ?? Data()).base64EncodedString()

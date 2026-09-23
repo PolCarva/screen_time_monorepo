@@ -11,8 +11,6 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 class StillAccessibilityService : AccessibilityService() {
   private val preferences by lazy { getSharedPreferences(StillRestrictionModule.PREFERENCES, Context.MODE_PRIVATE) }
@@ -96,7 +94,7 @@ class StillAccessibilityService : AccessibilityService() {
     lastInterventionPackage = target
     lastInterventionAt = now
 
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val attemptsKey = "open_attempts:$day"
     val appAttemptsKey = StillRestrictionModule.appMetricKey(
       StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS,
@@ -275,7 +273,7 @@ class StillAccessibilityService : AccessibilityService() {
 
     // The window ending is not a new open attempt, so today's counter is read
     // rather than raised; the pause timestamp is what actually changed.
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val attempts = preferences.getInt(
       StillRestrictionModule.appMetricKey(
         StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS,

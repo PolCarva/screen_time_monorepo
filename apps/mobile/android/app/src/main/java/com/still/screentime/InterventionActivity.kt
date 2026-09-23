@@ -19,8 +19,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.text.NumberFormat
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
@@ -89,7 +87,7 @@ class InterventionActivity : Activity() {
       }.getOrNull()
     } ?: if (spanish) "App seleccionada" else "Selected app"
 
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     attempts = intent.getIntExtra(EXTRA_TARGET_ATTEMPTS, 0).takeIf { it > 0 }
       ?: targetPackage?.let {
         preferences.getInt(
@@ -396,7 +394,7 @@ class InterventionActivity : Activity() {
       if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS
       else AccessDuration.resolve(chosenStep)
     val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
+    val day = StillDay.today()
     val unlocksKey = "unlocks:$day"
     val appUnlocksKey = StillRestrictionModule.appMetricKey(
       StillRestrictionModule.METRIC_APP_UNLOCKS,
@@ -497,7 +495,7 @@ class InterventionActivity : Activity() {
   private fun goHome(recordAvoidedOpen: Boolean = true) {
     stopPause()
     if (recordAvoidedOpen) {
-      val day = LocalDate.now(ZoneOffset.UTC).toString()
+      val day = StillDay.today()
       val totalKey = "avoided_opens:$day"
       val editor = preferences.edit()
         .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
@@ -706,17 +704,18 @@ class InterventionActivity : Activity() {
   }
 
   private fun impactSummary(targetPackage: String?): String {
-    val day = LocalDate.now(ZoneOffset.UTC).toString()
-    val avoidedOpens = targetPackage?.let {
-      preferences.getInt(
-        StillRestrictionModule.appMetricKey(
-          StillRestrictionModule.METRIC_APP_AVOIDED_OPENS,
-          day,
-          it,
-        ),
-        0,
-      )
-    }?.coerceAtLeast(0) ?: 0
+    val packageName = targetPackage ?: return ""
+    val day = StillDay.today()
+    fun metric(name: String) = preferences.getInt(
+      StillRestrictionModule.appMetricKey(name, day, packageName),
+      0,
+    ).coerceAtLeast(0)
+    // Same meaning as Today's "No entraste": pauses that did not end in the
+    // app. This pause already counts as an attempt and has no outcome yet.
+    val avoidedOpens = (
+      metric(StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS) - 1 -
+        metric(StillRestrictionModule.METRIC_APP_UNLOCKS)
+      ).coerceAtLeast(0)
     val minutesPerOpen =
       preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
     if (avoidedOpens <= 0) return ""

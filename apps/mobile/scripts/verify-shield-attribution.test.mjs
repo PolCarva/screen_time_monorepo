@@ -6,6 +6,7 @@ import {
   isInterventionResumed,
   observedAttemptMatches,
   parseConnectedDevices,
+  parseDeviceDate,
   parseTargetSpec,
   readPreferenceBoolean,
   readPreferenceInteger,
@@ -16,6 +17,11 @@ import {
 } from "./verify-shield-attribution.mjs";
 
 describe("Android Shield attribution acceptance helpers", () => {
+  it("reads the device's own calendar day for the counter keys", () => {
+    expect(parseDeviceDate("2026-09-22\r\n")).toBe("2026-09-22");
+    expect(() => parseDeviceDate("Tue Sep 22")).toThrow(/device date/);
+  });
+
   it("accepts exactly authorized adb devices", () => {
     const devices = parseConnectedDevices(`List of devices attached
 emulator-5554 device product:sdk model:Pixel_9 transport_id:1

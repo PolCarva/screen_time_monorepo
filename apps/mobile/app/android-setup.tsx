@@ -142,13 +142,11 @@ export default function AndroidSetupScreen() {
   const [appsState, setAppsState] = useState<SelectedAppState[]>([]);
   const [restrictedSettings, setRestrictedSettings] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
-  const [statsBusy, setStatsBusy] = useState(false);
   const restrictionsEnabled = isPauseFeatureEnabled("android", config);
   const ready =
     restrictionsEnabled &&
     localHealth.authorization === "authorized" &&
     localHealth.selectedCount > 0;
-  const statsEnabled = localHealth.wellbeingAuthorization === "authorized";
 
   const refreshHealth = useCallback(async () => {
     const next = await restrictionEngine.getHealth().catch(() => null);
@@ -270,43 +268,6 @@ export default function AndroidSetupScreen() {
     await chooseApps();
   }
 
-  async function enableRealStats() {
-    setStatsBusy(true);
-    try {
-      const status = await restrictionEngine.requestWellbeingAuthorization();
-      await refreshHealth();
-      if (status !== "authorized") {
-        void sheet.show({
-          title: localize(
-            "Real stats remain off",
-            "Las estadísticas reales siguen apagadas",
-          ),
-          message: localize(
-            "It is optional. Pauses and your per-app counts work without it.",
-            "Es opcional. Las pausas y tus conteos por app funcionan sin esto.",
-          ),
-          actions: [retryAction(() => enableRealStats()), closeAction()],
-        });
-      } else {
-        void refresh();
-      }
-    } catch {
-      void sheet.show({
-        title: localize(
-          "Couldn't open that screen",
-          "No se pudo abrir esa pantalla",
-        ),
-        message: localize(
-          "You can turn it on later from Settings.",
-          "Puedes activarlo más tarde desde Ajustes.",
-        ),
-        actions: [retryAction(() => enableRealStats()), closeAction()],
-      });
-    } finally {
-      setStatsBusy(false);
-    }
-  }
-
   const requiredAction =
     localHealth.authorization !== "authorized"
       ? localize(
@@ -415,39 +376,6 @@ export default function AndroidSetupScreen() {
         </View>
       ) : null}
 
-      <View style={styles.optional}>
-        <View style={styles.statusRow}>
-          <Eyebrow>
-            {localize("OPTIONAL", "OPCIONAL")}
-          </Eyebrow>
-          <Mono>
-            {statsEnabled
-              ? localize("ON", "ACTIVO")
-              : localize("OFF", "APAGADO")}
-          </Mono>
-        </View>
-        <Body style={styles.stepBody}>
-          {localize(
-            "See your real screen-time totals next to Still's own counts. Everything else works without it.",
-            "Mira tus totales reales de tiempo de pantalla junto a los conteos de Still. Todo lo demás funciona sin esto.",
-          )}
-        </Body>
-        {!statsEnabled ? (
-          <PrimaryButton
-            disabled={statsBusy}
-            onPress={() => void enableRealStats()}
-            variant="quiet"
-          >
-            {statsBusy
-              ? localize("One moment…", "Un momento…")
-              : localize(
-                  "Show my real screen time",
-                  "Mostrar mi tiempo real",
-                )}
-          </PrimaryButton>
-        ) : null}
-      </View>
-
       <PrimaryButton
         disabled={!ready}
         onPress={() => {
@@ -522,9 +450,4 @@ const styles = StyleSheet.create({
   stepCopy: { flex: 1, gap: spacing.sm },
   stepTitle: { fontSize: 18, lineHeight: 22 },
   stepBody: { color: colors.graphiteSoft, fontSize: 14, lineHeight: 21 },
-  optional: {
-    padding: spacing.lg,
-    gap: spacing.md,
-    backgroundColor: colors.chalkRaised,
-  },
 });
