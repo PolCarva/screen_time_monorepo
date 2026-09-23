@@ -2,9 +2,13 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
-import { AndroidGuideImage } from "@/components/android-guide-image";
-import type { AndroidGuideId } from "@/components/android-guide-assets";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { EXAMPLE_APP } from "@/components/guide/app-icons";
+import {
+  ANDROID_SCREENS,
+  type AndroidScreenId,
+} from "@/components/guide/android-settings-screens";
+import { GuideCard } from "@/components/guide/guide-card";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import {
@@ -15,7 +19,7 @@ import {
   useStillSheet,
 } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
-import { localize } from "@/i18n";
+import { androidSys, localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   restrictionEngine,
@@ -26,45 +30,68 @@ import {
 import { useAppState } from "@/state/app-state";
 import { colors, spacing } from "@/theme/tokens";
 
+/** A Settings label quoted the way each language quotes: “Allow”, «Permitir». */
+function q(label: string) {
+  return localize(`“${label}”`, `«${label}»`);
+}
+
+// One step = one action, quoting Android's own labels (docs/ui-clarity-plan.md §4.5).
 const steps = [
   {
-    title: localize("Give Still permission", "Dale permiso a Still"),
+    title: localize("Turn on Still", "Activa Still"),
     body: localize(
-      "One permission lets Still step in with a calm pause before the apps you choose.",
-      "Un permiso deja que Still aparezca con una pausa serena antes de las apps que elijas.",
+      `Find Still in the list, turn it on and tap ${q(androidSys("allow"))}.`,
+      `Busca Still en la lista, actívalo y toca ${q(androidSys("allow"))}.`,
     ),
   },
   {
     title: localize("Choose your apps", "Elige tus apps"),
     body: localize(
-      "Pick the ones that pull you in. Your choice stays on this phone, only yours.",
-      "Elige las que te absorben. Tu elección se queda en este teléfono, solo tuya.",
+      `Check the apps where you want a pause, for example ${EXAMPLE_APP.name}.`,
+      `Marca las apps donde quieres una pausa, por ejemplo ${EXAMPLE_APP.name}.`,
     ),
   },
   {
-    title: localize("You're back in a tap", "Vuelves en un toque"),
+    title: localize("Done", "Listo"),
     body: localize(
-      "Open an app, watch a short ad or use a pass, and Still opens it for the time you chose.",
-      "Abre una app, mira un anuncio corto o usa un pase, y Still la abre por el tiempo que elijas.",
+      "When you open one of those apps, Still asks whether you want to go in and for how long.",
+      "Cuando abras una de esas apps, Still te pregunta si quieres entrar y por cuánto tiempo.",
     ),
   },
 ] as const;
 
-// Real captures of Android's Accessibility settings, shown under the first step
-// with the exact control ringed by the app (see AndroidGuideImage). Tapping one
-// runs the same disclosure-then-open flow as the main button.
-const permissionGuide: { id: AndroidGuideId; label: string }[] = [
+// Android's Accessibility screens, drawn in code with the control to tap
+// ringed. Tapping one runs the same disclosure-then-open flow as the button.
+const permissionGuide: { id: AndroidScreenId; caption: string; label: string }[] = [
   {
     id: "accessibility-find-still",
-    label: localize("Find Still in the list", "Busca Still en la lista"),
+    caption: localize("1. Tap Still", "1. Toca Still"),
+    label: localize(
+      "Accessibility settings with Still marked in Downloaded apps.",
+      "Ajustes de Accesibilidad con Still marcada en las apps descargadas.",
+    ),
   },
   {
     id: "accessibility-turn-on",
-    label: localize("Turn Still on", "Activa Still"),
+    caption: localize(
+      `2. Turn on ${q(androidSys("useService", { app: "Still" }))}`,
+      `2. Activa ${q(androidSys("useService", { app: "Still" }))}`,
+    ),
+    label: localize(
+      `Still's page in Accessibility with the ${androidSys("useService", { app: "Still" })} switch marked.`,
+      `La página de Still en Accesibilidad con el interruptor ${androidSys("useService", { app: "Still" })} marcado.`,
+    ),
   },
   {
     id: "accessibility-allow",
-    label: localize("Tap Allow to confirm", "Toca Permitir para confirmar"),
+    caption: localize(
+      `3. Tap ${q(androidSys("allow"))}`,
+      `3. Toca ${q(androidSys("allow"))}`,
+    ),
+    label: localize(
+      `Android's confirmation for Still with ${androidSys("allow")} marked.`,
+      `La confirmación de Android para Still con ${androidSys("allow")} marcado.`,
+    ),
   },
 ];
 
@@ -287,26 +314,23 @@ export default function AndroidSetupScreen() {
 
       <View style={styles.header}>
         <Heading style={styles.title}>
-          {localize(
-            "A moment of setup, then Still takes it from here.",
-            "Un momento de setup y Still se encarga del resto.",
-          )}
+          {localize("Turn on the pause in a minute.", "Activa la pausa en un minuto.")}
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "Tap once. Still walks you through it and brings you right back.",
-            "Toca una vez. Still te guía y te trae de vuelta enseguida.",
+            "Tap the button and follow the steps. Still brings you back when you're done.",
+            "Toca el botón y sigue los pasos. Still te trae de vuelta al terminar.",
           )}
         </Body>
       </View>
 
       <View style={styles.status}>
         <View style={styles.statusRow}>
-          <Mono>{localize("PERMISSION", "PERMISO")}</Mono>
+          <Mono>STILL</Mono>
           <Mono>
             {localHealth.authorization === "authorized"
-              ? localize("READY", "LISTO")
-              : localize("NEEDED", "FALTA")}
+              ? localize("ON", "ACTIVO")
+              : localize("NOT ON YET", "FALTA ACTIVAR")}
           </Mono>
         </View>
         <View style={styles.statusRow}>
@@ -334,23 +358,35 @@ export default function AndroidSetupScreen() {
               <Body style={styles.stepBody}>{step.body}</Body>
               {index === 0 ? (
                 <View style={styles.guide}>
-                  {permissionGuide.map((frame) => (
-                    <AndroidGuideImage
-                      key={frame.id}
-                      accessibilityLabel={frame.label}
-                      actionLabel={frame.label}
-                      image={frame.id}
-                      onPress={() => void runRequiredSetup()}
-                    />
-                  ))}
+                  {permissionGuide.map((frame) => {
+                    const Drawn = ANDROID_SCREENS[frame.id];
+                    return (
+                      <GuideCard
+                        key={frame.id}
+                        accessibilityLabel={frame.label}
+                        actionLabel={frame.caption}
+                        onPress={() => void runRequiredSetup()}
+                      >
+                        <Drawn />
+                      </GuideCard>
+                    );
+                  })}
                   {restrictedSettings &&
                   localHealth.authorization !== "authorized" ? (
-                    <Body style={styles.restrictedNote}>
-                      {localize(
-                        "If the switch looks greyed out, open the top-right menu on Still's App info and choose Allow restricted settings first.",
-                        "Si el interruptor se ve en gris, abre el menú de arriba a la derecha en la información de Still y elige Permitir ajustes restringidos primero.",
-                      )}
-                    </Body>
+                    <View style={styles.restricted}>
+                      <Body style={styles.restrictedNote}>
+                        {localize(
+                          `Is the switch greyed out? In Still's app info, open the ⋮ menu and tap ${q(androidSys("allowRestrictedSettings"))}.`,
+                          `¿El interruptor está gris? En la información de Still, abre el menú ⋮ y toca ${q(androidSys("allowRestrictedSettings"))}.`,
+                        )}
+                      </Body>
+                      <PrimaryButton
+                        onPress={() => void restrictionEngine.openAppInfo?.()}
+                        variant="secondary"
+                      >
+                        {localize("Open Still's app info", "Abrir información de Still")}
+                      </PrimaryButton>
+                    </View>
                   ) : null}
                 </View>
               ) : null}
@@ -437,6 +473,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  restricted: { gap: spacing.sm },
   restrictedNote: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 19 },
   appStateName: { fontSize: 15 },
   appStateDetail: { color: colors.graphiteSoft, fontSize: 13 },

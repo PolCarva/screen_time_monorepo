@@ -200,6 +200,13 @@ export const ANDROID_SETTINGS_STRINGS = {
   },
   allow: { en: "Allow", es: "Permitir", "es-419": "Permitir" },
   deny: { en: "Deny", es: "Denegar", "es-419": "Rechazar" },
+  // The service page under the confirmation's scrim.
+  options: { en: "Options", es: "Opciones", "es-419": "Opciones" },
+  shortcutTitle: {
+    en: "${app} shortcut",
+    es: "Acceso directo a ${app}",
+    "es-419": "Combinación de accesibilidad para: ${app}",
+  },
   accessibility: {
     en: "Accessibility",
     es: "Accesibilidad",

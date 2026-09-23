@@ -204,11 +204,30 @@ export function Replica({ width, children }: { width: number; children: ReactNod
     return () => loop.stop();
   }, [pulse, reduceMotion]);
 
-  const register = useCallback((n: number, rect: Rect) => {
+  // A ring can report its layout before the replica has finished mounting (or
+  // after it unmounted): keep those measures and apply them once it is mounted.
+  const mounted = useRef(false);
+  const pending = useRef<Record<number, Rect>>({});
+  const apply = useCallback((n: number, rect: Rect) => {
     setTaps((current) =>
       sameRect(current[n], rect) ? current : { ...current, [n]: rect },
     );
   }, []);
+  useEffect(() => {
+    mounted.current = true;
+    for (const [n, rect] of Object.entries(pending.current)) apply(Number(n), rect);
+    pending.current = {};
+    return () => {
+      mounted.current = false;
+    };
+  }, [apply]);
+  const register = useCallback(
+    (n: number, rect: Rect) => {
+      if (mounted.current) apply(n, rect);
+      else pending.current[n] = rect;
+    },
+    [apply],
+  );
 
   const track = useCallback(
     (measure: () => void) => {

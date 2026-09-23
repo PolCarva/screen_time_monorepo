@@ -18,10 +18,13 @@ function sources(dir: string): string[] {
 }
 
 describe("setup guides", () => {
-  it("do not load captures of the Shortcuts app", () => {
+  it("do not load captures of Shortcuts or of Android's Settings", () => {
     const offenders = [...sources(join(root, "app")), ...sources(join(root, "src"))]
       .filter((path) => !path.endsWith("guide-assets.test.ts"))
-      .filter((path) => readFileSync(path, "utf8").includes("assets/shortcut-guide"));
+      .filter((path) => {
+        const text = readFileSync(path, "utf8");
+        return text.includes("assets/shortcut-guide") || text.includes("assets/android-guide");
+      });
     expect(offenders).toEqual([]);
   });
 });
