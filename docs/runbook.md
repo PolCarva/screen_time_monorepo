@@ -61,9 +61,9 @@ The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates
 
 `/admin/login` asks for an email and sends a one-time code only when that address belongs to a row in `admin_users` (`admin_login_allowed()`); any other address gets the same on-screen answer and no email, so the form cannot be used to mail arbitrary people. Requests and code attempts are rate limited per address and per email (`consume_rate_limit()`, HMAC keys only). After the code, the session is kept in that browser: `apps/web/proxy.ts` refreshes the Supabase session cookies on every `/admin` request, and **Cerrar sesión** ends it.
 
-- The Supabase **Magic link** email template must include `{{ .Token }}` (Authentication → Emails) for the code to appear in the email. Until then the email carries only a link, which still signs in through `/auth/callback`.
+- The Supabase **Magic link or OTP** template (Authentication → Emails → Templates) is in Spanish and shows `{{ .Token }}` as the code, plus `{{ .ConfirmationURL }}` as a fallback link that signs in through `/auth/callback` in the same browser. Supabase only lets the template be edited while custom SMTP is on.
 - To add an operator, create the user in Supabase Auth (Authentication → Users → Add user, with that email) and insert its id into `admin_users` with role `admin`, `operator` or `viewer`.
-- Supabase's built-in email service has low sending limits; configure custom SMTP before relying on it.
+- Auth emails go through custom SMTP: Gmail (`smtp.gmail.com:465`, sender "Still" <pablocarvalhogimenez@gmail.com>) with a Google app password saved only in Supabase (Authentication → Emails → SMTP Settings). Supabase allows 30 emails per hour and one per address per minute. If sign-in emails stop arriving, the app password was probably revoked: create a new one in the Google account and paste it there.
 
 ## Scheduled and weekly operations
 

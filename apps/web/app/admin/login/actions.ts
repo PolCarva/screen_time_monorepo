@@ -55,9 +55,9 @@ export async function requestAdminCode(formData: FormData) {
   );
   if (lookupError) redirect("/admin/login?error=configuration");
   if (isOperator === true) {
-    // Supabase's built-in email sends a link; with custom SMTP the template can
-    // carry the code instead ({{ .Token }}). Both sign in: the link through
-    // /auth/callback in this same browser, the code through verifyAdminCode.
+    // The Magic link template (custom SMTP) carries the code ({{ .Token }},
+    // verified by verifyAdminCode) and the link as a fallback, which signs in
+    // through /auth/callback only in this same browser.
     const { error } = await client.auth.signInWithOtp({
       email,
       options: {

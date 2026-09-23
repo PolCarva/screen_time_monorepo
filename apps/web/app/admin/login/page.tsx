@@ -44,12 +44,12 @@ export default async function AdminLoginPage({
           <>
             <p>
               Si <strong>{pendingEmail}</strong> tiene acceso, le enviamos un
-              correo. Abre el enlace <strong>en este mismo navegador</strong> y
-              entrarás directo; la sesión queda abierta aquí.
+              código. Escríbelo aquí y la sesión queda abierta en este
+              navegador.
             </p>
             {error ? <p className="notice notice--error">{error}</p> : null}
             <form action={verifyAdminCode}>
-              <label htmlFor="code">¿El correo trae un código? Escríbelo</label>
+              <label htmlFor="code">Código del correo</label>
               <input
                 autoComplete="one-time-code"
                 autoFocus
@@ -65,9 +65,9 @@ export default async function AdminLoginPage({
               </button>
             </form>
             <p className="login-card__hint">
-              ¿No llegó? Revisa el spam. Los correos de acceso tienen un límite
-              de unos pocos por hora: si ya pediste varios, espera un rato antes
-              de pedir otro.
+              ¿No llegó? Revisa el spam y espera un minuto antes de pedir otro.
+              El correo también trae un enlace, que sirve si lo abres en este
+              mismo navegador.
             </p>
             <form action={chooseAnotherEmail}>
               <button className="text-link" type="submit">
@@ -78,7 +78,7 @@ export default async function AdminLoginPage({
         ) : (
           <>
             <p>
-              Te enviamos un acceso por correo. Solo lo reciben las cuentas de
+              Te enviamos un código por correo. Solo lo reciben las cuentas de
               operaciones; a cualquier otro correo no se le envía nada.
             </p>
             {error ? <p className="notice notice--error">{error}</p> : null}
@@ -92,7 +92,7 @@ export default async function AdminLoginPage({
                 type="email"
               />
               <button className="button button--dark" type="submit">
-                Enviar acceso
+                Enviar código
               </button>
             </form>
           </>
