@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { STUDIES_DISCLAIMER } from "@/lib/landing-content";
 
 import styles from "./proof-band.module.css";
@@ -28,9 +30,9 @@ export function ProofBand() {
           <h2 className="eyebrow" id="proof-title">
             Lo que midió la investigación sobre pausas antes de abrir una app
           </h2>
-          <a className="underline-link" href="#investigacion">
+          <Link className="underline-link" href="/investigacion">
             Ver los estudios
-          </a>
+          </Link>
         </div>
         <ul className={styles.grid}>
           {ITEMS.map((item) => (

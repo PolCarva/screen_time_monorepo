@@ -3,12 +3,14 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Privacidad",
+export const metadata: Metadata = pageMetadata({
+  path: "/privacy",
+  title: "Privacidad: qué datos usa Still y cuáles no | Still",
   description:
-    "Cómo Still trata los datos del dispositivo, bienestar, publicidad e impacto.",
-};
+    "Qué datos usa Still, cuáles se quedan en tu teléfono y cómo pedir que los borremos. La política de privacidad en lenguaje claro.",
+});
 
 const sections = [
   {

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { STUDIES } from "@/lib/landing-content";
 
 import styles from "./research-summary.module.css";
@@ -13,11 +15,16 @@ export function ResearchSummary() {
               La ciencia detrás de la pausa.
             </h2>
           </div>
-          <p>
-            Estos estudios evaluaron pausas antes de abrir una app en otras
-            herramientas, o el uso del teléfono en general. Still usa el mismo
-            principio; cuando tengamos datos propios, los publicaremos aquí.
-          </p>
+          <div className={styles.intro}>
+            <p>
+              Estos estudios evaluaron pausas antes de abrir una app en otras
+              herramientas, o el uso del teléfono en general. Still usa el mismo
+              principio; cuando tengamos datos propios, los publicaremos aquí.
+            </p>
+            <Link className="underline-link" href="/investigacion">
+              Qué dicen y qué no sabemos todavía
+            </Link>
+          </div>
         </div>
         <ul className={styles.grid}>
           {STUDIES.map((study) => (

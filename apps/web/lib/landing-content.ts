@@ -105,11 +105,13 @@ export const HOME_FAQ: FaqEntry[] = [
     question: "¿Cómo funciona en iPhone?",
     answer:
       "Con una automatización personal de Atajos: «Cuando se abra [app] → Pausar antes de abrir». Still te guía paso a paso y nunca crea, edita ni lee tus automatizaciones.",
+    link: { href: "/configurar/iphone", label: "Guía para iPhone" },
   },
   {
     question: "¿Por qué Still pide Accesibilidad en Android?",
     answer:
       "Solo para saber cuándo se abre una de las apps que elegiste y mostrar la pausa, y para cerrar un video flotante que la tape. No lee lo que escribes ni lo que ves.",
+    link: { href: "/configurar/android", label: "Guía para Android" },
   },
   {
     question: "¿Qué datos salen de mi teléfono?",

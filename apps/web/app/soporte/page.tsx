@@ -3,11 +3,14 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Soporte",
-  description: "Ayuda para configurar Still en Android y iPhone.",
-};
+export const metadata: Metadata = pageMetadata({
+  path: "/soporte",
+  title: "Soporte de Still: ayuda para iPhone y Android",
+  description:
+    "Ayuda para configurar Still en iPhone y Android, resolver problemas con la pausa y escribirnos si algo no funciona.",
+});
 
 const CONTACT_EMAIL = "pablocarvalhogimenez@gmail.com";
 

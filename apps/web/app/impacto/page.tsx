@@ -4,18 +4,25 @@ import Link from "next/link";
 import { ImpactCard, ImpactUnavailable } from "@/components/impact-card";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
-import { getCurrentImpactWeek } from "@/lib/impact";
+import { getPublicImpact } from "@/lib/impact";
+import { pageMetadata } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+// Same live data as the home page, regenerated at most every five minutes
+// (docs/landing-seo-plan.md, D7).
+export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: "Registro de impacto",
+export const metadata: Metadata = pageMetadata({
+  path: "/impacto",
+  image: "/impacto/opengraph-image",
+  title: "Impacto de Still: el fondo que dona el 80 % de los anuncios",
   description:
-    "Monto semanal, asignación, votación y comprobantes del fondo de impacto de Still.",
-};
+    "Cuánto se reunió, a qué proyectos se donó y cómo vota la comunidad cada semana. Números en vivo de una app gratis que dona lo que generan sus anuncios.",
+});
+
+const H1 = "Una app que dona el 80 % de sus anuncios: el registro completo";
 
 export default async function ImpactPage() {
-  const result = await getCurrentImpactWeek();
+  const result = await getPublicImpact();
   if (result.state !== "ready") {
     return (
       <>
@@ -23,8 +30,8 @@ export default async function ImpactPage() {
         <main id="contenido">
           <section className="impact-page-hero shell-wide">
             <div className="impact-page-hero__copy">
-              <p className="mono-label">REGISTRO PÚBLICO / ESTADO REAL</p>
-              <h1>El fondo deja rastro.</h1>
+              <p className="mono-label">IMPACTO / REGISTRO PÚBLICO</p>
+              <h1>{H1}</h1>
               <p>
                 Esta página nunca sustituye información ausente por cifras de
                 demostración.
@@ -74,7 +81,7 @@ export default async function ImpactPage() {
             <p className="mono-label">
               REGISTRO PÚBLICO / {week.weekStart} — {week.weekEnd}
             </p>
-            <h1>El fondo deja rastro.</h1>
+            <h1>{H1}</h1>
             <p>
               Still asigna {week.impactPercentage}% del ingreso publicitario al
               fondo semanal. Mientras la semana está abierta, el monto es

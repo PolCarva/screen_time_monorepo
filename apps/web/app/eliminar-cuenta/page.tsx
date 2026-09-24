@@ -3,12 +3,14 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Eliminar cuenta",
+export const metadata: Metadata = pageMetadata({
+  path: "/eliminar-cuenta",
+  title: "Eliminar tu cuenta de Still y sus datos | Still",
   description:
     "Cómo eliminar tu cuenta de Still y sus datos, desde la app o sin ella.",
-};
+});
 
 const CONTACT_EMAIL = "pablocarvalhogimenez@gmail.com";
 

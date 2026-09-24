@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { REQUIREMENTS, VIDEOS, type VideoSource } from "@/lib/site";
 
 import styles from "./how-it-works.module.css";
@@ -105,11 +107,17 @@ export function HowItWorks() {
           <PlatformPanel platform="android">
             <div className={styles.note}>
               <p>{REQUIREMENTS.android} · se instala desde Google Play.</p>
+              <Link className="underline-link" href="/configurar/android">
+                Guía completa para Android
+              </Link>
             </div>
           </PlatformPanel>
           <PlatformPanel platform="ios">
             <div className={styles.note}>
               <p>{REQUIREMENTS.ios} · la automatización usa la app Atajos de Apple.</p>
+              <Link className="underline-link" href="/configurar/iphone">
+                Guía completa para iPhone
+              </Link>
             </div>
           </PlatformPanel>
         </PlatformTabs>

@@ -32,6 +32,7 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   ...pageMetadata({
     path: "/",
+    image: "/opengraph-image",
     title: "Still: app gratis para usar menos el celular",
     description: HOME_DESCRIPTION,
   }),

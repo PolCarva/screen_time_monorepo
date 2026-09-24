@@ -29,6 +29,23 @@ describe("pageMetadata", () => {
     expect(metadata.robots).toBeUndefined();
   });
 
+  it("names the share image: the page's own, else the home page's", () => {
+    const own = pageMetadata({
+      path: "/investigacion",
+      title: "T",
+      description: "D",
+      image: "/investigacion/opengraph-image",
+    });
+    const fallback = pageMetadata({ path: "/terms", title: "T", description: "D" });
+    expect(own.openGraph?.images).toEqual([
+      expect.objectContaining({ url: "/investigacion/opengraph-image", width: 1200 }),
+    ]);
+    expect(fallback.openGraph?.images).toEqual([
+      expect.objectContaining({ url: "/opengraph-image" }),
+    ]);
+    expect(fallback.twitter?.images).toEqual(fallback.openGraph?.images);
+  });
+
   it("keeps a noindex page out of the index but followable", () => {
     expect(
       pageMetadata({ path: "/x", title: "X", description: "Y", noindex: true })

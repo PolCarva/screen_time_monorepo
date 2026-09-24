@@ -3,12 +3,14 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Términos de uso",
+export const metadata: Metadata = pageMetadata({
+  path: "/terms",
+  title: "Términos de uso | Still",
   description:
     "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
-};
+});
 
 const sections = [
   {

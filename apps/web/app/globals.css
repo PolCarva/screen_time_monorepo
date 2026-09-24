@@ -414,6 +414,11 @@ img {
   letter-spacing: -0.07em;
   line-height: 0.94;
 }
+.impact-page-hero__copy h1 {
+  font-size: clamp(40px, 4.8vw, 66px);
+  line-height: 1;
+  text-wrap: balance;
+}
 .impact-page-hero__copy > p:last-child {
   max-width: 500px;
   margin-top: 30px;

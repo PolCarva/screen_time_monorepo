@@ -34,6 +34,21 @@ export default function NotFound() {
               </Link>
             </li>
             <li>
+              <Link className="text-link" href="/configurar/iphone">
+                Configurar Still en iPhone
+              </Link>
+            </li>
+            <li>
+              <Link className="text-link" href="/configurar/android">
+                Configurar Still en Android
+              </Link>
+            </li>
+            <li>
+              <Link className="text-link" href="/investigacion">
+                Qué dice la investigación
+              </Link>
+            </li>
+            <li>
               <Link className="text-link" href="/soporte">
                 Soporte
               </Link>
