@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { remoteConfigSchema, type RemoteConfig } from "@screen-time/contracts";
 
 import { BrandLockup } from "@/components/brand-mark";
@@ -43,124 +45,191 @@ function usdFromMicros(micros: number): string {
   }).format(micros / 1_000_000);
 }
 
-function PendingWeeks({ weeks }: { weeks: OperatorWeek[] }) {
-  if (weeks.length === 0) return null;
+function SectionHead({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <section className="admin-pending">
-      <p className="mono-label">SEMANAS POR CERRAR / {weeks.length}</p>
-      <div className="admin-grid">
-        {weeks.map((week) => (
-          <section className="operation-card" key={week.id}>
-            <p className="mono-label">
-              {week.weekStart} — {week.weekEnd}
-            </p>
-            {week.status === "voting_closed" ? (
-              <AdminActionForm
-                action={confirmRevenue}
-                label={`Confirmar y congelar ${week.impactPercentage}/${100 - week.impactPercentage}`}
-                pendingLabel="Confirmando…"
-              >
-                <input type="hidden" name="weekId" value={week.id} />
-                <h2>Confirmar ingreso</h2>
-                <p>
-                  Estimado hoy: {formatFund(week.totals.grossRevenueMinor)} (
-                  {formatFund(week.totals.reportedRevenueMinor)} según AdMob,{" "}
-                  {formatFund(week.totals.estimatedRevenueMinor)} por anuncios
-                  que AdMob aún no informó) · {week.totals.rewardedAds}{" "}
-                  anuncios de {week.totals.participants} personas.
-                </p>
-                <label>
-                  Ingreso bruto confirmado (USD)
-                  <input
-                    defaultValue={(week.totals.grossRevenueMinor / 100).toFixed(2)}
-                    min="0"
-                    name="grossRevenue"
-                    required
-                    step="0.01"
-                    type="number"
-                  />
-                </label>
-              </AdminActionForm>
-            ) : week.winner ? (
-              <AdminActionForm
-                action={recordDonation}
-                label="Registrar y publicar"
-                pendingLabel="Publicando…"
-              >
-                <input type="hidden" name="weekId" value={week.id} />
-                <input type="hidden" name="charityId" value={week.winner.id} />
-                <h2>Registrar donación</h2>
-                <p>
-                  Ganadora: <strong>{week.winner.name}</strong> · fondo{" "}
-                  {formatFund(week.totals.impactFundMinor)}
-                </p>
-                <label>
-                  Monto (USD)
-                  <input
-                    defaultValue={(week.totals.impactFundMinor / 100).toFixed(2)}
-                    min="0.01"
-                    name="amount"
-                    required
-                    step="0.01"
-                    type="number"
-                  />
-                </label>
-                <label>
-                  Comprobante (PDF, PNG o JPEG; máx. 5 MB)
-                  <input
-                    accept="application/pdf,image/png,image/jpeg"
-                    name="proofFile"
-                    required
-                    type="file"
-                  />
-                </label>
-              </AdminActionForm>
-            ) : (
-              <p>La semana no tiene proyectos para elegir una ganadora.</p>
-            )}
-          </section>
-        ))}
-      </div>
+    <header className="admin-section__head">
+      <h2>{title}</h2>
+      {children ? <p>{children}</p> : null}
+    </header>
+  );
+}
+
+function PendingWeeks({ weeks }: { weeks: OperatorWeek[] }) {
+  return (
+    <section className="admin-section" id="pendientes">
+      <SectionHead title="Semanas por cerrar">
+        Confirma el ingreso de cada semana cerrada y después registra la
+        donación con su comprobante.
+      </SectionHead>
+      {weeks.length === 0 ? (
+        <p className="admin-empty">No hay nada pendiente. Todo al día.</p>
+      ) : (
+        <div className="admin-grid">
+          {weeks.map((week) => (
+            <article className="operation-card" key={week.id}>
+              <p className="mono-label">
+                {week.weekStart} — {week.weekEnd}
+              </p>
+              {week.status === "voting_closed" ? (
+                <AdminActionForm
+                  action={confirmRevenue}
+                  label={`Confirmar y congelar ${week.impactPercentage}/${100 - week.impactPercentage}`}
+                  pendingLabel="Confirmando…"
+                >
+                  <input type="hidden" name="weekId" value={week.id} />
+                  <h3>Paso 1 · Confirmar ingreso</h3>
+                  <dl className="admin-summary">
+                    <div>
+                      <dt>Estimado hoy</dt>
+                      <dd>{formatFund(week.totals.grossRevenueMinor)}</dd>
+                    </div>
+                    <div>
+                      <dt>Según AdMob</dt>
+                      <dd>{formatFund(week.totals.reportedRevenueMinor)}</dd>
+                    </div>
+                    <div>
+                      <dt>Aún sin informar</dt>
+                      <dd>{formatFund(week.totals.estimatedRevenueMinor)}</dd>
+                    </div>
+                    <div>
+                      <dt>Anuncios · personas</dt>
+                      <dd>
+                        {week.totals.rewardedAds} · {week.totals.participants}
+                      </dd>
+                    </div>
+                  </dl>
+                  <label>
+                    Ingreso bruto confirmado (USD)
+                    <input
+                      defaultValue={(week.totals.grossRevenueMinor / 100).toFixed(2)}
+                      min="0"
+                      name="grossRevenue"
+                      required
+                      step="0.01"
+                      type="number"
+                    />
+                  </label>
+                </AdminActionForm>
+              ) : week.winner ? (
+                <AdminActionForm
+                  action={recordDonation}
+                  label="Registrar y publicar"
+                  pendingLabel="Publicando…"
+                >
+                  <input type="hidden" name="weekId" value={week.id} />
+                  <input type="hidden" name="charityId" value={week.winner.id} />
+                  <h3>Paso 2 · Registrar donación</h3>
+                  <dl className="admin-summary">
+                    <div>
+                      <dt>Ganadora</dt>
+                      <dd>{week.winner.name}</dd>
+                    </div>
+                    <div>
+                      <dt>Fondo</dt>
+                      <dd>{formatFund(week.totals.impactFundMinor)}</dd>
+                    </div>
+                  </dl>
+                  <div className="admin-fields">
+                    <label>
+                      Monto (USD)
+                      <input
+                        defaultValue={(week.totals.impactFundMinor / 100).toFixed(2)}
+                        min="0.01"
+                        name="amount"
+                        required
+                        step="0.01"
+                        type="number"
+                      />
+                    </label>
+                    <label>
+                      Comprobante
+                      <input
+                        accept="application/pdf,image/png,image/jpeg"
+                        name="proofFile"
+                        required
+                        type="file"
+                      />
+                      <span className="admin-hint">PDF, PNG o JPEG · máx. 5 MB</span>
+                    </label>
+                  </div>
+                </AdminActionForm>
+              ) : (
+                <p>La semana no tiene proyectos para elegir una ganadora.</p>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
 function RecentAds({ views }: { views: RecentAdView[] }) {
   return (
-    <section className="operation-card admin-ads">
-      <p className="mono-label">ANUNCIOS RECIENTES / VALOR ESTIMADO</p>
-      <h2>Cada anuncio, con lo que se estima que generó</h2>
-      {views.length === 0 ? (
-        <p>Todavía no hay anuncios confirmados por AdMob.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Momento</th>
-              <th>Plataforma</th>
-              <th>Valor</th>
-              <th>Origen</th>
-              <th>AdMob</th>
-            </tr>
-          </thead>
-          <tbody>
-            {views.map((view, index) => (
-              <tr key={`${view.viewedAt}:${index}`}>
-                <td>{view.viewedAt.slice(0, 16).replace("T", " ")}</td>
-                <td>{view.platform ?? "—"}</td>
-                <td>{usdFromMicros(view.estimatedValueMicros)}</td>
-                <td>{ESTIMATE_SOURCES[view.estimateSource]}</td>
-                <td>{view.verified ? "Confirmado" : "Pendiente"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <section className="admin-section" id="anuncios">
+      <SectionHead title="Anuncios recientes">
+        Cada anuncio, con lo que se estima que generó.
+      </SectionHead>
+      <div className="operation-card admin-ads">
+        {views.length === 0 ? (
+          <p>Todavía no hay anuncios confirmados por AdMob.</p>
+        ) : (
+          <div className="admin-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Momento (UTC)</th>
+                  <th>Plataforma</th>
+                  <th>Valor</th>
+                  <th>Origen</th>
+                  <th>AdMob</th>
+                </tr>
+              </thead>
+              <tbody>
+                {views.map((view, index) => (
+                  <tr key={`${view.viewedAt}:${index}`}>
+                    <td>{view.viewedAt.slice(0, 16).replace("T", " ")}</td>
+                    <td>{view.platform ?? "—"}</td>
+                    <td>{usdFromMicros(view.estimatedValueMicros)}</td>
+                    <td>{ESTIMATE_SOURCES[view.estimateSource]}</td>
+                    <td>
+                      <span
+                        className={`admin-pill ${view.verified ? "admin-pill--ok" : "admin-pill--pending"}`}
+                      >
+                        {view.verified ? "Confirmado" : "Pendiente"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
 
 export const dynamic = "force-dynamic";
+
+const CATEGORIES: Record<string, string> = {
+  children: "Infancia",
+  poverty: "Pobreza",
+  environment: "Ambiente",
+  health: "Salud",
+  animals: "Animales",
+  emergencies: "Emergencias",
+  other: "Otra",
+};
+
+function Toggle({ name, label, checked }: { name: string; label: string; checked: boolean }) {
+  return (
+    <label className="admin-toggle">
+      {label}
+      <input defaultChecked={checked} name={name} type="checkbox" role="switch" />
+    </label>
+  );
+}
 
 function OperationalSetup({
   config,
@@ -170,98 +239,151 @@ function OperationalSetup({
   charities: Array<{ id: string; name: string; website: string; category: string }>;
 }) {
   return (
-    <div className="admin-grid admin-grid--setup">
-      <section className="operation-card">
-        <p className="mono-label">CONFIGURACIÓN / VERSIÓN {config?.version ?? "—"}</p>
-        <AdminActionForm
-          action={publishConfig}
-          label="Publicar configuración"
-          pendingLabel="Publicando…"
-        >
-          <h2>Política operativa</h2>
-          <p>Los valores publicados se aplican a la app y quedan auditados.</p>
-          <label>
-            Duración de un pase (minutos)
-            <input
-              defaultValue={(config?.unlockDurationSeconds ?? 600) / 60}
-              max="1440"
-              min="1"
-              name="unlockDurationMinutes"
-              required
-              type="number"
-            />
-          </label>
-          <label>
-            Anuncios recompensados por día
-            <input defaultValue={config?.maxRewardedAdsPerUtcDay ?? 0} max="30" min="0" name="maxRewardedAdsPerUtcDay" required type="number" />
-          </label>
-          <label>
-            Saldo máximo de pases
-            <input defaultValue={config?.maxRewardTokenBalance ?? 0} max="20" min="0" name="maxRewardTokenBalance" required type="number" />
-          </label>
-          <label>
-            Porcentaje destinado al fondo
-            <input defaultValue={config?.impactPercentage ?? 0} max="100" min="0" name="impactPercentage" required step="0.01" type="number" />
-          </label>
-          <label>
-            Minutos estimados por apertura evitada
-            <input defaultValue={config?.estimatedMinutesPerAvoidedOpen ?? 0} max="60" min="0" name="estimatedMinutesPerAvoidedOpen" required step="0.1" type="number" />
-          </label>
-          <label>
-            eCPM estimado de anuncios recompensados (USD por 1000)
-            <input defaultValue={config?.estimatedRewardedEcpmUsd ?? 3} max="200" min="0" name="estimatedRewardedEcpmUsd" required step="0.01" type="number" />
-          </label>
-          <label>
-            Proveedor de recompensas
-            <select defaultValue={config?.rewardProvider ?? "disabled"} name="rewardProvider">
-              <option value="disabled">Deshabilitado</option>
-              <option value="admob">AdMob</option>
-            </select>
-          </label>
-          <label><input defaultChecked={config?.votingEnabled ?? false} name="votingEnabled" type="checkbox" /> Votación habilitada</label>
-          <label><input defaultChecked={config?.androidRestrictionEnabled ?? false} name="androidRestrictionEnabled" type="checkbox" /> Restricciones Android habilitadas</label>
-          <label><input defaultChecked={config?.iosRestrictionEnabled ?? false} name="iosRestrictionEnabled" type="checkbox" /> Pausas iOS (Atajos) habilitadas</label>
-          <label><input defaultChecked={config?.iosHomeOnCancelEnabled ?? false} name="iosHomeOnCancelEnabled" type="checkbox" /> iOS: salir a la pantalla de inicio al elegir «Ya no quiero entrar»</label>
-        </AdminActionForm>
+    <>
+      <section className="admin-section" id="configuracion">
+        <SectionHead title="Configuración">
+          Versión activa {config?.version ?? "—"}. Los valores publicados se
+          aplican a la app y quedan auditados.
+        </SectionHead>
+        <div className="operation-card">
+          <AdminActionForm
+            action={publishConfig}
+            label="Publicar configuración"
+            pendingLabel="Publicando…"
+          >
+            <div className="admin-fields">
+              <label>
+                Duración de un pase
+                <input defaultValue={(config?.unlockDurationSeconds ?? 600) / 60} max="1440" min="1" name="unlockDurationMinutes" required type="number" />
+                <span className="admin-hint">Minutos (1–1440)</span>
+              </label>
+              <label>
+                Anuncios recompensados por día
+                <input defaultValue={config?.maxRewardedAdsPerUtcDay ?? 0} max="30" min="0" name="maxRewardedAdsPerUtcDay" required type="number" />
+                <span className="admin-hint">Por día UTC (0–30)</span>
+              </label>
+              <label>
+                Saldo máximo de pases
+                <input defaultValue={config?.maxRewardTokenBalance ?? 0} max="20" min="0" name="maxRewardTokenBalance" required type="number" />
+                <span className="admin-hint">0–20</span>
+              </label>
+              <label>
+                Porcentaje destinado al fondo
+                <input defaultValue={config?.impactPercentage ?? 0} max="100" min="0" name="impactPercentage" required step="0.01" type="number" />
+                <span className="admin-hint">% del ingreso bruto</span>
+              </label>
+              <label>
+                Minutos por apertura evitada
+                <input defaultValue={config?.estimatedMinutesPerAvoidedOpen ?? 0} max="60" min="0" name="estimatedMinutesPerAvoidedOpen" required step="0.1" type="number" />
+                <span className="admin-hint">Estimación para el tiempo recuperado</span>
+              </label>
+              <label>
+                eCPM estimado
+                <input defaultValue={config?.estimatedRewardedEcpmUsd ?? 3} max="200" min="0" name="estimatedRewardedEcpmUsd" required step="0.01" type="number" />
+                <span className="admin-hint">USD por 1000 anuncios recompensados</span>
+              </label>
+              <label>
+                Proveedor de recompensas
+                <select defaultValue={config?.rewardProvider ?? "disabled"} name="rewardProvider">
+                  <option value="disabled">Deshabilitado</option>
+                  <option value="admob">AdMob</option>
+                </select>
+              </label>
+            </div>
+            <fieldset className="admin-toggles">
+              <legend>Funciones</legend>
+              <Toggle name="votingEnabled" label="Votación habilitada" checked={config?.votingEnabled ?? false} />
+              <Toggle name="androidRestrictionEnabled" label="Restricciones Android habilitadas" checked={config?.androidRestrictionEnabled ?? false} />
+              <Toggle name="iosRestrictionEnabled" label="Pausas iOS (Atajos) habilitadas" checked={config?.iosRestrictionEnabled ?? false} />
+              <Toggle name="iosHomeOnCancelEnabled" label="iOS: salir al inicio al elegir «Ya no quiero entrar»" checked={config?.iosHomeOnCancelEnabled ?? false} />
+            </fieldset>
+          </AdminActionForm>
+        </div>
       </section>
 
-      <section className="operation-card">
-        <p className="mono-label">ENTIDADES / {charities.length} ACTIVAS</p>
-        <AdminActionForm
-          action={createCharity}
-          label="Crear entidad"
-          pendingLabel="Creando…"
-        >
-          <h2>Nueva entidad verificada</h2>
-          <p>La entidad quedará disponible para la próxima semana; no se inventan candidatos.</p>
-          <label>Nombre<input name="name" required maxLength={120} /></label>
-          <label>Slug<input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" /></label>
-          <label>Descripción<textarea name="shortDescription" required maxLength={280} /></label>
-          <label>Sitio web<input name="website" required type="url" placeholder="https://" /></label>
-          <label>País o alcance<input name="country" required maxLength={80} /></label>
-          <label>Logo (URL opcional)<input name="logoUrl" type="url" placeholder="https://" /></label>
-          <label>
-            Categoría
-            <select name="category" defaultValue="other">
-              <option value="children">Infancia</option>
-              <option value="poverty">Pobreza</option>
-              <option value="environment">Ambiente</option>
-              <option value="health">Salud</option>
-              <option value="animals">Animales</option>
-              <option value="emergencies">Emergencias</option>
-              <option value="other">Otra</option>
-            </select>
-          </label>
-        </AdminActionForm>
-        {charities.length > 0 ? (
-          <ul>
-            {charities.map((charity) => (
-              <li key={charity.id}><a href={charity.website} rel="noreferrer" target="_blank">{charity.name}</a> · {charity.category}</li>
-            ))}
-          </ul>
-        ) : <p>No hay entidades activas.</p>}
+      <section className="admin-section" id="entidades">
+        <SectionHead title="Entidades">
+          {charities.length} activas. Una entidad nueva queda disponible para la
+          próxima semana; no se inventan candidatos.
+        </SectionHead>
+        <div className="admin-grid">
+          <div className="operation-card">
+            <p className="mono-label">ACTIVAS</p>
+            {charities.length > 0 ? (
+              <ul className="admin-list">
+                {charities.map((charity) => (
+                  <li key={charity.id}>
+                    <a href={charity.website} rel="noreferrer" target="_blank">{charity.name}</a>
+                    <span className="admin-hint">{CATEGORIES[charity.category] ?? charity.category}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No hay entidades activas.</p>
+            )}
+          </div>
+          <div className="operation-card">
+            <p className="mono-label">NUEVA ENTIDAD VERIFICADA</p>
+            <AdminActionForm action={createCharity} label="Crear entidad" pendingLabel="Creando…">
+              <div className="admin-fields">
+                <label>Nombre<input name="name" required maxLength={120} /></label>
+                <label>
+                  Slug
+                  <input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="mi-entidad" />
+                </label>
+              </div>
+              <label>Descripción<textarea name="shortDescription" required maxLength={280} /></label>
+              <div className="admin-fields">
+                <label>Sitio web<input name="website" required type="url" placeholder="https://" /></label>
+                <label>País o alcance<input name="country" required maxLength={80} /></label>
+                <label>Logo (URL opcional)<input name="logoUrl" type="url" placeholder="https://" /></label>
+                <label>
+                  Categoría
+                  <select name="category" defaultValue="other">
+                    {Object.entries(CATEGORIES).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </AdminActionForm>
+          </div>
+        </div>
       </section>
-    </div>
+    </>
+  );
+}
+
+function AdminHeader({ email }: { email?: string }) {
+  return (
+    <header className="admin-header">
+      <BrandLockup />
+      {email ? (
+        <span className="admin-header__session">
+          <span className="admin-badge">OPERACIONES</span>
+          <span className="admin-email">{email}</span>
+          <form action={signOutAdmin}>
+            <button type="submit">Cerrar sesión</button>
+          </form>
+        </span>
+      ) : (
+        <span className="admin-badge">SETUP MODE</span>
+      )}
+    </header>
+  );
+}
+
+function AdminNav({ pending }: { pending: number }) {
+  return (
+    <nav className="admin-nav" aria-label="Secciones">
+      <a href="#semana">Esta semana</a>
+      <a href="#pendientes">
+        Por cerrar{pending > 0 ? <span>{pending}</span> : null}
+      </a>
+      <a href="#anuncios">Anuncios</a>
+      <a href="#configuracion">Configuración</a>
+      <a href="#entidades">Entidades</a>
+    </nav>
   );
 }
 
@@ -270,14 +392,11 @@ export default async function AdminPage() {
 
   if (!access.configured) {
     return (
-      <main className="admin-shell shell-wide">
-        <header className="admin-header">
-          <BrandLockup />
-          <span>SETUP MODE</span>
-        </header>
+      <main className="admin-shell">
+        <AdminHeader />
         <section className="admin-title">
           <p className="mono-label">OPERACIONES / SIN CONEXIÓN</p>
-          <h1>Conecta Supabase para operar.</h1>
+          <h1>Conecta Supabase para operar</h1>
           <p>
             No hay datos de demostración ni acciones operativas disponibles en
             este estado.
@@ -312,45 +431,38 @@ export default async function AdminPage() {
 
   if (result.state !== "ready") {
     return (
-      <main className="admin-shell shell-wide">
-        <header className="admin-header">
-          <BrandLockup />
-          <span className="admin-header__session">
-            OPERACIONES / {access.user.email}
-            <form action={signOutAdmin}>
-              <button className="text-link" type="submit">
-                Cerrar sesión
-              </button>
-            </form>
-          </span>
-        </header>
+      <main className="admin-shell">
+        <AdminHeader email={access.user.email} />
         <section className="admin-title">
-          <p className="mono-label">SEMANA ACTIVA</p>
+          <p className="mono-label">PANEL DE OPERACIONES</p>
           <h1>Fondo de impacto</h1>
-          <p>
-            Las cifras se publican solamente cuando existe un registro real.
-          </p>
+          <p>Las cifras se publican solamente cuando existe un registro real.</p>
         </section>
-        <div className="admin-grid">
-          <ImpactUnavailable state={result.state} compact />
-          {result.state === "empty" && (
-            <section className="operation-card">
-              <p className="mono-label">SIGUIENTE ACCIÓN</p>
-              <AdminActionForm
-                action={openCurrentWeek}
-                label="Abrir semana actual"
-                pendingLabel="Abriendo…"
-              >
-                <h2>La semana se abre sola</h2>
-                <p>
-                  Cada lunes se abre la semana con la configuración vigente y
-                  los proyectos de la anterior. Hace falta una configuración
-                  publicada y al menos una entidad activa.
-                </p>
-              </AdminActionForm>
-            </section>
-          )}
-        </div>
+        <AdminNav pending={pendingWeeks.length} />
+        <section className="admin-section" id="semana">
+          <SectionHead title="Esta semana" />
+          <div className="admin-grid">
+            <ImpactUnavailable state={result.state} compact />
+            {result.state === "empty" && (
+              <div className="operation-card">
+                <p className="mono-label">SIGUIENTE ACCIÓN</p>
+                <AdminActionForm
+                  action={openCurrentWeek}
+                  label="Abrir semana actual"
+                  pendingLabel="Abriendo…"
+                >
+                  <h3>La semana se abre sola</h3>
+                  <p>
+                    Cada lunes se abre la semana con la configuración vigente y
+                    los proyectos de la anterior. Hace falta una configuración
+                    publicada y al menos una entidad activa.
+                  </p>
+                </AdminActionForm>
+              </div>
+            )}
+          </div>
+        </section>
+        <PendingWeeks weeks={pendingWeeks} />
         {setup}
       </main>
     );
@@ -358,20 +470,10 @@ export default async function AdminPage() {
 
   const week = result.week;
   return (
-    <main className="admin-shell shell-wide">
-      <header className="admin-header">
-        <BrandLockup />
-        <span className="admin-header__session">
-          OPERACIONES / {access.user.email}
-          <form action={signOutAdmin}>
-            <button className="text-link" type="submit">
-              Cerrar sesión
-            </button>
-          </form>
-        </span>
-      </header>
+    <main className="admin-shell">
+      <AdminHeader email={access.user.email} />
       <section className="admin-title">
-        <p className="mono-label">SEMANA ACTIVA</p>
+        <p className="mono-label">PANEL DE OPERACIONES</p>
         <h1>Fondo de impacto</h1>
         <p>
           Las semanas se abren y cierran su votación solas. Confirmar el
@@ -379,31 +481,35 @@ export default async function AdminPage() {
           audit log.
         </p>
       </section>
-      <div className="admin-grid">
-        <ImpactCard week={week} compact />
-        <section className="operation-card">
-          <p className="mono-label">ESTA SEMANA</p>
-          {week.status === "open" ? (
-            <AdminActionForm
-              action={closeVoting}
-              label="Cerrar votación ahora"
-              pendingLabel="Cerrando…"
-            >
-              <input type="hidden" name="weekId" value={week.id} />
-              <h2>Votación abierta</h2>
-              <p>
-                Se cierra sola el domingo. Ciérrala antes solo si hace falta;
-                esta acción no elige automáticamente una entidad.
-              </p>
-            </AdminActionForm>
-          ) : (
-            <>
-              <h2>Votación cerrada</h2>
-              <p>Sus acciones pendientes aparecen en «Semanas por cerrar».</p>
-            </>
-          )}
-        </section>
-      </div>
+      <AdminNav pending={pendingWeeks.length} />
+      <section className="admin-section" id="semana">
+        <SectionHead title="Esta semana" />
+        <div className="admin-grid">
+          <ImpactCard week={week} compact />
+          <div className="operation-card">
+            <p className="mono-label">VOTACIÓN</p>
+            {week.status === "open" ? (
+              <AdminActionForm
+                action={closeVoting}
+                label="Cerrar votación ahora"
+                pendingLabel="Cerrando…"
+              >
+                <input type="hidden" name="weekId" value={week.id} />
+                <h3>Abierta</h3>
+                <p>
+                  Se cierra sola el domingo. Ciérrala antes solo si hace falta;
+                  esta acción no elige automáticamente una entidad.
+                </p>
+              </AdminActionForm>
+            ) : (
+              <>
+                <h3>Cerrada</h3>
+                <p>Sus acciones pendientes aparecen en «Semanas por cerrar».</p>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
       <PendingWeeks weeks={pendingWeeks} />
       <RecentAds views={recentAds} />
       {setup}
