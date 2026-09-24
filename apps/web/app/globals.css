@@ -1880,3 +1880,27 @@ img {
   .admin-header__session .admin-email { display: none; }
   .operation-card { padding: 18px; }
 }
+
+.not-found {
+  padding: 96px 0 0;
+}
+.not-found h1 {
+  margin-top: 20px;
+  font-size: clamp(44px, 6vw, 80px);
+  font-weight: 520;
+  letter-spacing: -0.06em;
+  line-height: 0.98;
+}
+.not-found__intro {
+  margin-top: 24px;
+  color: var(--graphite-soft);
+  font-size: 18px;
+}
+.not-found__links {
+  display: grid;
+  gap: 16px;
+  margin: 48px 0 120px;
+  padding: 0;
+  list-style: none;
+  font-size: 18px;
+}

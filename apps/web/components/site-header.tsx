@@ -8,7 +8,7 @@ export function SiteHeader() {
       <BrandLockup />
       <nav aria-label="Principal">
         <Link className="nav-link" href="/#producto">Producto</Link>
-        <Link className="nav-link" href="/impact">Impacto</Link>
+        <Link className="nav-link" href="/impacto">Impacto</Link>
         <AndroidDownloadLink className="button button--small button--outline">
           Descargar APK
         </AndroidDownloadLink>

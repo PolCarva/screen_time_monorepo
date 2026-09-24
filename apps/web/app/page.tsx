@@ -289,7 +289,7 @@ export default async function HomePage() {
                 Comprobante sólo después de donar.
               </li>
             </ul>
-            <Link className="text-link" href="/impact">
+            <Link className="text-link" href="/impacto">
               Abrir el registro completo
             </Link>
           </div>
@@ -383,7 +383,7 @@ export default async function HomePage() {
         <BrandLockup />
         <p>Quiet technology for a conscious moment.</p>
         <nav aria-label="Pie">
-          <Link href="/impact">Impacto</Link>
+          <Link href="/impacto">Impacto</Link>
           <Link href="/privacy">Privacidad</Link>
           <Link href="/terms">Términos</Link>
           <Link href="/soporte">Soporte</Link>

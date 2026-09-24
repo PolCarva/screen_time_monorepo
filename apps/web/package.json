@@ -12,7 +12,6 @@
     "admob:connect": "node --env-file=.env.local scripts/admob-connect.mjs"
   },
   "dependencies": {
-    "@expo-google-fonts/recursive": "^0.4.2",
     "@screen-time/contracts": "workspace:*",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.112.3",

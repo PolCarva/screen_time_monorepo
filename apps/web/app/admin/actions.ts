@@ -42,7 +42,8 @@ export async function closeVoting(
         "No se pudo cerrar la votación. Revisa el estado de la semana.",
       );
     revalidatePath("/admin");
-    revalidatePath("/impact");
+    revalidatePath("/impacto");
+    revalidatePath("/");
     return actionSuccess("Votación cerrada.");
   } catch {
     return actionError("Los datos de la semana no son válidos.");
@@ -74,7 +75,8 @@ export async function confirmRevenue(
         "No se pudo confirmar el ingreso. Revisa el estado de la semana.",
       );
     revalidatePath("/admin");
-    revalidatePath("/impact");
+    revalidatePath("/impacto");
+    revalidatePath("/");
     return actionSuccess("Ingreso confirmado y distribución congelada.");
   } catch {
     return actionError("Los datos enviados no son válidos.");
@@ -122,7 +124,8 @@ export async function recordDonation(
       );
     }
     revalidatePath("/admin");
-    revalidatePath("/impact");
+    revalidatePath("/impacto");
+    revalidatePath("/");
     return actionSuccess("Donación y comprobante publicados.");
   } catch (error) {
     return actionError(
@@ -155,7 +158,8 @@ export async function openCurrentWeek(
       "Publica una configuración y crea al menos una entidad activa para abrir la semana.",
     );
   revalidatePath("/admin");
-  revalidatePath("/impact");
+  revalidatePath("/impacto");
+  revalidatePath("/");
   return actionSuccess("Semana de impacto abierta.");
 }
 
@@ -196,7 +200,8 @@ export async function publishConfig(
     });
     if (error) return actionError("No se pudo publicar la configuración.");
     revalidatePath("/admin");
-    revalidatePath("/impact");
+    revalidatePath("/impacto");
+    revalidatePath("/");
     return actionSuccess("Configuración publicada y auditada.");
   } catch {
     return actionError("Revisa los límites y porcentajes de la configuración.");

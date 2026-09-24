@@ -1,13 +1,12 @@
 import type { MetadataRoute } from "next";
 
+import { PUBLIC_ROUTES } from "@/lib/routes";
+import { absoluteUrl } from "@/lib/structured-data";
+
+// Google ignores changefreq and priority; lastModified is what it reads.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://still.app";
-  return [
-    { url: siteUrl, changeFrequency: "monthly", priority: 1 },
-    { url: `${siteUrl}/impact`, changeFrequency: "daily", priority: 0.9 },
-    { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.4 },
-    { url: `${siteUrl}/terms`, changeFrequency: "yearly", priority: 0.4 },
-    { url: `${siteUrl}/soporte`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${siteUrl}/eliminar-cuenta`, changeFrequency: "yearly", priority: 0.3 },
-  ];
+  return PUBLIC_ROUTES.map((route) => ({
+    url: absoluteUrl(route.path),
+    lastModified: route.lastModified,
+  }));
 }
