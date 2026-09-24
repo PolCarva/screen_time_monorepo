@@ -48,7 +48,6 @@ adbx shell "run-as $STILL sh -c 'cat > shared_prefs/still_restrictions.xml'" <<X
 <map>
     <int name="unlock_duration_seconds" value="600" />
     <float name="estimated_minutes_per_avoided_open" value="2.0" />
-    <int name="rewarded_balance" value="0" />
     <string name="wallet_reset_at">2099-01-01T00:00:00.000Z</string>
     <boolean name="restrictions_enabled" value="true" />
     <boolean name="ads_eligible" value="true" />
@@ -103,7 +102,7 @@ if [ -n "$XY" ]; then
   adbx logcat -d -v epoch 2>/dev/null | grep "AdActivity for user 0" | tail -1 | cut -c1-140
   adbx shell "dumpsys activity activities | grep topResumedActivity" | cut -c1-110
 else
-  echo "Shield did not offer 'Watch ad' (no ad fill or ads not eligible). A saved pass or the 15s pause applies."
+  echo "Shield did not offer 'Watch ad' (no ad fill or ads not eligible). The 15s pause applies."
 fi
 
 say "OEM background note"

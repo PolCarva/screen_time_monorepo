@@ -183,7 +183,7 @@ object StillRewardedAdManager {
    * outbox for React Native to claim, and reloads for next time.
    *
    * Returns false when no ad is ready, so the caller can fall back to the
-   * saved pass or the timed pause (D3).
+   * timed pause.
    */
   fun show(activity: Activity, onOutcome: (AdOutcome) -> Unit): Boolean {
     val ad = if (isAdReady()) loadedAd else null

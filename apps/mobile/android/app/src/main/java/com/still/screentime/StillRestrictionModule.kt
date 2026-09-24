@@ -271,8 +271,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise: Promise,
   ) {
     preferences.edit()
-      .putInt(KEY_REWARDED_BALANCE, rewarded.coerceAtLeast(0))
-      // Emergency access was removed; drop what older builds stored.
+      // Saved passes are gone (docs/ads-only-pause-plan.md): `rewarded` stays
+      // for the bridge signature, and the balance older builds stored is
+      // dropped. Emergency access was removed before that.
+      .remove(KEY_REWARDED_BALANCE)
       .remove(LEGACY_KEY_EMERGENCY_REMAINING)
       .putString(KEY_WALLET_RESET_AT, resetAt)
       .putFloat(KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, estimatedMinutesPerAvoidedOpen.coerceIn(0.0, 60.0).toFloat())
@@ -397,7 +399,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
             putString("source", item.optString("source"))
             putInt("durationSeconds", item.optInt("durationSeconds"))
             putString("startedAt", item.optString("startedAt"))
-            // The ad that paid for the visit: the server spends its pass only.
+            // The ad that paid for the visit: the server charges it to that ad.
             item.optString("rewardIntentId").takeIf { it.isNotEmpty() }?.let {
               putString("rewardIntentId", it)
             }
@@ -633,7 +635,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val METRIC_APP_AVOIDED_OPENS = "app_avoided_opens"
     const val METRIC_APP_UNLOCKS = "app_unlocks"
     const val KEY_LAST_RESTORED = "last_restored_at"
-    const val KEY_REWARDED_BALANCE = "rewarded_balance"
+    /** Saved passes were removed; only cleared, never read. */
+    private const val KEY_REWARDED_BALANCE = "rewarded_balance"
     /** Emergency access was removed; only cleared, never read. */
     private const val LEGACY_KEY_EMERGENCY_REMAINING = "emergency_remaining"
     const val KEY_WALLET_RESET_AT = "wallet_reset_at"

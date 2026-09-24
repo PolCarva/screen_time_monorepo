@@ -32,17 +32,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The shield: one screen from "app opened" to the decision. Ad, pass and
- * decision all happen here, never by jumping to another Still screen. What it
- * offers mirrors the pure state machine in `src/lib/intervention-flow.ts`: a
- * saved pass and the ad side by side (a pass never has to give way to an ad),
- * and the 15-second pause when there is neither. That module is the tested
- * source of truth (D6; docs/real-impact-stats-plan.md, D2-D3). An ad still
+ * The shield: one screen from "app opened" to the decision. Ad and decision
+ * both happen here, never by jumping to another Still screen. What it offers
+ * mirrors the pure state machine in `src/lib/intervention-flow.ts`, the tested
+ * source of truth: only the ad, and the 15-second pause when there is none.
+ * There are no saved passes (docs/ads-only-pause-plan.md, D1-D2). An ad still
  * loading is waited for at the gate ("Preparing the ad…"), so the pause only
  * starts once there is really no ad; a pause that started is never swapped
- * for the ad. Nothing about the window is decided in advance: once the ad or
- * the saved pass has paid for it, the user drags a slider from one minute to
- * the rest of the day.
+ * for the ad. Nothing about the window is decided in advance: once the ad has
+ * paid for it, the user drags a slider from one minute to the rest of the day.
  */
 class InterventionActivity : Activity() {
   private val graphite = Color.rgb(36, 40, 38)
@@ -54,11 +52,11 @@ class InterventionActivity : Activity() {
   /** Mirrors `InterventionGate.ad` in intervention-flow.ts. */
   private enum class AdOffer { READY, PREPARING, NONE }
 
-  /** What the gate offers; with neither an ad nor a pass, the timed pause. */
-  private data class Gate(val ad: AdOffer, val passAvailable: Boolean) {
-    val nothingLeft get() = ad == AdOffer.NONE && !passAvailable
+  /** What the gate offers; with no ad, the timed pause. */
+  private data class Gate(val ad: AdOffer) {
+    val nothingLeft get() = ad == AdOffer.NONE
   }
-  private enum class EnterSource { FRESH_AD, SAVED_PASS, PAUSE }
+  private enum class EnterSource { FRESH_AD, PAUSE }
   private enum class Phase { GATE, AD, PAUSE, DECISION }
 
   private var spanish = false
@@ -71,7 +69,7 @@ class InterventionActivity : Activity() {
   // when it goes to the background for the ad.
   private var adShowing = false
   private var pauseSecondsLeft = PAUSE_SECONDS
-  /** The intent of the ad just watched, so the visit spends that ad's pass. */
+  /** The intent of the ad just watched, so the visit is charged to that ad. */
   private var freshAdIntentId: String? = null
   private val pauseHandler = Handler(Looper.getMainLooper())
   private var pauseTick: Runnable? = null
@@ -142,17 +140,13 @@ class InterventionActivity : Activity() {
     if (!resumePause()) renderByGate()
   }
 
-  /**
-   * Mirrors getInterventionOptions: the ad and a saved pass are independent.
-   * React Native syncs the balance already capped by today's pass limit.
-   */
+  /** Mirrors getInterventionOptions: the ad, waited for while it loads. */
   private fun currentGate() = Gate(
     ad = when (StillRewardedAdManager.state()) {
       StillRewardedAdManager.AdState.READY -> AdOffer.READY
       StillRewardedAdManager.AdState.LOADING -> if (adGaveUp) AdOffer.NONE else AdOffer.PREPARING
       StillRewardedAdManager.AdState.NONE -> AdOffer.NONE
     },
-    passAvailable = preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0,
   )
 
   private fun renderByGate() {
@@ -207,16 +201,6 @@ class InterventionActivity : Activity() {
       )
       AdOffer.NONE -> Unit
     }
-    if (gate.passAvailable) {
-      // A saved pass is for emergencies: always there without watching an ad,
-      // but small and quiet so the ad stays the way in (it chooses its own
-      // window like the ad does).
-      root.addView(
-        quietButton(if (spanish) "Usar 1 pase de emergencia" else "Use 1 emergency pass") {
-          renderDecision(EnterSource.SAVED_PASS)
-        },
-      )
-    }
     present(root)
     if (gate.ad == AdOffer.PREPARING) waitForAd() else stopAdWait()
   }
@@ -224,8 +208,7 @@ class InterventionActivity : Activity() {
   /**
    * Keeps the gate on "Preparing the ad…" until the load in flight ends, for
    * as long as the JS flow waits (REWARD_AD_LOAD_TIMEOUT_MS). The gate is then
-   * drawn again: with the ad, or without it, which is the pause when there is
-   * no saved pass either.
+   * drawn again: with the ad, or without it, which is the pause.
    */
   private fun waitForAd() {
     if (cancelAdWait != null) return
@@ -278,7 +261,7 @@ class InterventionActivity : Activity() {
   }
 
   /**
-   * 15-second breathing pause when there is no ad and no saved pass (D3). Costs
+   * 15-second breathing pause when there is no ad (D1). Costs
    * nothing and is not reported; entering afterwards grants a short window only.
    * Its start is remembered for this app, so a shield opened again mid-pause
    * picks the pause up instead of offering an ad that arrived in the meantime.
@@ -381,10 +364,10 @@ class InterventionActivity : Activity() {
   }
 
   /**
-   * After the ad or the saved pass has paid for the visit: choose the window,
-   * then enter or leave. The free pause is the one path that
-   * does not choose — it buys a fixed short window, so waiting out an ad-less
-   * pause never beats watching the ad (D3).
+   * After the ad has paid for the visit: choose the window, then enter or
+   * leave; leaving keeps nothing. The free pause does not choose — it buys a
+   * fixed short window, so waiting out an ad-less pause never beats watching
+   * the ad.
    */
   private fun renderDecision(source: EnterSource) {
     stopAdWait()
@@ -394,8 +377,6 @@ class InterventionActivity : Activity() {
       return
     }
     busy = false
-    // Only an ad shown with an intent can be claimed later as a saved pass.
-    val keepsPass = source == EnterSource.FRESH_AD && freshAdIntentId != null
     val root = column()
     root.addView(spacer(1.1f))
     root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
@@ -410,19 +391,7 @@ class InterventionActivity : Activity() {
     } else {
       "When the time is up, the pause comes back."
     }
-    root.addView(
-      subtext(
-        if (keepsPass) {
-          promise + " " + if (spanish) {
-            "Si te vas ahora, el pase que ganaste se guarda para después."
-          } else {
-            "If you leave now, the pass you earned is saved for later."
-          }
-        } else {
-          promise
-        },
-      ),
-    )
+    root.addView(subtext(promise))
     root.addView(spacer(0.35f))
 
     val value = durationValue(AccessDuration.label(chosenStep, spanish))
@@ -495,8 +464,8 @@ class InterventionActivity : Activity() {
 
   /**
    * Grant the access window for the exact package, record the spend, and relaunch
-   * the app. A saved pass and a fresh ad both report a rewarded unlock; a pause
-   * grants a short window, spends nothing and is not reported (D3).
+   * the app. A fresh ad reports a rewarded unlock charged to that ad; a pause
+   * grants a short window, spends nothing and is not reported.
    */
   private fun enterTarget(source: EnterSource) {
     if (busy) return
@@ -530,15 +499,6 @@ class InterventionActivity : Activity() {
       .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
       .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
       .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
-    // Project the local wallet so a rapid second intervention does not offer a
-    // pass that was just spent. A fresh ad reward is claimed then spent server
-    // side (net zero), so it does not decrement the local projection.
-    if (source == EnterSource.SAVED_PASS) {
-      editor.putInt(
-        StillRestrictionModule.KEY_REWARDED_BALANCE,
-        (preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) - 1).coerceAtLeast(0),
-      )
-    }
     editor.apply()
 
     if (source != EnterSource.PAUSE) {
@@ -551,13 +511,11 @@ class InterventionActivity : Activity() {
     // always-running accessibility service is told to watch this deadline.
     StillAccessibilityService.watchAccessWindows()
 
-    // A pause is never reported (D3). A saved pass always is. A fresh ad names
-    // its intent, so the server spends the pass that ad earned and never one
-    // saved earlier; an ad shown without an intent earned nothing to spend.
-    when (source) {
-      EnterSource.SAVED_PASS -> enqueueUnlockReport(windowSeconds, rewardIntentId = null)
-      EnterSource.FRESH_AD -> freshAdIntentId?.let { enqueueUnlockReport(windowSeconds, it) }
-      EnterSource.PAUSE -> Unit
+    // A pause is never reported. A fresh ad names its intent, so the server
+    // charges the visit to that ad; an ad shown without an intent earned
+    // nothing on the server, so its visit is not reported either.
+    if (source == EnterSource.FRESH_AD) {
+      freshAdIntentId?.let { enqueueUnlockReport(windowSeconds, it) }
     }
 
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -565,7 +523,7 @@ class InterventionActivity : Activity() {
     finish()
   }
 
-  private fun enqueueUnlockReport(durationSeconds: Int, rewardIntentId: String?) {
+  private fun enqueueUnlockReport(durationSeconds: Int, rewardIntentId: String) {
     val raw = preferences.getString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, null)
     val array = runCatching { if (raw != null) JSONArray(raw) else JSONArray() }.getOrDefault(JSONArray())
     val report = JSONObject()
@@ -573,7 +531,7 @@ class InterventionActivity : Activity() {
       .put("source", "rewarded")
       .put("durationSeconds", durationSeconds)
       .put("startedAt", Instant.now().toString())
-    if (rewardIntentId != null) report.put("rewardIntentId", rewardIntentId)
+    report.put("rewardIntentId", rewardIntentId)
     array.put(report)
     preferences.edit().putString(StillRestrictionModule.KEY_UNLOCK_OUTBOX, array.toString()).apply()
   }
@@ -848,23 +806,6 @@ class InterventionActivity : Activity() {
     if (enabled) sinksWhenPressed()
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
       topMargin = dp(6)
-    }
-  }
-
-  /** The least prominent choice: small, muted, still a full-width tap target. */
-  private fun quietButton(label: String, onClick: () -> Unit) = TextView(this).apply {
-    text = label
-    gravity = Gravity.CENTER
-    textSize = 13f
-    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-    setTextColor(mineralLight)
-    isClickable = true
-    isFocusable = true
-    contentDescription = label
-    setOnClickListener { onClick() }
-    sinksWhenPressed()
-    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
-      topMargin = dp(2)
     }
   }
 

@@ -113,7 +113,7 @@ class StillAccessibilityService : AccessibilityService() {
       .apply()
 
     // Refresh the ad if it expired since the last intervention. If it is not
-    // ready in time the shield falls back to a saved pass or the timed pause.
+    // ready in time the shield waits for it, then falls back to the timed pause.
     StillRewardedAdManager.preload(applicationContext, "intervention")
 
     launchShield(target, nextAttempts)

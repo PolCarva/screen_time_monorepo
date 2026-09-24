@@ -43,29 +43,26 @@ describe("committed native production configuration", () => {
     );
     expect(manifest).not.toContain("ca-app-pub-3940256099942544");
     // The shield shows the rewarded ad and the decision in the same screen,
-    // with a saved pass beside the ad and the pause all native (no jump to RN).
-    // Emergency access is gone (docs/real-impact-stats-plan.md, D1-D3).
+    // with the pause all native (no jump to RN). Emergency access and saved
+    // passes are gone (docs/ads-only-pause-plan.md, D1-D2).
     expect(intervention).toContain("StillRewardedAdManager.show(this)");
     expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
-    expect(intervention).toContain('"Usar 1 pase de emergencia"');
-    // The pass is the quiet option under the ad, never the first choice.
-    expect(intervention.indexOf("when (gate.ad)")).toBeLessThan(
-      intervention.indexOf("if (gate.passAvailable)"),
-    );
-    expect(intervention).toContain("if (gate.passAvailable)");
     expect(intervention).toContain("when (gate.ad)");
     expect(intervention).toContain("renderPause()");
+    expect(intervention).not.toContain("pase de emergencia");
+    expect(intervention).not.toContain("passAvailable");
+    expect(intervention).not.toContain("SAVED_PASS");
+    expect(intervention).not.toContain("KEY_REWARDED_BALANCE");
     // An ad still loading is waited for at the gate, like the JS flow, and a
     // pause that started is picked up again instead of turning into the ad.
     expect(intervention).toContain('"Preparando el anuncio…"');
     expect(intervention).toContain("StillRewardedAdManager.awaitLoad");
     expect(intervention).toContain("if (!resumePause()) renderByGate()");
-    // The free daily allowance is gone: no counter, no "emergency" source. The
-    // saved pass is only called an emergency pass in its label.
+    // The free daily allowance is gone: no counter, no "emergency" source.
     expect(intervention).not.toContain("EMERGENCY_REMAINING");
     expect(intervention).not.toContain("EnterSource.EMERGENCY");
     expect(intervention).not.toContain('"emergency"');
-    // A visit paid by a fresh ad names that ad, so it never spends a saved pass.
+    // A visit paid by a fresh ad names that ad, so the server charges it there.
     expect(intervention).toContain('report.put("rewardIntentId", rewardIntentId)');
     expect(intervention).toContain("KEY_UNLOCK_OUTBOX");
     // The old deep-link jump into React Native is gone.
