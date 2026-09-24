@@ -401,7 +401,8 @@ export default function ImpactScreen() {
           <View style={styles.returned}>
             <Eyebrow>{localize("TIME GIVEN BACK", "TIEMPO RECUPERADO")}</Eyebrow>
             <AnimatedNumber
-              format={returnedTime}
+              // Whole minutes while it counts, so it never reads "12,3 min".
+              format={(minutes) => returnedTime(Math.round(minutes))}
               style={styles.returnedAmount}
               value={week.minutesReturned}
             />
