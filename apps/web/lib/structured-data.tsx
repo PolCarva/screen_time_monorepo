@@ -137,6 +137,20 @@ export function breadcrumbs(items: Crumb[]): JsonLdNode {
   };
 }
 
+/** A hub page's list of links, in order. */
+export function itemList(name: string, items: Crumb[]): JsonLdNode {
+  return {
+    "@type": "ItemList",
+    name,
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      url: absoluteUrl(item.path),
+    })),
+  };
+}
+
 export function graph(...nodes: JsonLdNode[]): JsonLdNode {
   return { "@context": "https://schema.org", "@graph": nodes };
 }
