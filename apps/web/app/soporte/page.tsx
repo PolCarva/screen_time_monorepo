@@ -13,7 +13,7 @@ const CONTACT_EMAIL = "pablocarvalhogimenez@gmail.com";
 const sections = [
   {
     title: "La pausa no aparece en iPhone",
-    body: "Still aparece gracias a una automatización personal de la app Atajos: «Cuando se abra [app] → Pausa antes de abrir». Revisa que exista para cada app elegida y que tenga desactivado «Preguntar antes de ejecutar». La app que abriste se ve un instante antes de que llegue Still; así ordena iOS las automatizaciones.",
+    body: "Still aparece gracias a una automatización personal de la app Atajos: «Cuando se abra [app] → Pausar antes de abrir». Revisa que exista para cada app elegida y que tenga desactivado «Preguntar antes de ejecutar». La app que abriste se ve un instante antes de que llegue Still; así ordena iOS las automatizaciones.",
   },
   {
     title: "La pausa no aparece en Android",
