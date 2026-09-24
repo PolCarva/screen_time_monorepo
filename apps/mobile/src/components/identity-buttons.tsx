@@ -1,5 +1,12 @@
 import * as AppleAuthentication from "expo-apple-authentication";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 import { localize } from "@/i18n";
 import {
@@ -13,11 +20,17 @@ type IdentityButtonsProps = {
   linked: IdentityProvider[];
   busy: IdentityProvider | null;
   onLink: (provider: IdentityProvider) => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 // Apple's own button keeps Sign in with Apple within the Human Interface
 // Guidelines; Google keeps Still's outlined control.
-export function IdentityButtons({ linked, busy, onLink }: IdentityButtonsProps) {
+export function IdentityButtons({
+  linked,
+  busy,
+  onLink,
+  style,
+}: IdentityButtonsProps) {
   const providers = identityProviders();
 
   if (providers.length === 0) {
@@ -25,7 +38,7 @@ export function IdentityButtons({ linked, busy, onLink }: IdentityButtonsProps) 
       <View
         accessibilityRole="button"
         accessibilityState={{ disabled: true }}
-        style={[styles.identity, styles.disabled]}
+        style={[styles.identity, styles.disabled, style]}
       >
         <Text style={styles.identityText}>
           {localize("G  Google coming soon", "G  Google disponible pronto")}
@@ -35,7 +48,7 @@ export function IdentityButtons({ linked, busy, onLink }: IdentityButtonsProps) 
   }
 
   return (
-    <View style={styles.stack}>
+    <View style={[styles.stack, style]}>
       {providers.map((provider) => {
         const isLinked = linked.includes(provider);
         const name = identityProviderName(provider);

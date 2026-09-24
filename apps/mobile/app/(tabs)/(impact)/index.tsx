@@ -520,6 +520,7 @@ export default function ImpactScreen() {
               onLink={(provider) =>
                 void connectAndVote(provider, { vote: Boolean(selectedId) })
               }
+              style={styles.identityButtons}
             />
           ) : null}
           <Body style={styles.footnote}>
@@ -551,6 +552,7 @@ export default function ImpactScreen() {
 
 const styles = StyleSheet.create({
   screen: { gap: 0 },
+  identityButtons: { marginTop: spacing.sm },
   topline: {
     minHeight: 58,
     flexDirection: "row",
