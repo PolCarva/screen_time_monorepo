@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Still v2 — landing móvil, parte 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..1000,0..1,0..1,0..1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F1EFE8;color:#242826;font-family:'Recursive',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-variation-settings:"MONO" 1,"CASL" 0;text-transform:uppercase;letter-spacing:0.12em}
+.ph{border-bottom:2px dashed currentColor;padding:0 2px}
+a{color:#242826;text-decoration:none}
+a:hover{color:#4E5451}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 5260px; background: #F1EFE8; display: flex; flex-direction: column; overflow: hidden">
+
+<!-- Usage improvements -->
+<section style="flex-shrink: 0; box-sizing: border-box; padding: 56px 20px 64px; display: flex; flex-direction: column">
+<p class="mono" style="margin: 0; font-size: 11px; font-weight: 600; color: #4E5451">Lo que ganas tú</p>
+<h2 style="margin: 16px 0 0; font-size: 40px; line-height: 0.98; font-weight: 520; letter-spacing: -0.06em">Lo que cambia cuando aparece la pausa.</h2>
+<p style="margin: 16px 0 0; font-size: 16px; line-height: 1.5; color: #4E5451">Resultados de estudios sobre pausas antes de abrir una app. Tu propio cambio lo ves en Still, día a día.</p>
+<div style="margin-top: 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="padding: 18px; border: 1px solid #D9DEDC; border-radius: 14px; background: #F8F6EF; display: flex; flex-direction: column; gap: 8px; height: 200px; box-sizing: border-box">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #4E5451">Menos reflejo</span>
+<span style="font-size: 38px; line-height: 0.95; font-weight: 520; letter-spacing: -0.06em">−57 %</span>
+<span style="font-size: 14px; line-height: 1.4">aperturas tras seis semanas.</span>
+<span class="mono" style="margin-top: auto; font-size: 10px; font-weight: 600; color: #4E5451">[1]</span>
+</div>
+<div style="padding: 18px; border: 1px solid #D9DEDC; border-radius: 14px; background: #F8F6EF; display: flex; flex-direction: column; gap: 8px; height: 200px; box-sizing: border-box">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #4E5451">Más sueño</span>
+<span style="font-size: 38px; line-height: 0.95; font-weight: 520; letter-spacing: -0.06em">+16 min</span>
+<span style="font-size: 14px; line-height: 1.4">para dormir, con 38 % menos redes de noche.</span>
+<span class="mono" style="margin-top: auto; font-size: 10px; font-weight: 600; color: #4E5451">[2]</span>
+</div>
+<div style="padding: 18px; border: 1px solid #D9DEDC; border-radius: 14px; background: #F8F6EF; display: flex; flex-direction: column; gap: 8px; height: 200px; box-sizing: border-box">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #4E5451">Más foco</span>
+<span style="font-size: 38px; line-height: 0.95; font-weight: 520; letter-spacing: -0.06em">−40 %</span>
+<span style="font-size: 14px; line-height: 1.4">redes en horario de clases.</span>
+<span class="mono" style="margin-top: auto; font-size: 10px; font-weight: 600; color: #4E5451">[2]</span>
+</div>
+<div style="padding: 18px; border: 1px solid #D9DEDC; border-radius: 14px; background: #F8F6EF; display: flex; flex-direction: column; gap: 8px; height: 200px; box-sizing: border-box">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #4E5451">Más intención</span>
+<span style="font-size: 38px; line-height: 0.95; font-weight: 520; letter-spacing: -0.06em">13 sem.</span>
+<span style="font-size: 14px; line-height: 1.4">con 1.039 personas: aperturas más intencionales.</span>
+<span class="mono" style="margin-top: auto; font-size: 10px; font-weight: 600; color: #4E5451">[4]</span>
+</div>
+</div>
+</section>
+
+<!-- Impact -->
+<section id="impacto" style="flex-shrink: 0; box-sizing: border-box; padding: 56px 20px 64px; background: #F8F6EF; border-top: 1px solid #D9DEDC; display: flex; flex-direction: column">
+<p class="mono" style="margin: 0; font-size: 11px; font-weight: 600; color: #4E5451">Lo que ganan los demás</p>
+<h2 style="margin: 16px 0 0; font-size: 40px; line-height: 0.98; font-weight: 520; letter-spacing: -0.06em">Tu pausa también ayuda a alguien más.</h2>
+<p style="margin: 18px 0 0; font-size: 17px; line-height: 1.5; color: #4E5451">Cuando decides entrar y ves un anuncio, el 80 % de lo que genera va a un fondo semanal. La comunidad vota a qué proyecto va y publicamos el comprobante. Tu tiempo vuelve a ti; lo que generas llega a proyectos reales.</p>
+<ol style="margin: 24px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid #242826">
+<li style="padding: 14px 0; display: flex; gap: 16px; border-bottom: 1px solid #D9DEDC; font-size: 15px"><span class="mono" style="font-size: 11px; font-weight: 600; color: #4E5451; padding-top: 3px">01</span>Ves un anuncio opcional para entrar</li>
+<li style="padding: 14px 0; display: flex; gap: 16px; border-bottom: 1px solid #D9DEDC; font-size: 15px"><span class="mono" style="font-size: 11px; font-weight: 600; color: #4E5451; padding-top: 3px">02</span>El 80 % entra al fondo de la semana</li>
+<li style="padding: 14px 0; display: flex; gap: 16px; border-bottom: 1px solid #D9DEDC; font-size: 15px"><span class="mono" style="font-size: 11px; font-weight: 600; color: #4E5451; padding-top: 3px">03</span>Votas qué proyecto lo recibe</li>
+<li style="padding: 14px 0; display: flex; gap: 16px; border-bottom: 1px solid #D9DEDC; font-size: 15px"><span class="mono" style="font-size: 11px; font-weight: 600; color: #4E5451; padding-top: 3px">04</span>Ves adónde llegó tu aporte</li>
+</ol>
+<div style="margin-top: 28px; padding: 24px; background: #FFFDF8; border: 1px solid #242826; border-radius: 14px; display: flex; flex-direction: column">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #4E5451">Semana del 21 sept</span>
+<span class="mono" style="font-size: 10px; font-weight: 600; padding: 4px 8px; background: #242826; color: #F1EFE8; border-radius: 4px">En curso</span>
+</div>
+<p style="margin: 16px 0 0; font-size: 52px; line-height: 0.9; font-weight: 520; letter-spacing: -0.065em"><span class="ph">[US$ —]</span></p>
+<p style="margin: 10px 0 0; font-size: 13px; color: #4E5451">reunido esta semana por la comunidad</p>
+<div style="margin-top: 20px; display: flex; height: 12px; gap: 4px">
+<span style="flex-grow: 5; background: #A7B5BA; border-radius: 3px"></span>
+<span style="flex-grow: 3; background: #697F8C; border-radius: 3px"></span>
+<span style="flex-grow: 2; background: {{accent}}; border-radius: 3px"></span>
+</div>
+<div style="margin-top: 18px; display: flex; flex-direction: column; border-top: 1px solid #242826">
+<div style="height: 54px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #D9DEDC"><span style="font-size: 15px; font-weight: 600">Ocean Conservancy</span><span class="ph" style="font-size: 15px; font-weight: 600">[—] %</span></div>
+<div style="height: 54px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #D9DEDC"><span style="font-size: 15px; font-weight: 600">Médicos Sin Fronteras</span><span class="ph" style="font-size: 15px; font-weight: 600">[—] %</span></div>
+<div style="height: 54px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #D9DEDC"><span style="font-size: 15px; font-weight: 600">Rainforest Trust</span><span class="ph" style="font-size: 15px; font-weight: 600">[—] %</span></div>
+</div>
+</div>
+<a href="/impact" style="margin-top: 24px; font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px">Ver adónde llegó cada donación</a>
+</section>
+
+<!-- Research -->
+<section id="investigacion" style="flex-shrink: 0; box-sizing: border-box; padding: 56px 20px 64px; background: #242826; color: #F1EFE8; display: flex; flex-direction: column">
+<p class="mono" style="margin: 0; font-size: 11px; font-weight: 600; color: #A7B5BA">Investigación</p>
+<h2 style="margin: 16px 0 0; font-size: 40px; line-height: 0.98; font-weight: 520; letter-spacing: -0.06em">La ciencia detrás de la pausa.</h2>
+<p style="margin: 16px 0 0; font-size: 15px; line-height: 1.5; color: #A7B5BA">Estos estudios evaluaron pausas antes de abrir una app en otras herramientas. Still usa el mismo principio; cuando tengamos datos propios, los publicaremos aquí.</p>
+<div style="margin-top: 28px; display: flex; flex-direction: column; border-top: 1px solid #4E5451">
+<a href="https://www.pnas.org/doi/10.1073/pnas.2213114120" style="color: #F1EFE8; padding: 18px 0; border-bottom: 1px solid #4E5451; display: flex; flex-direction: column; gap: 8px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">[1] PNAS · 2023</span>
+<span style="font-size: 18px; line-height: 1.3; font-weight: 600">Una pausa con opción de salir redujo 57 % las aperturas en seis semanas.</span>
+<span style="font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px">Leer el estudio</span>
+</a>
+<a href="https://en.kfst.dk/analyser/kfst/publikationer/engelsk/2025/20250619-disrupting-social-media-habits-a-field-experiment-with-young-danish-consumers" style="color: #F1EFE8; padding: 18px 0; border-bottom: 1px solid #4E5451; display: flex; flex-direction: column; gap: 8px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">[2] Competencia de Dinamarca · 2025</span>
+<span style="font-size: 18px; line-height: 1.3; font-weight: 600">Una espera de seis segundos bajó más de un tercio el uso diario de redes en jóvenes.</span>
+<span style="font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px">Leer el informe</span>
+</a>
+<a href="http://eprints.lse.ac.uk/107820/" style="color: #F1EFE8; padding: 18px 0; border-bottom: 1px solid #4E5451; display: flex; flex-direction: column; gap: 8px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">[3] Computers in Human Behavior · 2021</span>
+<span style="font-size: 18px; line-height: 1.3; font-weight: 600">El 89 % de las interacciones con el teléfono las inicia la persona, no una notificación.</span>
+<span style="font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px">Leer el estudio</span>
+</a>
+<a href="https://dl.acm.org/doi/10.1145/3613904.3642370" style="color: #F1EFE8; padding: 18px 0; border-bottom: 1px solid #4E5451; display: flex; flex-direction: column; gap: 8px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">[4] CHI '24 · 2024</span>
+<span style="font-size: 18px; line-height: 1.3; font-weight: 600">Con 1.039 personas: las fricciones cortas vuelven más intencionales las aperturas.</span>
+<span style="font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px">Leer el estudio</span>
+</a>
+</div>
+</section>
+
+<!-- FAQ -->
+<section id="preguntas" style="flex-shrink: 0; box-sizing: border-box; padding: 56px 20px 64px; display: flex; flex-direction: column">
+<p class="mono" style="margin: 0; font-size: 11px; font-weight: 600; color: #4E5451">Preguntas</p>
+<h2 style="margin: 16px 0 0; font-size: 40px; line-height: 0.98; font-weight: 520; letter-spacing: -0.06em">Preguntas frecuentes</h2>
+<div style="margin-top: 24px; display: flex; flex-direction: column; border-top: 1px solid #242826">
+<div style="border-bottom: 1px solid #D9DEDC">
+<button type="button" aria-expanded="true" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Still bloquea mis apps?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">−</span></button>
+<p style="margin: 0; padding: 0 24px 20px 0; font-size: 15px; line-height: 1.55; color: #4E5451">No. Still pone una pausa antes de abrirlas. Desde ahí vuelves con un toque, o entras por el tiempo que elijas. Siempre puedes entrar.</p>
+</div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Cómo funciona en iPhone?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Por qué Still pide Accesibilidad en Android?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Qué datos salen de mi teléfono?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Es gratis?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Cómo sé que la donación llega?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Qué pasa si no hay anuncio disponible?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Necesito crear una cuenta?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+<div style="border-bottom: 1px solid #D9DEDC"><button type="button" aria-expanded="false" style="width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0; border: 0; background: transparent; color: #242826; text-align: left; font-size: 17px; font-weight: 560"><span>¿Cómo dejo de usar Still?</span><span aria-hidden="true" style="font-size: 24px; font-weight: 400">+</span></button></div>
+</div>
+<p style="margin: 24px 0 0; font-size: 15px; line-height: 1.5; color: #4E5451">¿Otra duda? <a href="/soporte" style="font-weight: 600; text-decoration: underline; text-underline-offset: 3px">Escríbenos en Soporte</a>.</p>
+</section>
+
+<!-- Final CTA -->
+<section id="descargar" style="flex-shrink: 0; box-sizing: border-box; padding: 56px 20px 64px; background: #242826; color: #F1EFE8; display: flex; flex-direction: column">
+<p class="mono" style="margin: 0; font-size: 11px; font-weight: 600; color: #A7B5BA; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #7FBF96"></span>En vivo</p>
+<h2 style="margin: 18px 0 0; font-size: 48px; line-height: 1.02; font-weight: 520; letter-spacing: -0.065em"><span class="ph" style="white-space: nowrap">[X] h</span> devueltas. <span class="ph" style="white-space: nowrap">[US$ —]</span> donados.</h2>
+<p style="margin: 18px 0 0; font-size: 17px; line-height: 1.5; color: #A7B5BA">Entre <span class="ph">[Y]</span> personas que eligen con intención. Tu primera pausa suma desde hoy.</p>
+<div style="margin-top: 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<a href="https://apps.apple.com/app/id6815465306" aria-label="Descárgalo en el App Store" style="height: 52px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #000000; color: #FFFFFF; border: 1px solid #A6A6A6; border-radius: 10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"></path></svg><span style="display: flex; flex-direction: column; line-height: 1; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif"><span style="font-size: 10px; letter-spacing: 0.01em">Descárgalo en el</span><span style="margin-top: 2px; font-size: 18px; font-weight: 600; letter-spacing: -0.03em">App Store</span></span></a>
+<a href="https://play.google.com/store/apps/details?id=com.still.screentime" aria-label="Disponible en Google Play" style="height: 52px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #000000; color: #FFFFFF; border: 1px solid #A6A6A6; border-radius: 10px"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FBBC04" d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594z"></path><path fill="#4285F4" d="M1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924z"></path><path fill="#34A853" d="M13.544 10.989l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973z"></path><path fill="#EA4335" d="M13.544 13.056l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"></path></svg><span style="display: flex; flex-direction: column; line-height: 1; font-family: 'Google Sans', 'Product Sans', system-ui, sans-serif"><span style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em">Disponible en</span><span style="margin-top: 3px; font-size: 17px; font-weight: 500; letter-spacing: -0.01em">Google Play</span></span></a>
+</div>
+<p style="margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: #A7B5BA">{{storeNote}}</p>
+<div style="margin-top: 28px; padding: 20px; border: 1px solid #4E5451; border-radius: 14px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 20px; font-weight: 600; letter-spacing: -0.03em">¿Te avisamos?</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A7B5BA">Un solo correo cuando Still esté publicada en tu tienda.</span>
+<label for="waitlist-email-m" class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">Correo</label>
+<div style="display: flex; gap: 8px">
+<input id="waitlist-email-m" type="email" placeholder="tu@correo.com" style="flex-grow: 1; min-width: 0; height: 48px; box-sizing: border-box; padding: 0 12px; border: 1px solid #697F8C; border-radius: 8px; background: #2E3330; color: #F1EFE8; font-family: inherit; font-size: 15px">
+<button type="button" style="height: 48px; padding: 0 16px; border: 0; border-radius: 8px; background: {{accent}}; color: #242826; font-size: 15px; font-weight: 600">Avisarme</button>
+</div>
+</div>
+</section>
+
+<!-- Footer -->
+<footer style="flex-grow: 1; flex-shrink: 0; box-sizing: border-box; padding: 48px 20px 32px; background: #1B1E1D; color: #F1EFE8; display: flex; flex-direction: column">
+<span style="display: flex; align-items: center; gap: 10px"><svg width="30" height="25" viewBox="0 0 120 100" aria-hidden="true"><rect x="4" y="4" width="44" height="18.5" rx="3.8" fill="#F1EFE8"></rect><rect x="60" y="4" width="44" height="18.5" rx="3.8" fill="#F1EFE8"></rect><rect x="0" y="35.5" width="44" height="18.5" rx="3.8" fill="#697F8C"></rect><rect x="71" y="35.5" width="44" height="18.5" rx="3.8" fill="{{accent}}"></rect><rect x="4" y="67" width="44" height="18.5" rx="3.8" fill="#F1EFE8"></rect><rect x="60" y="67" width="44" height="18.5" rx="3.8" fill="#F1EFE8"></rect></svg><span style="font-size: 20px; font-weight: 650; letter-spacing: -0.04em">Still</span></span>
+<span style="margin-top: 12px; font-size: 14px; line-height: 1.5; color: #A7B5BA">Un segundo antes de entrar. Una pausa para ti que también ayuda a otros.</span>
+<div style="margin-top: 36px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 32px">
+<nav aria-label="Empezar" style="display: flex; flex-direction: column; gap: 12px; font-size: 15px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">Empezar</span>
+<a href="https://apps.apple.com/app/id6815465306" style="color: #F1EFE8">App Store</a>
+<a href="https://play.google.com/store/apps/details?id=com.still.screentime" style="color: #F1EFE8">Google Play</a>
+<a href="#como-funciona" style="color: #F1EFE8">Cómo funciona</a>
+</nav>
+<nav aria-label="Ayuda" style="display: flex; flex-direction: column; gap: 12px; font-size: 15px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">Ayuda</span>
+<a href="#preguntas" style="color: #F1EFE8">Preguntas</a>
+<a href="/configurar/iphone" style="color: #F1EFE8">Configurar iPhone</a>
+<a href="/configurar/android" style="color: #F1EFE8">Configurar Android</a>
+<a href="/soporte" style="color: #F1EFE8">Soporte</a>
+<a href="/eliminar-cuenta" style="color: #F1EFE8">Eliminar cuenta</a>
+</nav>
+<nav aria-label="Still" style="display: flex; flex-direction: column; gap: 12px; font-size: 15px">
+<span class="mono" style="font-size: 10px; font-weight: 600; color: #A7B5BA">Still</span>
+<a href="/impact" style="color: #F1EFE8">Impacto</a>
+<a href="#investigacion" style="color: #F1EFE8">Investigación</a>
+<a href="/privacy" style="color: #F1EFE8">Privacidad</a>
+<a href="/terms" style="color: #F1EFE8">Términos</a>
+</nav>
+</div>
+<div style="margin-top: 48px; padding-top: 20px; border-top: 1px solid #4E5451; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A7B5BA">
+<span>© 2026 Still · Para personas de 18 años o más</span>
+<span>Los nombres de tus apps nunca salen de tu teléfono.</span>
+</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D39A83","options":["#D39A83","#697F8C","#C9B27C"]},"iosAvailable":{"editor":"boolean","default":false},"$preview":{"width":390,"height":5260}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const iosAvailable = this.props.iosAvailable ?? false;
+    return {
+      accent: this.props.accent ?? '#D39A83',
+      storeNote: iosAvailable ? 'Gratis · Android en pruebas cerradas de Google Play.' : 'Gratis · iPhone en revisión de Apple · Android en pruebas cerradas.'
+    };
+  }
+}
+</script>
+</body>
+</html>
