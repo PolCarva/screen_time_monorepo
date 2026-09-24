@@ -30,6 +30,7 @@ export const FOOTER_COLUMNS: { title: string; links: NavLink[] }[] = [
       { href: "/pausa-antes-de-abrir-apps", label: "Pausa antes de abrir apps" },
       { href: "/apps-para-dejar-el-celular", label: "Apps para dejar el celular" },
       { href: "/alternativa-one-sec", label: "Alternativa a one sec" },
+      { href: "/calculadora-tiempo-de-pantalla", label: "Calculadora de tiempo de pantalla" },
     ],
   },
   {

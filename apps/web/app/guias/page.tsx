@@ -37,6 +37,10 @@ const GROUPS: { title: string; pages: ContentPage[] }[] = [
     ],
   },
   {
+    title: "Herramientas",
+    pages: [CONTENT_PAGES.calculator],
+  },
+  {
     title: "Comparar apps",
     pages: [CONTENT_PAGES.compare, CONTENT_PAGES.oneSec],
   },
