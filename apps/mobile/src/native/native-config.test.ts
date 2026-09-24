@@ -122,7 +122,7 @@ describe("committed native production configuration", () => {
     expect(selfProtection).toContain(".remove(KEY_CURRENT_PACKAGE)");
   });
 
-  it("keeps iOS identity, deep linking, ads, and Screen Time entitlements in sync", () => {
+  it("keeps the public iOS Shortcuts release identity, deep linking, and ads in sync", () => {
     const info = nativeFile("ios/Still/Info.plist");
     const project = nativeFile("ios/Still.xcodeproj/project.pbxproj");
     const sharedState = nativeFile(
@@ -143,19 +143,13 @@ describe("committed native production configuration", () => {
     const shieldConfiguration = nativeFile(
       "ios/StillShieldConfiguration/ShieldConfigurationExtension.swift",
     );
-    const entitlementPaths = [
-      "ios/Still/Still.entitlements",
-      "ios/StillShieldAction/StillShieldAction.entitlements",
-      "ios/StillShieldConfiguration/StillShieldConfiguration.entitlements",
-      "ios/StillDeviceActivityMonitor/StillDeviceActivityMonitor.entitlements",
-      "ios/StillDeviceActivityReport/StillDeviceActivityReport.entitlements",
-    ];
+    const entitlements = nativeFile("ios/Still/Still.entitlements");
 
     expect(info).toContain("<string>still</string>");
     expect(info).toContain(
       "<string>ca-app-pub-8052007653549292~7920548119</string>",
     );
-    expect(info).toContain("<key>NSFamilyControlsUsageDescription</key>");
+    expect(info).not.toContain("NSFamilyControlsUsageDescription");
     expect(info).toContain("<string>UIInterfaceOrientationPortrait</string>");
     expect(info).not.toContain("ca-app-pub-3940256099942544");
     // Missing shared state never mints access, and there is no emergency
@@ -249,24 +243,23 @@ describe("committed native production configuration", () => {
     expect(shieldAction).toContain("targetMetricScope:");
     expect(shieldConfiguration).toContain("todayMetrics(for: application)");
 
+    expect(project).toContain("PRODUCT_BUNDLE_IDENTIFIER = app.still.ios;");
+    expect(project).not.toContain("PRODUCT_BUNDLE_IDENTIFIER = com.still.screentime;");
     for (const identifier of [
-      "com.still.screentime",
       "com.still.screentime.shield-action",
       "com.still.screentime.shield-configuration",
       "com.still.screentime.device-activity-monitor",
       "com.still.screentime.device-activity-report",
     ]) {
-      expect(project).toContain(identifier);
+      expect(project).not.toContain(identifier);
     }
 
-    for (const path of entitlementPaths) {
-      const entitlements = nativeFile(path);
-      expect(entitlements).toContain(
-        "<key>com.apple.developer.family-controls</key>",
-      );
-      expect(entitlements).toContain(
-        "<string>group.com.still.screentime</string>",
-      );
-    }
+    expect(entitlements).not.toContain(
+      "<key>com.apple.developer.family-controls</key>",
+    );
+    expect(entitlements).toContain("<string>group.app.still.ios</string>");
+    expect(entitlements).toContain(
+      "<key>com.apple.developer.applesignin</key>",
+    );
   });
 });

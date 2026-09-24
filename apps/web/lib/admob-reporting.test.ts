@@ -2,7 +2,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { fetchAdMobRevenue, microsToMinorUnits } from "./admob-reporting";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import {
+  fetchAdMobRevenue,
+  microsToMinorUnits,
+  storedAdMobRefreshToken,
+} from "./admob-reporting";
+
+function clientReturning(result: { data: unknown; error: { message: string } | null }) {
+  return { rpc: vi.fn().mockResolvedValue(result) } as unknown as SupabaseClient;
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -92,5 +102,39 @@ describe("AdMob reporting", () => {
     // Report days must be the same calendar as the ads and weeks.
     const body = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
     expect(body.reportSpec.timeZone).toBe("America/Los_Angeles");
+  });
+
+  it("uses the token stored in Vault before the environment one", async () => {
+    vi.stubEnv("ADMOB_PUBLISHER_ACCOUNT", "pub-1234567890");
+    vi.stubEnv("ADMOB_CLIENT_ID", "client");
+    vi.stubEnv("ADMOB_CLIENT_SECRET", "secret");
+    vi.stubEnv("ADMOB_REFRESH_TOKEN", "expired");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ access_token: "access", expires_in: 3600, token_type: "Bearer" }),
+      )
+      .mockResolvedValueOnce(Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchAdMobRevenue("2026-09-22", "2026-09-22", "renewed");
+
+    const tokenRequest = new URLSearchParams(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(tokenRequest.get("refresh_token")).toBe("renewed");
+  });
+
+  it("falls back to the environment when Vault has no token or cannot be read", async () => {
+    await expect(
+      storedAdMobRefreshToken(clientReturning({ data: "renewed", error: null })),
+    ).resolves.toBe("renewed");
+    await expect(
+      storedAdMobRefreshToken(clientReturning({ data: null, error: null })),
+    ).resolves.toBeNull();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(
+      storedAdMobRefreshToken(
+        clientReturning({ data: null, error: { message: "function does not exist" } }),
+      ),
+    ).resolves.toBeNull();
   });
 });

@@ -1,13 +1,11 @@
 import type { MetadataRoute } from "next";
 
+import { SITE_URL } from "@/lib/site";
+
+// Every crawler is welcome, AI search bots included (docs/landing-seo-plan.md, D22).
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://still.app";
   return {
-    rules: {
-      userAgent: "*",
-      allow: ["/", "/impact", "/privacy", "/terms"],
-      disallow: ["/admin", "/api"],
-    },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    rules: { userAgent: "*", allow: "/", disallow: ["/admin", "/api"] },
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.still.screentime</string>
+		<string>group.app.still.ios</string>
 	</array>
 </dict>
 </plist>

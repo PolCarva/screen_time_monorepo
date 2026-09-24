@@ -1,11 +1,13 @@
 # Store and privacy checklist
 
-## Apple — outside v1
+## Apple — App Store
 
-- Do not submit or configure Apple distribution for the Android-only v1 release. The iOS Shortcuts pause (`ios-shortcuts.md`) is unreleased and off in production.
-- Submitting later requires Apple Developer Program membership. The bundle still declares the Family Controls entitlement for the app and its four extensions, so Family Controls distribution approval is needed for every bundle ID unless that entitlement and those targets are removed first. Decide this before the first archive: Shortcuts mode does not use Screen Time at all.
-- Keep ads and promotion out of every extension and out of the App Intent. The rewarded ad is only ever presented by the foreground app after an explicit tap, which is also what AdMob's rewarded policy requires.
-- Verify App Group and Family Controls entitlements in Release archives, not only Debug builds.
+- The iOS app is `app.still.ios` on the personal Apple team `JZ9HBXGNK9` (App Group `group.app.still.ios`). `com.still.screentime` stays registered on another team and must not be used for iOS.
+- Family Controls is gone: the app ships without the Screen Time extensions, so no Family Controls distribution approval is needed. The pause is the Shortcuts App Intent (`ios-shortcuts.md`); `iosRestrictionEnabled` must be on in production before a review build is submitted, or the reviewer sees an app that never pauses.
+- Guideline 4.8: Sign in with Apple is offered ahead of Google wherever an account can be linked (Settings and the Impact vote).
+- Keep ads and promotion out of the App Intent. The rewarded ad is only ever presented by the foreground app after an explicit tap, which is also what AdMob's rewarded policy requires.
+- `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only), so builds skip the export-compliance question.
+- Verify the App Group and Sign in with Apple entitlements in Release archives, not only Debug builds.
 
 ### App Review notes (draft)
 

@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Términos de uso",
-  description: "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
-};
+export const metadata: Metadata = pageMetadata({
+  path: "/terms",
+  title: "Términos de uso | Still",
+  description:
+    "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
+});
 
 const sections = [
   {
@@ -23,7 +27,7 @@ const sections = [
   },
   {
     title: "4. Permisos y control del dispositivo",
-    body: "Las pausas de Android requieren un permiso explícito del sistema: Accesibilidad. Puedes revocarlo desde los ajustes del dispositivo. Still no garantiza que cada fabricante o versión de Android aplique las restricciones de la misma manera; si no hay anuncio ni pase disponible, una pausa breve permite entrar igual, para evitar un bloqueo sin salida.",
+    body: "Las pausas requieren permisos y automatizaciones explícitas del sistema. En Android, Still usa Accesibilidad; en iOS, usa una automatización personal que tú creas en la app Atajos de Apple. Puedes revocar estos accesos desde los ajustes del dispositivo. Still no garantiza que cada plataforma, fabricante o versión aplique las restricciones de la misma manera; si no hay anuncio ni pase disponible, una pausa breve permite entrar igual, para evitar un bloqueo sin salida.",
   },
   {
     title: "5. Anuncios y pases",
@@ -39,15 +43,15 @@ const sections = [
   },
   {
     title: "8. Servicios de terceros",
-    body: "Still depende de servicios de plataforma e infraestructura como Android, Google, AdMob y Supabase. Sus términos y disponibilidad también pueden aplicar. No controlamos interrupciones, revisiones o cambios introducidos por esos terceros, aunque diseñamos el producto para fallar de manera segura.",
+    body: "Still depende de servicios de plataforma e infraestructura como Android, iOS, Google, Apple, AdMob y Supabase. Sus términos y disponibilidad también pueden aplicar. No controlamos interrupciones, revisiones o cambios introducidos por esos terceros, aunque diseñamos el producto para fallar de manera segura.",
   },
   {
-    title: "9. Beta, disponibilidad y cambios",
-    body: "La versión actual es una beta cerrada para Android. Podemos corregir, modificar, suspender o retirar funciones por seguridad, cumplimiento o mantenimiento. Los cambios materiales a estos términos se comunicarán en la app o en el sitio antes de entrar en vigor cuando corresponda.",
+    title: "9. Disponibilidad y cambios",
+    body: "Still puede distribuirse mediante pruebas limitadas o como versión pública en Android e iOS, según la disponibilidad y los procesos de revisión de cada tienda. Podemos corregir, modificar, suspender o retirar funciones por seguridad, cumplimiento o mantenimiento. Los cambios materiales a estos términos se comunicarán en la app o en el sitio antes de entrar en vigor cuando corresponda.",
   },
   {
     title: "10. Responsabilidad",
-    body: "Still se ofrece con el nivel de cuidado razonable aplicable a una beta. En la máxima medida permitida por la ley, no respondemos por pérdidas indirectas, decisiones tomadas basándose en estimaciones, disponibilidad de apps de terceros o fallos de una plataforma fuera de nuestro control. Nada de esta sección limita derechos irrenunciables del consumidor.",
+    body: "Still se ofrece con un nivel de cuidado razonable. En la máxima medida permitida por la ley, no respondemos por pérdidas indirectas, decisiones tomadas basándose en estimaciones, disponibilidad de apps de terceros o fallos de una plataforma fuera de nuestro control. Nada de esta sección limita derechos irrenunciables del consumidor.",
   },
   {
     title: "11. Terminación y datos",
@@ -61,49 +65,64 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <main>
+    <>
       <SiteHeader />
-      <article className="legal-page shell-wide">
-        <header className="legal-hero">
-          <p className="mono-label">TÉRMINOS / EN LENGUAJE CLARO</p>
-          <h1>Una pausa útil, con reglas claras.</h1>
-          <div className="legal-hero__intro">
+      <main id="contenido">
+        <article className="legal-page shell-wide">
+          <header className="legal-hero">
+            <p className="mono-label">TÉRMINOS / EN LENGUAJE CLARO</p>
+            <h1>Una pausa útil, con reglas claras.</h1>
+            <div className="legal-hero__intro">
+              <p>
+                Estas condiciones explican qué ofrece Still, cómo funcionan los
+                pases y qué responsabilidades acompañan el uso del producto.
+              </p>
+              <p className="legal-date">
+                Vigentes desde el 23 de septiembre de 2026
+              </p>
+            </div>
+          </header>
+
+          <section
+            className="legal-summary"
+            aria-label="Resumen de los términos"
+          >
+            <strong>Resumen directo</strong>
             <p>
-              Estas condiciones explican qué ofrece Still, cómo funcionan los pases y
-              qué responsabilidades acompañan el uso de la beta.
+              Still ayuda a interrumpir aperturas automáticas. Los anuncios son
+              opcionales, los pases no son dinero y el fondo se publica con
+              cifras conciliadas y pruebas.
             </p>
-            <p className="legal-date">Vigentes desde el 31 de agosto de 2026</p>
+          </section>
+
+          <div className="legal-grid">
+            {sections.map((section) => (
+              <section key={section.title}>
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </section>
+            ))}
           </div>
-        </header>
 
-        <section className="legal-summary" aria-label="Resumen de los términos">
-          <strong>Resumen directo</strong>
-          <p>
-            Still ayuda a interrumpir aperturas automáticas. Los anuncios son opcionales,
-            los pases no son dinero y el fondo se publica con cifras conciliadas y pruebas.
-          </p>
-        </section>
-
-        <div className="legal-grid">
-          {sections.map((section) => (
-            <section key={section.title}>
-              <h2>{section.title}</h2>
-              <p>{section.body}</p>
-            </section>
-          ))}
-        </div>
-
-        <section className="legal-contact">
-          <h2>Privacidad y cierre de cuenta</h2>
-          <div>
-            <p>
-              Usa <strong>Ajustes → Privacidad</strong> en la app para exportar o eliminar
-              datos. Consulta la política para conocer qué se conserva y por qué.
-            </p>
-            <Link className="text-link" href="/privacy">Leer la Política de privacidad</Link>
-          </div>
-        </section>
-      </article>
-    </main>
+          <section className="legal-contact">
+            <h2>Privacidad y cierre de cuenta</h2>
+            <div>
+              <p>
+                Usa <strong>Ajustes → Privacidad</strong> en la app para
+                exportar o eliminar datos, o sigue los pasos de{" "}
+                <Link className="text-link" href="/eliminar-cuenta">
+                  eliminar tu cuenta
+                </Link>
+                . Consulta la política para conocer qué se conserva y por qué.
+              </p>
+              <Link className="text-link" href="/privacy">
+                Leer la Política de privacidad
+              </Link>
+            </div>
+          </section>
+        </article>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

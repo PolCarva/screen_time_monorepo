@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { IdentityButtons } from "@/components/identity-buttons";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import {
@@ -25,7 +26,13 @@ import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
 import { openExternalBrowser } from "@/lib/external-browser";
-import { getLinkedIdentityProviders, linkIdentity } from "@/lib/identity";
+import {
+  getLinkedIdentityProviders,
+  identityProviderName,
+  identityProviders,
+  linkIdentity,
+  type IdentityProvider,
+} from "@/lib/identity";
 import { isMissingImpactWeekError } from "@/lib/impact-errors";
 import { ensureAnonymousSession } from "@/lib/supabase";
 import { useAppState } from "@/state/app-state";
@@ -99,7 +106,14 @@ export default function ImpactScreen() {
   const { config } = useAppState();
   const sheet = useStillSheet();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [googleConnected, setGoogleConnected] = useState(false);
+  const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
+    [],
+  );
+  const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(
+    null,
+  );
+  const accountConnected = linkedIdentities.length > 0;
+  const offersApple = identityProviders().includes("apple");
   const query = useQuery({
     queryKey: ["impact-current"],
     queryFn: () => apiFetch("/api/v1/impact/current", impactWeekSchema),
@@ -114,10 +128,10 @@ export default function ImpactScreen() {
       let active = true;
       void getLinkedIdentityProviders()
         .then((providers) => {
-          if (active) setGoogleConnected(providers.includes("google"));
+          if (active) setLinkedIdentities(providers);
         })
         .catch(() => {
-          if (active) setGoogleConnected(false);
+          if (active) setLinkedIdentities([]);
         });
       return () => {
         active = false;
@@ -160,17 +174,22 @@ export default function ImpactScreen() {
         (error instanceof Error && error.message === "account_required");
       if (accountRequired) {
         void sheet.show({
-          title: localize("Connect Google to vote", "Conecta Google para votar"),
+          title: offersApple
+            ? localize("Connect an account to vote", "Conecta una cuenta para votar")
+            : localize("Connect Google to vote", "Conecta Google para votar"),
           message: localize(
             "Your vote is saved as soon as you connect, and you can change it until the week closes.",
             "Tu voto se guarda apenas conectes, y puedes cambiarlo hasta el cierre de la semana.",
           ),
           actions: [
-            {
-              label: localize("Continue with Google", "Continuar con Google"),
-              variant: "signal",
-              onPress: () => connectGoogleAndVote(),
-            },
+            ...identityProviders().map((provider, index) => ({
+              label: localize(
+                `Continue with ${identityProviderName(provider)}`,
+                `Continuar con ${identityProviderName(provider)}`,
+              ),
+              variant: index === 0 ? ("signal" as const) : ("secondary" as const),
+              onPress: () => connectAndVote(provider),
+            })),
             notNowAction(),
           ],
         });
@@ -187,26 +206,33 @@ export default function ImpactScreen() {
   const submitVote = useRef(() => vote.mutate());
   submitVote.current = () => vote.mutate();
 
-  async function connectGoogleAndVote({ vote = true }: { vote?: boolean } = {}) {
+  async function connectAndVote(
+    provider: IdentityProvider,
+    { vote = true }: { vote?: boolean } = {},
+  ) {
+    setIdentityBusy(provider);
     try {
-      const linked = await linkIdentity("google");
+      const linked = await linkIdentity(provider);
       const providers = await getLinkedIdentityProviders();
-      const connected = linked || providers.includes("google");
-      setGoogleConnected(connected);
+      setLinkedIdentities(providers);
+      const connected = linked || providers.length > 0;
       if (connected && vote) submitVote.current();
     } catch (error) {
-      if (__DEV__) console.warn("Google identity link failed", error);
+      if (__DEV__) console.warn(`${provider} identity link failed`, error);
+      const name = identityProviderName(provider);
       void sheet.show({
-        title: localize("Google didn't connect", "No se conectó Google"),
+        title: localize(`${name} didn't connect`, `No se conectó ${name}`),
         message: localize(
           "Check your connection and try again.",
           "Revisa tu conexión y vuelve a intentarlo.",
         ),
         actions: [
-          retryAction(() => connectGoogleAndVote({ vote })),
+          retryAction(() => connectAndVote(provider, { vote })),
           closeAction(),
         ],
       });
+    } finally {
+      setIdentityBusy(null);
     }
   }
 
@@ -487,13 +513,15 @@ export default function ImpactScreen() {
                 ? localize("Voting paused", "Votación en pausa")
                 : t("voteNow")}
           </PrimaryButton>
-          {!savedVote && !googleConnected && votingOpen ? (
-            <PrimaryButton
-              onPress={() => void connectGoogleAndVote({ vote: Boolean(selectedId) })}
-              variant="secondary"
-            >
-              {localize("Continue with Google", "Continuar con Google")}
-            </PrimaryButton>
+          {!savedVote && !accountConnected && votingOpen ? (
+            <IdentityButtons
+              busy={identityBusy}
+              linked={linkedIdentities}
+              onLink={(provider) =>
+                void connectAndVote(provider, { vote: Boolean(selectedId) })
+              }
+              style={styles.identityButtons}
+            />
           ) : null}
           <Body style={styles.footnote}>
             {savedVote
@@ -501,15 +529,20 @@ export default function ImpactScreen() {
                   `Your vote for ${savedVote.charity.name} is saved. You can change it until the week closes.`,
                   `Tu voto por ${savedVote.charity.name} está guardado. Puedes cambiarlo hasta el cierre de la semana.`,
                 )
-              : googleConnected
+              : accountConnected
                 ? localize(
                     "Choose a project and tap Vote now.",
                     "Elige un proyecto y toca Votar ahora.",
                   )
-                : localize(
-                    "To vote, connect Google. You can change your vote until the week closes.",
-                    "Para votar, conecta Google. Puedes cambiar tu voto hasta el cierre de la semana.",
-                  )}
+                : offersApple
+                  ? localize(
+                      "To vote, connect Apple or Google. You can change your vote until the week closes.",
+                      "Para votar, conecta Apple o Google. Puedes cambiar tu voto hasta el cierre de la semana.",
+                    )
+                  : localize(
+                      "To vote, connect Google. You can change your vote until the week closes.",
+                      "Para votar, conecta Google. Puedes cambiar tu voto hasta el cierre de la semana.",
+                    )}
           </Body>
         </>
       ) : null}
@@ -519,6 +552,7 @@ export default function ImpactScreen() {
 
 const styles = StyleSheet.create({
   screen: { gap: 0 },
+  identityButtons: { marginTop: spacing.sm },
   topline: {
     minHeight: 58,
     flexDirection: "row",

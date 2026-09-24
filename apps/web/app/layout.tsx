@@ -1,42 +1,32 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
+import type { Metadata, Viewport } from "next";
+import { Recursive } from "next/font/google";
 import "./globals.css";
 
-const recursive = localFont({
+import { OG_LOCALE } from "@/lib/seo";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+// One variable file: weight plus the MONO axis for the labels
+// (docs/landing-seo-plan.md, D12). CASL stays out: its default, 0, is the
+// look we use, and the axis doubled the file (143 → 73 KB).
+const recursive = Recursive({
+  subsets: ["latin"],
+  axes: ["MONO"],
   display: "swap",
-  src: [
-    {
-      path: "../node_modules/@expo-google-fonts/recursive/400Regular/Recursive_400Regular.ttf",
-      weight: "400",
-    },
-    {
-      path: "../node_modules/@expo-google-fonts/recursive/500Medium/Recursive_500Medium.ttf",
-      weight: "500",
-    },
-    {
-      path: "../node_modules/@expo-google-fonts/recursive/600SemiBold/Recursive_600SemiBold.ttf",
-      weight: "600",
-    },
-    {
-      path: "../node_modules/@expo-google-fonts/recursive/700Bold/Recursive_700Bold.ttf",
-      weight: "700",
-    },
-  ],
   variable: "--font-recursive",
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://still.app"),
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: "Still — un segundo antes de entrar",
-    template: "%s — Still",
+    default: "Still: app gratis para usar menos el celular",
+    template: "%s | Still",
   },
   description:
-    "Still hace visible el momento antes de abrir una app por reflejo. Una pausa privada, una decisión clara y un fondo de impacto verificable.",
+    "Un segundo de pausa antes de abrir Instagram, TikTok o YouTube. Sin bloqueos ni rachas. Gratis en iPhone y Android, y el 80 % de los anuncios se dona.",
   openGraph: {
-    title: "Still — un segundo antes de entrar",
-    description: "La tecnología puede devolverte el momento de decidir.",
-    locale: "es_419",
+    siteName: SITE_NAME,
+    locale: OG_LOCALE,
     type: "website",
   },
   robots: { index: true, follow: true },
@@ -45,11 +35,16 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#F1EFE8",
+  colorScheme: "light",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={recursive.variable}>
+    <html lang="es-419" className={recursive.variable}>
       <body>{children}</body>
     </html>
   );

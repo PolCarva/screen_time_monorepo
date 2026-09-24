@@ -332,3 +332,20 @@ export async function getRecentAdViews(limit = 20): Promise<RecentAdView[]> {
     estimateSource: row.estimate_source,
   }));
 }
+
+export type PublicImpact =
+  | { state: "ready"; week: ImpactWeek }
+  | { state: "unconfigured" }
+  | { state: "empty" };
+
+/**
+ * The impact numbers for statically regenerated pages. A failed query throws
+ * so the last good page keeps being served instead of caching an error state
+ * (docs/landing-seo-plan.md, D7); a missing configuration (CI builds) or a
+ * week without data is a normal state the page explains.
+ */
+export async function getPublicImpact(): Promise<PublicImpact> {
+  const result = await getCurrentImpactWeek();
+  if (result.state === "error") throw new Error(result.message);
+  return result;
+}

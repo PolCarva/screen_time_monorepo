@@ -26,7 +26,7 @@ Public values are bundled into clients and must never contain secrets.
 | `INTERNAL_JOB_SECRET`                                                                      | web          | yes                    | AdMob revenue import bearer token                   |
 | `CRON_SECRET`                                                                              | web          | yes on Vercel          | stale reward reconciliation bearer token            |
 | `WAITLIST_RATE_LIMIT_SECRET`                                                               | web          | recommended            | HMAC key for beta abuse protection                  |
-| `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API                                 |
+| `ADMOB_PUBLISHER_ACCOUNT`, `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN` | web          | yes for revenue import | AdMob Reporting API; the refresh token in Vault wins over `ADMOB_REFRESH_TOKEN` |
 | `EXPO_PUBLIC_API_URL`                                                                      | mobile       | yes                    | public HTTPS web/API base URL                       |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                         | mobile       | yes                    | mobile Auth only                                    |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`                                                               | mobile       | yes                    | EAS project binding                                 |
@@ -61,9 +61,9 @@ The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates
 
 `/admin/login` asks for an email and sends a one-time code only when that address belongs to a row in `admin_users` (`admin_login_allowed()`); any other address gets the same on-screen answer and no email, so the form cannot be used to mail arbitrary people. Requests and code attempts are rate limited per address and per email (`consume_rate_limit()`, HMAC keys only). After the code, the session is kept in that browser: `apps/web/proxy.ts` refreshes the Supabase session cookies on every `/admin` request, and **Cerrar sesión** ends it.
 
-- The Supabase **Magic link** email template must include `{{ .Token }}` (Authentication → Emails) for the code to appear in the email. Until then the email carries only a link, which still signs in through `/auth/callback`.
+- The Supabase **Magic link or OTP** template (Authentication → Emails → Templates) is in Spanish and shows `{{ .Token }}` as the code, plus `{{ .ConfirmationURL }}` as a fallback link that signs in through `/auth/callback` in the same browser. Supabase only lets the template be edited while custom SMTP is on.
 - To add an operator, create the user in Supabase Auth (Authentication → Users → Add user, with that email) and insert its id into `admin_users` with role `admin`, `operator` or `viewer`.
-- Supabase's built-in email service has low sending limits; configure custom SMTP before relying on it.
+- Auth emails go through custom SMTP: Gmail (`smtp.gmail.com:465`, sender "Still" <pablocarvalhogimenez@gmail.com>) with a Google app password saved only in Supabase (Authentication → Emails → SMTP Settings). Supabase allows 30 emails per hour and one per address per minute. If sign-in emails stop arriving, the app password was probably revoked: create a new one in the Google account and paste it there.
 
 ## Scheduled and weekly operations
 
@@ -73,7 +73,7 @@ The operations console accepts PDF/PNG/JPEG proof files up to 5 MB and validates
 - The fund of a week that is not confirmed is live: every rewarded ad AdMob confirms (SSV) is stored in `ad_views` with its estimated value (the SDK's impression value, else the observed eCPM, else `estimatedRewardedEcpmUsd`), and each day switches to AdMob's own report once it was imported a full day after the day closed.
 - After a week ends, `/admin` lists it under «Semanas por cerrar»: confirm the gross (prefilled with the live figure) and later record the donation.
 - After payment: upload the actual proof and record the donation. Publication occurs only after the database transition succeeds.
-- If the AdMob job fails with `invalid_grant`, the Reporting refresh token expired or was revoked: create a new one for the same OAuth client with the `https://www.googleapis.com/auth/admob.readonly` scope and update `ADMOB_REFRESH_TOKEN` in Vercel. Until then the fund shows only the per-ad estimates.
+- If the AdMob job fails with `invalid_grant`, the Reporting refresh token expired or was revoked: from `apps/web`, run `pnpm admob:connect` and accept with the AdMob owner's Google account. The command checks that the account can read the publisher and stores the token in Supabase Vault (`set_admob_refresh_token`); the next import uses it, with no Vercel change or redeploy. `ADMOB_REFRESH_TOKEN` is only the fallback while Vault has no token. Until then the fund shows only the per-ad estimates.
 - Impression-level ad revenue must be on in AdMob (Settings → Account) for the SDK to report each impression's value; without it every ad is priced by eCPM.
 
 Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable while pending and return inline success/error feedback; retry only after checking the current week state.
@@ -92,10 +92,12 @@ The workspace patches `decode-uri-component@0.2.2` because Expo Router's CommonJ
 
 ## Mobile release
 
-1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`). Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true`; Apple identity is not part of the product.
+1. Add production mobile values to the EAS production environment. This repository is linked to `@pablo-carvalhos-team/still` (`0dffe42d-253f-40f4-9f70-5870276707ff`), owned by the personal Expo account; every store, signing and EAS credential belongs to the personal accounts (Apple team `JZ9HBXGNK9`, Play developer account "Still Screen Time"). Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true`. The iOS app is `app.still.ios` with App Group `group.app.still.ios`; Android stays `com.still.screentime`.
 2. Run `eas credentials:configure-build -p android -e production`. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
 3. Run `eas build --platform android --profile production`, then `eas submit --platform android --profile production` when the closed-beta gates pass.
 4. Enable Google Play App Signing and retain the upload credential according to the account recovery policy.
+
+On iOS, Sign in with Apple links natively: the app sends Apple's ID token to Supabase (`linkIdentity` with a hashed nonce), so the Supabase Apple provider only needs `app.still.ios` in its client IDs and no Services ID or secret key. Votes accept a linked Apple or Google identity.
 
 Google identity uses the web OAuth client callback `https://YOUR_PROJECT.supabase.co/auth/v1/callback`. Supabase must allow the mobile return URL `still://auth/callback`. The API requires a real linked Google identity before accepting an Impact vote.
 

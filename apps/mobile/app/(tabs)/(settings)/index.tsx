@@ -14,6 +14,7 @@ import {
 
 import { PrimaryButton } from "@/components/primary-button";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { IdentityButtons } from "@/components/identity-buttons";
 import { Screen } from "@/components/screen";
 import {
   closeAction,
@@ -27,6 +28,8 @@ import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import {
   getLinkedIdentityProviders,
+  identityProviderName,
+  identityProviders,
   isIdentityProviderEnabled,
   linkIdentity,
   type IdentityProvider,
@@ -144,7 +147,8 @@ export default function SettingsScreen() {
       unlockDurationSeconds: preferences.unlockDurationSeconds,
       maxRewardedAdsPerUtcDay: preferences.maxRewardedAdsPerUtcDay,
     });
-  const googleEnabled = isIdentityProviderEnabled("google");
+  const accountLinked = linkedIdentities.length > 0;
+  const offersApple = identityProviders().includes("apple");
 
   useEffect(() => {
     void getJson("analyticsEnabled", true).then(setAnalyticsEnabled);
@@ -202,22 +206,23 @@ export default function SettingsScreen() {
       const linked = await linkIdentity(provider);
       if (linked) {
         setLinkedIdentities(await getLinkedIdentityProviders());
-        showGoogleConnected();
+        showConnected(provider);
       }
     } catch (error) {
       try {
         const providers = await getLinkedIdentityProviders();
         if (providers.includes(provider)) {
           setLinkedIdentities(providers);
-          showGoogleConnected();
+          showConnected(provider);
           return;
         }
       } catch {
         // Preserve the original OAuth error below when reconciliation fails.
       }
-      if (__DEV__) console.warn("Google identity link failed", error);
+      if (__DEV__) console.warn(`${provider} identity link failed`, error);
+      const name = identityProviderName(provider);
       void sheet.show({
-        title: localize("Google didn't connect", "No se conectó Google"),
+        title: localize(`${name} didn't connect`, `No se conectó ${name}`),
         message: localize(
           "Check your connection and try again.",
           "Revisa tu conexión y vuelve a intentarlo.",
@@ -229,9 +234,10 @@ export default function SettingsScreen() {
     }
   }
 
-  function showGoogleConnected() {
+  function showConnected(provider: IdentityProvider) {
+    const name = identityProviderName(provider);
     void sheet.show({
-      title: localize("Google connected", "Google conectado"),
+      title: localize(`${name} connected`, `${name} conectado`),
       message: localize(
         "You can now vote for this week's project.",
         "Ya puedes votar por el proyecto de esta semana.",
@@ -573,7 +579,9 @@ export default function SettingsScreen() {
           <Mono>{localize("OPTIONAL", "OPCIONAL")}</Mono>
         </View>
         <Heading style={styles.sectionTitle}>
-          {localize("Connect Google to vote", "Conecta Google para votar")}
+          {offersApple
+            ? localize("Connect an account to vote", "Conecta una cuenta para votar")
+            : localize("Connect Google to vote", "Conecta Google para votar")}
         </Heading>
         <Body style={styles.muted}>
           {localize(
@@ -581,41 +589,12 @@ export default function SettingsScreen() {
             "Y para recuperar tu cuenta si cambias de teléfono.",
           )}
         </Body>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled:
-              !googleEnabled ||
-              identityBusy !== null ||
-              linkedIdentities.includes("google"),
-          }}
-          disabled={
-            !googleEnabled ||
-            identityBusy !== null ||
-            linkedIdentities.includes("google")
-          }
-          style={({ pressed }) => [
-            styles.identity,
-            linkedIdentities.includes("google") && styles.identityLinked,
-            pressed && styles.pressed,
-            !googleEnabled && styles.disabled,
-          ]}
-          onPress={() => link("google")}
-        >
-          <Text style={styles.identityText}>
-            {linkedIdentities.includes("google")
-              ? localize("✓  Google connected", "✓  Google conectado")
-              : !googleEnabled
-                ? localize("G  Google coming soon", "G  Google disponible pronto")
-                : identityBusy === "google"
-                  ? localize("G  Opening Google…", "G  Abriendo Google…")
-                  : localize(
-                      "G  Continue with Google",
-                      "G  Continuar con Google",
-                    )}
-          </Text>
-        </Pressable>
-        {linkedIdentities.includes("google") ? (
+        <IdentityButtons
+          busy={identityBusy}
+          linked={linkedIdentities}
+          onLink={(provider) => void link(provider)}
+        />
+        {accountLinked ? (
           <Body style={styles.identityConfirmation}>
             {localize(
               "Voting is enabled. Open Impact to choose and see your vote.",
@@ -745,19 +724,6 @@ const styles = StyleSheet.create({
   },
   on: { backgroundColor: colors.success },
   muted: { fontSize: 13, lineHeight: 20, color: colors.graphiteSoft },
-  identity: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.graphite,
-    borderRadius: radius.control,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  identityText: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
-  identityLinked: {
-    borderColor: colors.success,
-    backgroundColor: colors.chalkRaised,
-  },
   identityConfirmation: {
     color: colors.success,
     fontSize: 13,

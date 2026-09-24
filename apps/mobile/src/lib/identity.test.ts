@@ -10,6 +10,21 @@ const mocks = vi.hoisted(() => ({
   openAuthSessionAsync: vi.fn(),
   refreshSession: vi.fn(),
   signInWithOAuth: vi.fn(),
+  signInWithIdToken: vi.fn(),
+  appleSignInAsync: vi.fn(),
+  platform: { OS: "android" as "android" | "ios" },
+}));
+
+vi.mock("react-native", () => ({ Platform: mocks.platform }));
+vi.mock("expo-crypto", () => ({
+  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+  digestStringAsync: async (_algorithm: string, value: string) =>
+    `sha256:${value}`,
+  randomUUID: () => "raw-nonce",
+}));
+vi.mock("expo-apple-authentication", () => ({
+  AppleAuthenticationScope: { EMAIL: 1 },
+  signInAsync: mocks.appleSignInAsync,
 }));
 
 vi.mock("expo-auth-session", () => ({
@@ -27,6 +42,7 @@ vi.mock("@/lib/supabase", () => ({
       linkIdentity: mocks.linkIdentity,
       refreshSession: mocks.refreshSession,
       signInWithOAuth: mocks.signInWithOAuth,
+      signInWithIdToken: mocks.signInWithIdToken,
     },
   },
 }));
@@ -212,5 +228,74 @@ describe("Google identity linking", () => {
     expect(mocks.openAuthSessionAsync).not.toHaveBeenCalled();
     expect(mocks.refreshSession).toHaveBeenCalledOnce();
     expect(mocks.endExternalAuthSession).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Apple identity linking", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mocks.platform.OS = "ios";
+    mocks.appleSignInAsync.mockResolvedValue({ identityToken: "apple-jwt" });
+    mocks.linkIdentity.mockResolvedValue({ data: {}, error: null });
+    mocks.getUserIdentities.mockResolvedValue({
+      data: { identities: [] },
+      error: null,
+    });
+    mocks.signInWithIdToken.mockResolvedValue({ data: {}, error: null });
+  });
+
+  afterEach(() => {
+    mocks.platform.OS = "android";
+  });
+
+  it("is offered only on iOS, ahead of Google", async () => {
+    process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED = "true";
+    const { identityProviders } = await import("./identity");
+    expect(identityProviders()).toEqual(["apple", "google"]);
+    mocks.platform.OS = "android";
+    expect(identityProviders()).toEqual(["google"]);
+    delete process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED;
+  });
+
+  it("links the Apple ID token with the raw nonce behind the hashed one", async () => {
+    const { linkIdentity } = await import("./identity");
+
+    await expect(linkIdentity("apple")).resolves.toBe(true);
+    expect(mocks.appleSignInAsync).toHaveBeenCalledWith({
+      requestedScopes: [1],
+      nonce: "sha256:raw-nonce",
+    });
+    expect(mocks.linkIdentity).toHaveBeenCalledWith({
+      provider: "apple",
+      token: "apple-jwt",
+      nonce: "raw-nonce",
+    });
+    expect(mocks.openAuthSessionAsync).not.toHaveBeenCalled();
+  });
+
+  it("treats a cancelled Apple sheet as not linked", async () => {
+    mocks.appleSignInAsync.mockRejectedValue(
+      Object.assign(new Error("canceled"), { code: "ERR_REQUEST_CANCELED" }),
+    );
+    const { linkIdentity } = await import("./identity");
+
+    await expect(linkIdentity("apple")).resolves.toBe(false);
+    expect(mocks.linkIdentity).not.toHaveBeenCalled();
+  });
+
+  it("recovers the existing account that already owns the Apple ID", async () => {
+    mocks.linkIdentity.mockResolvedValue({
+      data: {},
+      error: { code: "identity_already_exists", message: "exists" },
+    });
+    const { linkIdentity } = await import("./identity");
+
+    await expect(linkIdentity("apple")).resolves.toBe(true);
+    expect(mocks.signInWithIdToken).toHaveBeenCalledWith({
+      provider: "apple",
+      token: "apple-jwt",
+      nonce: "raw-nonce",
+    });
   });
 });

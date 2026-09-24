@@ -41,3 +41,19 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --container: 1320px;
 }
+
+/* Landing v2 (docs/landing-seo-plan.md) */
+:root {
+  --phone-frame: #161918;
+  --dark-card: #2e3330;
+  --footer: #1b1e1d;
+  --live: #2f6b4a;
+  --live-on-dark: #7fbf96;
+  --shell: 1200px;
+  --gutter: 20px;
+}
+@media (min-width: 768px) {
+  :root {
+    --gutter: 40px;
+  }
+}

@@ -20,17 +20,15 @@ const supabasePublishableKey = buildValue(
 );
 const easProjectId = buildValue(
   "EXPO_PUBLIC_EAS_PROJECT_ID",
-  "4d11d2ed-73c9-4442-aea8-1b4a6e8bd636",
+  "0dffe42d-253f-40f4-9f70-5870276707ff",
 );
 const androidAppId = buildValue(
   "ADMOB_ANDROID_APP_ID",
   "ca-app-pub-3940256099942544~3347511713",
 );
-// iOS is unreleased: its Shortcuts pause is built but off in production. Keep
-// Expo's cross-platform plugin config valid without making Android builds
-// depend on paid Apple distribution or production iOS inventory. The committed
-// ios/Still/Info.plist carries the real iOS AdMob app id, and
-// `acceptance:ios-shortcuts` asserts it reached the built app.
+// The committed ios/Still/Info.plist carries the real iOS AdMob app id, and
+// `acceptance:ios-shortcuts` asserts it reached the built app; production
+// builds also refuse Google's sample identifiers below.
 const iosAppId =
   process.env.ADMOB_IOS_APP_ID || "ca-app-pub-3940256099942544~1458002511";
 const rewardedAndroid = buildValue(
@@ -55,6 +53,8 @@ if (production) {
   for (const [name, value] of [
     ["ADMOB_ANDROID_APP_ID", androidAppId],
     ["EXPO_PUBLIC_ADMOB_REWARDED_ANDROID", rewardedAndroid],
+    ["ADMOB_IOS_APP_ID", iosAppId],
+    ["EXPO_PUBLIC_ADMOB_REWARDED_IOS", rewardedIos],
   ] as const) {
     if (value?.includes("3940256099942544"))
       throw new Error(
@@ -64,8 +64,9 @@ if (production) {
 }
 
 const config: ExpoConfig = {
+  owner: "pablo-carvalhos-team",
   name: production ? "Still" : `Still ${variant}`,
-  slug: "still-screen-time",
+  slug: "still",
   version: "0.2.0",
   orientation: "portrait",
   scheme: "still",
@@ -74,10 +75,11 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     deploymentTarget: "16.4",
-    bundleIdentifier: "com.still.screentime",
+    bundleIdentifier: "app.still.ios",
+    usesAppleSignIn: true,
+    config: { usesNonExemptEncryption: false },
     entitlements: {
-      "com.apple.security.application-groups": ["group.com.still.screentime"],
-      "com.apple.developer.family-controls": true,
+      "com.apple.security.application-groups": ["group.app.still.ios"],
     },
     infoPlist: {
       CFBundleDevelopmentRegion: "en",
@@ -95,6 +97,7 @@ const config: ExpoConfig = {
   plugins: [
     "@sentry/react-native",
     "expo-router",
+    "expo-apple-authentication",
     "expo-notifications",
     "expo-font",
     "expo-localization",

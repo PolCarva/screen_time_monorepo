@@ -1,12 +1,15 @@
+import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
+import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
 
 import { restrictionEngine } from "@/native/restriction-engine";
 import { supabase } from "@/lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type IdentityProvider = "google";
+export type IdentityProvider = "google" | "apple";
 
 class IdentityOAuthError extends Error {
   constructor(
@@ -106,8 +109,21 @@ async function finishOAuth(
   return true;
 }
 
-export function isIdentityProviderEnabled(_provider: IdentityProvider) {
+export function isIdentityProviderEnabled(provider: IdentityProvider) {
+  if (provider === "apple") return Platform.OS === "ios";
   return process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+}
+
+// App Review requires Sign in with Apple next to Google on iOS, with at least
+// the same prominence, so Apple leads there.
+export function identityProviders(): IdentityProvider[] {
+  const order: IdentityProvider[] =
+    Platform.OS === "ios" ? ["apple", "google"] : ["google"];
+  return order.filter(isIdentityProviderEnabled);
+}
+
+export function identityProviderName(provider: IdentityProvider) {
+  return provider === "apple" ? "Apple" : "Google";
 }
 
 export async function getLinkedIdentityProviders(): Promise<
@@ -117,7 +133,9 @@ export async function getLinkedIdentityProviders(): Promise<
   const { data, error } = await supabase.auth.getUserIdentities();
   if (error) throw error;
   return (data?.identities ?? []).flatMap((identity) =>
-    identity.provider === "google" ? [identity.provider] : [],
+    identity.provider === "google" || identity.provider === "apple"
+      ? [identity.provider]
+      : [],
   );
 }
 
@@ -125,6 +143,7 @@ export async function linkIdentity(provider: IdentityProvider) {
   if (!supabase) throw new Error("Supabase is not configured");
   if (!isIdentityProviderEnabled(provider))
     throw new Error(`${provider}_identity_provider_disabled`);
+  if (provider === "apple") return linkAppleIdentity();
   const redirectTo = makeRedirectUri({
     scheme: "still",
     path: "auth/callback",
@@ -155,4 +174,45 @@ export async function linkIdentity(provider: IdentityProvider) {
   } finally {
     await restrictionEngine.endExternalAuthSession?.().catch(() => undefined);
   }
+}
+
+// Native Sign in with Apple: the system sheet returns an ID token that Supabase
+// verifies against the hashed nonce, so no browser session is involved.
+async function linkAppleIdentity() {
+  if (!supabase) throw new Error("Supabase is not configured");
+  const nonce = Crypto.randomUUID();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    nonce,
+  );
+  let credential: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [AppleAuthentication.AppleAuthenticationScope.EMAIL],
+      nonce: hashedNonce,
+    });
+  } catch (error) {
+    if (errorCode(error) === "ERR_REQUEST_CANCELED") return false;
+    throw error;
+  }
+  const token = credential.identityToken;
+  if (!token) throw new Error("Apple did not return an identity token");
+
+  const { error } = await supabase.auth.linkIdentity({
+    provider: "apple",
+    token,
+    nonce,
+  });
+  if (!error) return true;
+  if (!belongsToExistingAccount(error)) throw error;
+  if (await refreshIfProviderIsAlreadyLinked("apple")) return true;
+
+  // This Apple ID already belongs to another Still account: recover it.
+  const recovered = await supabase.auth.signInWithIdToken({
+    provider: "apple",
+    token,
+    nonce,
+  });
+  if (recovered.error) throw recovered.error;
+  return true;
 }
