@@ -174,6 +174,65 @@
   }
 }
 
+/* While the hero scrolls away, the field keeps opening a little and the
+   phone drifts up: scroll-driven and on the independent `translate`
+   property, so it never fights the load animation's `transform`. */
+@keyframes driftLeft {
+  to {
+    translate: -56px 0;
+  }
+}
+@keyframes driftRight {
+  to {
+    translate: 56px 0;
+  }
+}
+@keyframes driftUp {
+  to {
+    translate: 0 -36px;
+  }
+}
+@keyframes driftWide {
+  to {
+    translate: 24px 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .barLeft,
+    .barRight,
+    .barTop,
+    .barBottom,
+    .phoneSlot {
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root);
+      animation-range: 0 720px;
+    }
+    .barLeft {
+      animation: openLeft var(--duration-field) var(--ease-out) 120ms both,
+        driftLeft linear both;
+      animation-timeline: auto, scroll(root);
+      animation-range: normal, 0 720px;
+    }
+    .barRight {
+      animation: openRight var(--duration-field) var(--ease-out) 120ms both,
+        driftRight linear both;
+      animation-timeline: auto, scroll(root);
+      animation-range: normal, 0 720px;
+    }
+    .barTop {
+      animation-name: driftWide;
+    }
+    .barBottom {
+      animation-name: driftLeft;
+    }
+    .phoneSlot {
+      animation-name: driftUp;
+    }
+  }
+}
+
 @media (max-width: 1180px) {
   .visual {
     transform: scale(0.88);

@@ -1,6 +1,36 @@
 .page {
   padding: 40px 0 0;
 }
+/* A thin reading bar along the top edge, driven by the page scroll where
+   the browser supports it; elsewhere it simply is not there. */
+.progress {
+  display: none;
+}
+@keyframes read {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      display: block;
+      height: 3px;
+      background: var(--peach);
+      transform-origin: left;
+      animation: read linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
 .crumbs ol {
   margin: 0;
   padding: 0;
@@ -56,7 +86,8 @@
 }
 .aside {
   position: sticky;
-  top: 24px;
+  /* Below the sticky site header (88px). */
+  top: 112px;
   align-self: start;
   display: flex;
   flex-direction: column;
@@ -73,11 +104,33 @@
   line-height: 1.35;
 }
 .aside a {
+  position: relative;
+  display: block;
+  padding-left: 14px;
   color: var(--graphite-soft);
+  transition: color var(--duration-standard) var(--ease-out);
+}
+.aside a::before {
+  content: "";
+  position: absolute;
+  top: 0.15em;
+  bottom: 0.15em;
+  left: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--peach);
+  transform: scaleY(0);
+  transition: transform var(--duration-standard) var(--ease-out);
 }
 .aside a:hover {
   color: var(--graphite);
-  text-decoration: underline;
+}
+.aside a.tocActive {
+  color: var(--graphite);
+  font-weight: 600;
+}
+.aside a.tocActive::before {
+  transform: scaleY(1);
 }
 
 /* Long-form text. */
@@ -219,10 +272,13 @@
   border: 1px solid var(--fog);
   border-radius: 14px;
   background: var(--chalk-raised);
-  transition: border-color var(--duration-standard) var(--ease-out);
+  transition:
+    border-color var(--duration-standard) var(--ease-out),
+    transform var(--duration-standard) var(--ease-out);
 }
 .related li a:hover {
   border-color: var(--graphite);
+  transform: translateY(-2px);
 }
 .related strong {
   font-size: 18px;

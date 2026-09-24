@@ -123,6 +123,27 @@
   font-weight: 600;
   white-space: nowrap;
 }
+/* The vote bar grows and the projects fill in once the card is revealed. */
+@media (prefers-reduced-motion: no-preference) {
+  .bar span {
+    transform-origin: left;
+    transition: transform 900ms var(--ease-out);
+    transition-delay: calc(var(--row, 0) * 140ms + 400ms);
+  }
+  .projects li {
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+    transition-delay: calc(var(--row, 0) * 120ms + 650ms);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .bar span {
+    transform: scaleX(0);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .projects li {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
 .states {
   margin: 24px 0 0;
   display: grid;

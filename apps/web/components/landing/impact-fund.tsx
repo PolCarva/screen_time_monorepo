@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import { categoryLabels, formatFund, statusLabels } from "@/components/impact-card";
+import { stagger } from "@/components/motion/stagger";
 import type { PublicImpact } from "@/lib/impact";
 
 import styles from "./impact-fund.module.css";
@@ -22,7 +24,7 @@ const STEPS = [
 function FundCard({ impact }: { impact: PublicImpact }) {
   if (impact.state !== "ready") {
     return (
-      <div className={`${styles.card} reveal`}>
+      <div className={styles.card} data-reveal="" style={stagger(1)}>
         <div className={styles.cardTop}>
           <span className="eyebrow">Fondo de la semana</span>
         </div>
@@ -36,7 +38,7 @@ function FundCard({ impact }: { impact: PublicImpact }) {
   const week = impact.week;
   const totalVotes = week.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
   return (
-    <div className={`${styles.card} reveal`}>
+    <div className={styles.card} data-reveal="" style={stagger(1)}>
       <div className={styles.cardTop}>
         <span className="eyebrow">
           Semana del {weekDay.format(new Date(`${week.weekStart}T00:00:00Z`))}
@@ -64,16 +66,19 @@ function FundCard({ impact }: { impact: PublicImpact }) {
             {week.candidates.map((candidate, index) => (
               <span
                 key={candidate.charity.id}
-                style={{
-                  flexGrow: totalVotes > 0 ? Math.max(candidate.votes, 0.001) : 1,
-                  background: totalVotes > 0 ? SHARE_COLORS[index % 3] : "var(--fog)",
-                }}
+                style={
+                  {
+                    flexGrow: totalVotes > 0 ? Math.max(candidate.votes, 0.001) : 1,
+                    background: totalVotes > 0 ? SHARE_COLORS[index % 3] : "var(--fog)",
+                    "--row": index,
+                  } as CSSProperties
+                }
               />
             ))}
           </div>
           <ul className={styles.projects}>
-            {week.candidates.map((candidate) => (
-              <li key={candidate.charity.id}>
+            {week.candidates.map((candidate, index) => (
+              <li key={candidate.charity.id} style={{ "--row": index } as CSSProperties}>
                 <span className={styles.project}>
                   <strong>{candidate.charity.name}</strong>
                   <span className="eyebrow">
@@ -119,10 +124,10 @@ export function ImpactFund({ impact }: { impact: PublicImpact }) {
       <div className={`shell ${styles.grid}`}>
         <div className={styles.copy}>
           <p className="eyebrow">Lo que ganan los demás · fondo semanal</p>
-          <h2 className="section-title" id="impact-title">
+          <h2 className="section-title" data-reveal="mask" id="impact-title">
             Tu pausa también ayuda a alguien más.
           </h2>
-          <p className="lead">
+          <p className="lead" data-reveal="fade" style={stagger(1)}>
             Cuando decides entrar y ves un anuncio, el 80 % de lo que genera va
             a un fondo semanal. La comunidad vota a qué proyecto va y publicamos
             el comprobante. Tu tiempo vuelve a ti; lo que generas llega a
@@ -130,7 +135,7 @@ export function ImpactFund({ impact }: { impact: PublicImpact }) {
           </p>
           <ol className={styles.steps}>
             {STEPS.map((step, index) => (
-              <li key={step}>
+              <li data-reveal="" key={step} style={stagger(index + 1)}>
                 <span className="eyebrow">{String(index + 1).padStart(2, "0")}</span>
                 <span>{step}</span>
               </li>

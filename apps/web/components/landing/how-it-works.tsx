@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { stagger } from "@/components/motion/stagger";
 import { REQUIREMENTS, VIDEOS, type VideoSource } from "@/lib/site";
 
 import styles from "./how-it-works.module.css";
@@ -42,14 +43,19 @@ export function HowItWorks() {
           heading={
             <div className={styles.heading}>
               <p className="eyebrow eyebrow--dark">Cómo funciona</p>
-              <h2 className={styles.title} id="how-title">
+              <h2 className={styles.title} data-reveal="mask" id="how-title">
                 Tres pasos. Dos minutos.
               </h2>
             </div>
           }
         >
-          <ol aria-label="Pasos para empezar" className={styles.steps} tabIndex={0}>
-            <li className={styles.step}>
+          <ol
+            aria-label="Pasos para empezar"
+            className={styles.steps}
+            data-reveal="group"
+            tabIndex={0}
+          >
+            <li className={styles.step} style={stagger(0)}>
               <Card label="Video: elegir las apps" video={VIDEOS.chooseApps}>
                 <Phone size="md" tone="light">
                   <ChooseAppsScreen />
@@ -61,7 +67,7 @@ export function HowItWorks() {
                 title="Elige las apps"
               />
             </li>
-            <li className={styles.step}>
+            <li className={styles.step} style={stagger(1)}>
               <PlatformPanel platform="android">
                 <Card label="Video: activar Still en Android" video={VIDEOS.androidSetup}>
                   <Phone size="md" tone="light">
@@ -91,7 +97,7 @@ export function HowItWorks() {
                 />
               </PlatformPanel>
             </li>
-            <li className={styles.step}>
+            <li className={styles.step} style={stagger(2)}>
               <Card label="Video: la pausa" video={VIDEOS.pause}>
                 <Phone size="md" tone="dark">
                   <PauseScreen app="TikTok" opens={4} />
@@ -105,7 +111,7 @@ export function HowItWorks() {
             </li>
           </ol>
           <PlatformPanel platform="android">
-            <div className={styles.note}>
+            <div className={`${styles.note} draws-rule`} data-reveal="fade">
               <p>{REQUIREMENTS.android} · se instala desde Google Play.</p>
               <Link className="underline-link" href="/configurar/android">
                 Guía completa para Android
@@ -113,7 +119,7 @@ export function HowItWorks() {
             </div>
           </PlatformPanel>
           <PlatformPanel platform="ios">
-            <div className={styles.note}>
+            <div className={`${styles.note} draws-rule`} data-reveal="fade">
               <p>{REQUIREMENTS.ios} · la automatización usa la app Atajos de Apple.</p>
               <Link className="underline-link" href="/configurar/iphone">
                 Guía completa para iPhone

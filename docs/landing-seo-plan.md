@@ -325,6 +325,17 @@ Rama `feat/landing-v2-seo`, sin push ni PR. Commits: `8b8428e` (plan),
   descanso»; Pause Point se llama «Momento de pausa» en la ayuda de Pixel y
   solo está en Pixel. El informe danés enlaza a one sec en su metodología. El
   57 % está textual en el artículo de PNAS.
+- **D14, ampliado después (rama `feat/landing-motion`):** la aparición al
+  hacer scroll usa un solo IntersectionObserver
+  (`components/motion/reveal-observer.tsx`) en vez de `view()`: lo que ya está
+  en pantalla al cargar no se oculta, y lo de más abajo sube una vez con
+  escalonado (`data-reveal`, `--stagger`). Se sumaron títulos que salen de una
+  máscara, filetes que se dibujan, interruptores y pasos del teléfono que se
+  activan en orden, la barra del fondo que crece, íconos que se trazan, el
+  header fijo translúcido que gana sombra al bajar, deriva leve de las barras
+  del hero con el scroll, barra de lectura e índice activo en las guías. Sigue
+  sin loops, todo detrás de `prefers-reduced-motion: no-preference`. Lighthouse
+  de la home sin cambios (96/100/100/100, CLS 0).
 
 ### Cómo se verificó
 

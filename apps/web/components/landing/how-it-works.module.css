@@ -97,6 +97,7 @@
   text-wrap: pretty;
 }
 .note {
+  --rule-color: var(--graphite-soft);
   display: flex;
   align-items: center;
   justify-content: space-between;

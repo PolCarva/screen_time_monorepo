@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import styles from "./phone.module.css";
 
@@ -92,10 +92,13 @@ export function ChooseAppsScreen() {
       <p className={styles.label}>Apps con pausa</p>
       <p className={styles.title}>¿Cuáles abres sin pensar?</p>
       <ul className={styles.list}>
-        {APPS.map(([name, on]) => (
+        {APPS.map(([name, on], index) => (
           <li className={styles.row} key={name}>
             <span>{name}</span>
-            <span className={`${styles.toggle}${on ? ` ${styles.toggleOn}` : ""}`} />
+            <span
+              className={`${styles.toggle}${on ? ` ${styles.toggleOn}` : ""}`}
+              style={{ "--row": index } as CSSProperties}
+            />
           </li>
         ))}
       </ul>
@@ -137,7 +140,7 @@ export function SetupScreen({ platform }: { platform: "android" | "ios" }) {
       <p className={styles.title}>{setup.title}</p>
       <ol className={styles.list}>
         {setup.steps.map((step, index) => (
-          <li className={styles.step} key={step}>
+          <li className={styles.step} key={step} style={{ "--row": index } as CSSProperties}>
             <span>{index + 1}</span>
             <span>{step}</span>
           </li>

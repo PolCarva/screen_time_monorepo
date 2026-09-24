@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { stagger } from "@/components/motion/stagger";
 import type { FaqEntry } from "@/lib/landing-content";
 
 import styles from "./faq.module.css";
@@ -11,7 +12,7 @@ export function Faq({ items }: { items: FaqEntry[] }) {
       <div className={`shell ${styles.grid}`}>
         <div className={styles.heading}>
           <p className="eyebrow">Preguntas</p>
-          <h2 className="section-title" id="faq-title">
+          <h2 className="section-title" data-reveal="mask" id="faq-title">
             Preguntas frecuentes
           </h2>
           <p>
@@ -24,7 +25,13 @@ export function Faq({ items }: { items: FaqEntry[] }) {
         </div>
         <div className={styles.list}>
           {items.map((item, index) => (
-            <details className={styles.item} key={item.question} open={index === 0}>
+            <details
+              className={styles.item}
+              data-reveal=""
+              key={item.question}
+              open={index === 0}
+              style={stagger(Math.min(index, 5))}
+            >
               <summary>{item.question}</summary>
               <div className={styles.answer}>
                 <p>{item.answer}</p>

@@ -53,10 +53,13 @@
   border: 1px solid var(--graphite-soft);
   border-radius: 16px;
   color: var(--chalk);
-  transition: border-color var(--duration-standard) var(--ease-out);
+  transition:
+    border-color var(--duration-standard) var(--ease-out),
+    transform var(--duration-standard) var(--ease-out);
 }
 .study:hover {
   border-color: var(--mineral-light);
+  transform: translateY(-2px);
 }
 .source {
   font-size: 11px;

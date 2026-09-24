@@ -38,6 +38,17 @@
   font-size: 16px;
   line-height: 1.5;
 }
+/* Each icon traces itself as its reason rises (pathLength = 1). */
+@media (prefers-reduced-motion: no-preference) {
+  .icon :is(path, rect, circle) {
+    stroke-dasharray: 1;
+    transition: stroke-dashoffset 1000ms var(--ease-out);
+    transition-delay: calc(var(--stagger, 0) * 90ms + 250ms);
+  }
+  :global(.motion) .item:not(:global([data-revealed])) .icon :is(path, rect, circle) {
+    stroke-dashoffset: 1;
+  }
+}
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

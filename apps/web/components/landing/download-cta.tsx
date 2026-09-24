@@ -1,3 +1,4 @@
+import { stagger } from "@/components/motion/stagger";
 import type { PublicImpact } from "@/lib/impact";
 import { storeNote } from "@/lib/site";
 
@@ -18,7 +19,7 @@ export function DownloadCta({ impact }: { impact: PublicImpact }) {
             <span aria-hidden="true" className={styles.dot} />
             {hasTotals ? "En vivo" : "Empieza hoy"}
           </p>
-          <h2 className={styles.title} id="download-title">
+          <h2 className={styles.title} data-reveal="mask" id="download-title">
             {hasTotals ? (
               <>
                 {live.returned ? <span>{live.returned}</span> : null}
@@ -30,17 +31,17 @@ export function DownloadCta({ impact }: { impact: PublicImpact }) {
               "Una pausa que suma, desde hoy."
             )}
           </h2>
-          <p className={styles.sub}>
+          <p className={styles.sub} data-reveal="fade" style={stagger(1)}>
             {live.people
               ? `Entre ${live.people} personas que eligen con intención. Tu primera pausa suma desde hoy.`
               : "Tu primera pausa suma desde hoy: vuelves con tu tiempo, o entras y tu anuncio ayuda a un proyecto."}
           </p>
-          <div className={styles.badges}>
+          <div className={styles.badges} data-reveal="" style={stagger(2)}>
             <StoreBadges />
           </div>
           <p className={styles.note}>{storeNote()}</p>
         </div>
-        <div className={styles.card}>
+        <div className={styles.card} data-reveal="" style={stagger(3)}>
           <h3>¿Te avisamos?</h3>
           <p>Un solo correo cuando Still esté publicada en tu tienda. Sin boletines.</p>
           <WaitlistForm />

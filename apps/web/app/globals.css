@@ -7,6 +7,7 @@
 }
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 96px;
   background: var(--chalk);
 }
 body {
@@ -121,26 +122,74 @@ img {
   text-decoration-thickness: 2px;
 }
 
-/* Blocks rise into place as they scroll in. Visible by default: only
-   browsers with scroll-driven animations and no reduced-motion setting
-   animate them (D14). */
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
+/* Scroll reveals (components/motion/reveal-observer.tsx). Only under
+   `.motion`, which the observer adds after showing what is already on
+   screen; without it (no JS, reduced motion) everything is simply visible.
+   One reveal per block, no loops. Stagger siblings with --stagger.
+   Transitions live on the revealed state, so hiding what is below the fold
+   when `.motion` arrives is instant and only the reveal animates. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion [data-revealed] {
+    transition:
+      opacity 800ms var(--ease-out),
+      transform 900ms var(--ease-out),
+      clip-path 900ms var(--ease-out);
+    transition-delay: calc(var(--stagger, 0) * 90ms);
   }
-  to {
+  .motion [data-reveal]:not([data-revealed]) {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  .motion [data-reveal="fade"]:not([data-revealed]) {
+    transform: none;
+  }
+  /* A group stays put and its children rise in turn (--stagger on each),
+     for rows that scroll sideways, where a child can be out of view. */
+  .motion [data-reveal="group"]:not([data-revealed]) {
     opacity: 1;
     transform: none;
   }
-}
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .reveal {
-      animation: reveal linear both;
-      animation-timeline: view();
-      animation-range: entry 0% cover 22%;
-    }
+  .motion [data-reveal="group"]:not([data-revealed]) > * {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  .motion [data-reveal="group"][data-revealed] > * {
+    transition:
+      opacity 800ms var(--ease-out),
+      transform 900ms var(--ease-out);
+    transition-delay: calc(var(--stagger, 0) * 90ms);
+  }
+  /* Headings rise out of a mask. */
+  .motion [data-reveal="mask"] {
+    clip-path: inset(-12% -4% -28% -4%);
+  }
+  .motion [data-reveal="mask"]:not([data-revealed]) {
+    opacity: 1;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(0.35em);
+  }
+  /* Top rules draw from left to right while the block rises. Set --rule
+     (thickness) and --rule-color where the rule is not 1px graphite. */
+  .motion [data-reveal].draws-rule {
+    position: relative;
+    border-top-color: transparent;
+  }
+  .motion [data-reveal].draws-rule::before {
+    content: "";
+    position: absolute;
+    top: calc(-1 * var(--rule, 1px));
+    left: 0;
+    right: 0;
+    height: var(--rule, 1px);
+    background: var(--rule-color, var(--graphite));
+    transform-origin: left;
+  }
+  .motion [data-revealed].draws-rule::before {
+    transition: transform 1100ms var(--ease-out);
+    transition-delay: calc(var(--stagger, 0) * 90ms + 120ms);
+  }
+  .motion [data-reveal].draws-rule:not([data-revealed])::before {
+    transform: scaleX(0);
   }
 }
 

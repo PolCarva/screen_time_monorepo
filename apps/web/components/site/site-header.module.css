@@ -1,8 +1,32 @@
 .header {
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   border-bottom: 1px solid var(--fog);
-  background: var(--chalk);
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+/* At the top the header sits flat on the page; once the page scrolls, its
+   rule and a soft shadow come in (scroll-driven, where supported). */
+@keyframes lift {
+  from {
+    border-bottom-color: transparent;
+    box-shadow: 0 0 0 rgba(36, 40, 38, 0);
+  }
+  to {
+    border-bottom-color: var(--fog);
+    box-shadow: 0 10px 30px rgba(36, 40, 38, 0.06);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .header {
+      animation: lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 160px;
+    }
+  }
 }
 .inner {
   min-height: 88px;
