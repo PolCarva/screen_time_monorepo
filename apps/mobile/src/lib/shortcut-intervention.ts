@@ -12,7 +12,6 @@ type ShortcutReturnSession = {
 type ShortcutUnlock = (
   contextId: string,
   options: {
-    freshReward?: boolean;
     durationSeconds: number;
     rewardIntentId?: string;
   },
@@ -20,8 +19,7 @@ type ShortcutUnlock = (
 
 type CompleteShortcutAndReturnInput = {
   contextId: string;
-  freshReward?: boolean;
-  /** The ad that paid for this visit, so the server spends that ad's pass. */
+  /** The ad that paid for this visit; none after the free pause. */
   rewardIntentId?: string;
   /** The window the user chose on the slider, in seconds. */
   durationSeconds: number;
@@ -37,47 +35,25 @@ type InterventionUnlockInput = {
   hasDevice: boolean;
   rewardProvider: "admob" | "disabled";
   rewardStatus: InterventionRewardStatus;
-  rewardAdsRemainingToday: number;
-  rewardedPassesRemainingToday: number;
-  rewardedBalance: number;
-  maxRewardTokenBalance: number;
 };
 
 /**
- * What the gate can offer right now. The ad and a saved pass are independent,
- * so a pass is always usable without watching the ad that is ready. Mirrored in
- * `InterventionActivity.currentGate()` on Android.
+ * What the gate can offer right now: the ad, waited for while it loads. There
+ * is no limit on ads and no saved pass (docs/ads-only-pause-plan.md, D1-D3).
+ * Mirrored in `InterventionActivity.currentGate()` on Android.
  */
 export function getInterventionOptions({
   supportsDirectAd,
   hasDevice,
   rewardProvider,
   rewardStatus,
-  rewardAdsRemainingToday,
-  rewardedPassesRemainingToday,
-  rewardedBalance,
-  maxRewardTokenBalance,
 }: InterventionUnlockInput): InterventionGate | null {
   if (!supportsDirectAd) return null;
-
-  const directAdEligible =
-    hasDevice &&
-    rewardProvider === "admob" &&
-    rewardAdsRemainingToday > 0 &&
-    rewardedPassesRemainingToday > 0 &&
-    rewardedBalance < maxRewardTokenBalance;
-
-  const ad = !directAdEligible
-    ? "none"
-    : rewardStatus === "ready"
-      ? "ready"
-      : rewardStatus === "idle" || rewardStatus === "preparing"
-        ? "preparing"
-        : "none";
-  return {
-    ad,
-    pass: rewardedBalance > 0 && rewardedPassesRemainingToday > 0,
-  };
+  if (!hasDevice || rewardProvider !== "admob") return { ad: "none" };
+  if (rewardStatus === "ready") return { ad: "ready" };
+  if (rewardStatus === "idle" || rewardStatus === "preparing")
+    return { ad: "preparing" };
+  return { ad: "none" };
 }
 
 /**
@@ -94,7 +70,6 @@ export function rewardStatusForGate(
 
 export async function completeShortcutAndReturn({
   contextId,
-  freshReward = false,
   rewardIntentId,
   durationSeconds,
   unlockShortcut,
@@ -103,7 +78,6 @@ export async function completeShortcutAndReturn({
   openUrl,
 }: CompleteShortcutAndReturnInput): Promise<ShortcutReturnSession> {
   const session = await unlockShortcut(contextId, {
-    freshReward,
     durationSeconds,
     ...(rewardIntentId ? { rewardIntentId } : {}),
   });

@@ -28,7 +28,6 @@ import {
   canChooseDuration,
   createInterventionFlow,
   enterMethod,
-  keepsRewardOnLeave,
   transition,
 } from "@/lib/intervention-flow";
 import { normalizeAppName } from "@/lib/ios-app-catalog";
@@ -102,7 +101,6 @@ export function ShortcutIntervention({
   onLeave,
 }: Props) {
   const {
-    addProvisionalToken,
     cancelShortcut,
     config,
     deviceId,
@@ -110,7 +108,6 @@ export function ShortcutIntervention({
     rememberAccessDuration,
     unlockShortcut,
     unlockShortcutWithPause,
-    wallet,
   } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   // Opened on a failed attempt: ask for a fresh ad and wait for it, rather
@@ -143,17 +140,12 @@ export function ShortcutIntervention({
     hasDevice: Boolean(deviceId),
     rewardProvider: config.rewardProvider,
     rewardStatus: rewardStatusForGate(adStatus, awaitingFreshAd),
-    rewardAdsRemainingToday: wallet.rewardAdsRemainingToday,
-    rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday,
-    rewardedBalance: wallet.rewardedBalance,
-    maxRewardTokenBalance: config.maxRewardTokenBalance,
   });
   const offeredAd = offer?.ad ?? "none";
-  const offeredPass = offer?.pass ?? false;
   // Stable between renders, so the gate only changes when what it offers does.
   const gate = useMemo<InterventionGate>(
-    () => ({ ad: offeredAd, pass: offeredPass }),
-    [offeredAd, offeredPass],
+    () => ({ ad: offeredAd }),
+    [offeredAd],
   );
   const [flow, dispatch] = useReducer(transition, undefined, () =>
     createInterventionFlow({
@@ -163,7 +155,7 @@ export function ShortcutIntervention({
     }),
   );
   const working = useRef(false);
-  /** The ad just watched, so the visit spends that ad's pass and no saved one. */
+  /** The ad just watched: the visit is charged to it (nothing is ever saved). */
   const paidByIntent = useRef<string | null>(null);
 
   useEffect(() => {
@@ -230,12 +222,6 @@ export function ShortcutIntervention({
     }
   }, [flow.gate, flow.phase, retry, showPrepared]);
 
-  /** A saved pass buys the same choice the ad does, without watching one. */
-  const choosePass = useCallback(() => {
-    if (working.current) return;
-    dispatch({ type: "USE_PASS" });
-  }, []);
-
   const enter = useCallback(async () => {
     if (working.current || flow.phase !== "decision") return;
 
@@ -243,21 +229,24 @@ export function ShortcutIntervention({
     const method = enterMethod(flow);
     const durationSeconds = accessSecondsFor(flow);
     const source = method === "pause" ? "pause" : "rewarded";
-    const rewardIntentId =
-      method === "fresh_reward" ? (paidByIntent.current ?? undefined) : undefined;
+    const rewardIntentId = paidByIntent.current;
     dispatch({ type: "ENTER" });
     const stage: { current: "unlock" | "return" } = { current: "unlock" };
     try {
       if (canChooseDuration(flow)) await rememberAccessDuration(durationSeconds);
       await completeShortcutAndReturn({
         contextId: shortcutId,
-        freshReward: method === "fresh_reward",
-        rewardIntentId,
+        ...(method === "fresh_reward" && rewardIntentId ? { rewardIntentId } : {}),
         durationSeconds,
-        unlockShortcut:
-          method === "pause"
-            ? (contextId) => unlockShortcutWithPause(contextId)
-            : unlockShortcut,
+        unlockShortcut: (contextId, options) => {
+          if (method === "pause") return unlockShortcutWithPause(contextId);
+          // The ad just watched pays for the visit; there is nothing saved.
+          if (!options.rewardIntentId) throw new Error("no_unlocks");
+          return unlockShortcut(contextId, {
+            durationSeconds: options.durationSeconds,
+            rewardIntentId: options.rewardIntentId,
+          });
+        },
         onUnlockActivated: () => {
           capture("unlock_started", {
             source,
@@ -308,14 +297,14 @@ export function ShortcutIntervention({
     )
       return;
     working.current = true;
-    const keepReward = keepsRewardOnLeave(flow);
+    // Walking away after the ad keeps nothing: there are no saved passes.
+    const afterAd = flow.earnedBy === "ad";
     dispatch({ type: "DECLINE" });
     try {
-      if (keepReward) await addProvisionalToken();
       // An expired intervention is already closed from the user's point of view.
       await cancelShortcut(shortcutId).catch(() => undefined);
       capture("intervention_declined", {
-        afterAd: keepReward,
+        afterAd,
         trigger: "ios_shortcut",
       });
     } finally {
@@ -323,7 +312,7 @@ export function ShortcutIntervention({
       working.current = false;
     }
     await onLeave();
-  }, [addProvisionalToken, cancelShortcut, flow, onLeave, shortcutId]);
+  }, [cancelShortcut, flow, onLeave, shortcutId]);
 
   const acknowledgeTest = useCallback(async () => {
     await restrictionEngine
@@ -386,13 +375,7 @@ export function ShortcutIntervention({
       "When the time is up, the pause comes back.",
       "Al terminar el tiempo, vuelve la pausa.",
     );
-    question =
-      flow.earnedBy === "ad"
-        ? `${promise} ${localize(
-            "Leaving now saves the pass you earned.",
-            "Si te vas ahora, el pase que ganaste se guarda.",
-          )}`
-        : promise;
+    question = promise;
   } else if (flow.phase === "decision") {
     headline = localize(
       `Do you still want to open ${appLabel}?`,
@@ -425,14 +408,12 @@ export function ShortcutIntervention({
     );
   }
 
-  // Every way forward on this screen. At the gate the ad is the way in; a
-  // saved pass is the quiet emergency option under it, always usable without
-  // watching an ad but never the first choice.
+  // Every way forward on this screen. At the gate the ad is the only way in;
+  // while it loads the gate waits for it.
   type Option = {
     key: string;
     label: string;
     action: (() => void) | null;
-    quiet?: boolean;
   };
   const options: Option[] = [];
   if (flow.phase === "decision") {
@@ -479,13 +460,6 @@ export function ShortcutIntervention({
         key: "ad",
         label: localize("Preparing the ad…", "Preparando el anuncio…"),
         action: null,
-      });
-    if (flow.gate.pass)
-      options.push({
-        key: "pass",
-        label: localize("Use 1 emergency pass", "Usar 1 pase de emergencia"),
-        action: choosePass,
-        quiet: true,
       });
   }
 
@@ -581,38 +555,21 @@ export function ShortcutIntervention({
             />
             {options.map((option, index) => (
               <Animated.View entering={change(60 + index * 40)} key={option.key}>
-                {option.quiet ? (
-                  <PressableScale
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: busy || !option.action }}
-                    dimTo={0.62}
-                    disabled={busy || !option.action}
-                    onPress={option.action ?? undefined}
-                    scaleTo={1}
-                    style={[
-                      styles.quiet,
-                      (busy || !option.action) && styles.disabled,
-                    ]}
-                  >
-                    <Text style={styles.quietLabel}>{option.label}</Text>
-                  </PressableScale>
-                ) : (
-                  <PressableScale
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: busy || !option.action }}
-                    dimTo={0.62}
-                    disabled={busy || !option.action}
-                    onPress={option.action ?? undefined}
-                    scaleTo={1}
-                    style={[
-                      styles.secondary,
-                      (busy || !option.action) && styles.disabled,
-                    ]}
-                  >
-                    <Text style={styles.secondaryLabel}>{option.label}</Text>
-                    <Text style={styles.secondaryArrow}>→</Text>
-                  </PressableScale>
-                )}
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: busy || !option.action }}
+                  dimTo={0.62}
+                  disabled={busy || !option.action}
+                  onPress={option.action ?? undefined}
+                  scaleTo={1}
+                  style={[
+                    styles.secondary,
+                    (busy || !option.action) && styles.disabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryLabel}>{option.label}</Text>
+                  <Text style={styles.secondaryArrow}>→</Text>
+                </PressableScale>
               </Animated.View>
             ))}
             <Body style={styles.note}>
@@ -704,15 +661,6 @@ const styles = StyleSheet.create({
     color: colors.chalk,
     fontFamily: fonts.brandMedium,
     fontSize: 21,
-  },
-  quiet: {
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  quietLabel: {
-    color: colors.mineralLight,
-    fontFamily: fonts.brandMedium,
-    fontSize: 13,
   },
   note: {
     paddingTop: spacing.lg,

@@ -15,7 +15,6 @@ import { colors, motion, radius, spacing } from "@/theme/tokens";
 type AttentionFieldProps = {
   mode?: "progress" | "intervention" | "impact";
   values?: number[];
-  passes?: number;
   dark?: boolean;
   animate?: boolean;
   /** A shorter field for screens that must fit without scrolling. */
@@ -26,7 +25,7 @@ type AttentionFieldProps = {
 const DAYS = 7;
 const MODULES_PER_DAY = 5;
 
-function ProgressField({ values, passes = 0, dark = false }: Pick<AttentionFieldProps, "values" | "passes" | "dark">) {
+function ProgressField({ values, dark = false }: Pick<AttentionFieldProps, "values" | "dark">) {
   const normalized = values?.length === DAYS ? values : Array(DAYS).fill(0);
   const maximum = Math.max(...normalized, 1);
   const ink = dark ? colors.mineralLight : colors.mineral;
@@ -40,14 +39,12 @@ function ProgressField({ values, passes = 0, dark = false }: Pick<AttentionField
           <GrowIn key={dayIndex} delay={dayIndex * 45} style={styles.dayColumn}>
             {Array.from({ length: MODULES_PER_DAY }).map((_, moduleIndex) => {
               const active = moduleIndex < count;
-              const passModule = dayIndex === DAYS - 1 && passes > 0 && moduleIndex === Math.min(count, MODULES_PER_DAY - 1);
               return (
                 <View
                   key={moduleIndex}
                   style={[
                     styles.progressModule,
                     { backgroundColor: active ? ink : inactive, opacity: active ? 0.56 + moduleIndex * 0.09 : 0.5 },
-                    passModule && { backgroundColor: colors.peach, opacity: 1 },
                   ]}
                 />
               );
@@ -137,10 +134,10 @@ function ImpactField({ values, dark = false }: Pick<AttentionFieldProps, "values
   );
 }
 
-export function AttentionField({ mode = "progress", values, passes, dark = false, animate = true, compact = false, accessibilityLabel }: AttentionFieldProps) {
+export function AttentionField({ mode = "progress", values, dark = false, animate = true, compact = false, accessibilityLabel }: AttentionFieldProps) {
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={styles.root}>
-      {mode === "progress" ? <ProgressField values={values} passes={passes} dark={dark} /> : null}
+      {mode === "progress" ? <ProgressField values={values} dark={dark} /> : null}
       {mode === "intervention" ? <InterventionField dark={dark} animate={animate} compact={compact} /> : null}
       {mode === "impact" ? <ImpactField values={values} dark={dark} /> : null}
     </View>

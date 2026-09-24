@@ -48,7 +48,7 @@ describe("reward state machine", () => {
   });
 });
 
-describe("wallet rules", () => {
+describe("when the pause offers an ad", () => {
   const operationalConfig = {
     ...defaultRemoteConfig,
     version: 1,
@@ -63,44 +63,18 @@ describe("wallet rules", () => {
     androidRestrictionEnabled: true,
     publishedAt: "2026-08-24T00:00:00.000Z",
   };
-  const wallet = {
-    rewardedBalance: 2,
-    rewardedPassesRemainingToday: 2,
-    unresolvedRewardClaims: 0,
-    rewardAdsRemainingToday: 8,
-    resetAt: "2026-08-24T00:00:00.000Z",
-  };
-
-  it("allows a reward below the balance cap", () => {
-    expect(canRequestReward(wallet, operationalConfig)).toBe(true);
-  });
-
-  it("blocks a reward at the balance cap", () => {
-    expect(
-      canRequestReward({ ...wallet, rewardedBalance: 3 }, operationalConfig),
-    ).toBe(false);
-  });
-
-  it("allows another ad while earlier rewards are awaiting verification", () => {
-    expect(
-      canRequestReward(
-        { ...wallet, unresolvedRewardClaims: 3 },
-        operationalConfig,
-      ),
-    ).toBe(true);
+  it("offers an ad whenever rewards are on, with no limit to reach", () => {
+    expect(canRequestReward(operationalConfig)).toBe(true);
   });
 
   it("honors the operational reward switch", () => {
     expect(
-      canRequestReward(wallet, {
-        ...operationalConfig,
-        rewardProvider: "disabled",
-      }),
+      canRequestReward({ ...operationalConfig, rewardProvider: "disabled" }),
     ).toBe(false);
   });
 
   it("fails closed before a production policy has been published", () => {
-    expect(canRequestReward(wallet, defaultRemoteConfig)).toBe(false);
+    expect(canRequestReward(defaultRemoteConfig)).toBe(false);
   });
 
   it("rejects an unimplemented reward provider", () => {

@@ -19,7 +19,6 @@ import {
   enterMethod,
   gateFrom,
   isTimedPause,
-  keepsRewardOnLeave,
   transition,
 } from "./intervention-flow";
 
@@ -27,19 +26,17 @@ function run(state: InterventionFlowState, ...events: InterventionFlowEvent[]) {
   return events.reduce(transition, state);
 }
 
-const AD: InterventionGate = { ad: "ready", pass: false };
-const PREPARING: InterventionGate = { ad: "preparing", pass: false };
-const PASS: InterventionGate = { ad: "none", pass: true };
-const AD_AND_PASS: InterventionGate = { ad: "ready", pass: true };
+const AD: InterventionGate = { ad: "ready" };
+const PREPARING: InterventionGate = { ad: "preparing" };
 const atAdGate = () => createInterventionFlow({ gate: AD });
 const ticks = (count: number): InterventionFlowEvent[] =>
   Array.from({ length: count }, () => ({ type: "PAUSE_TICK" }) as const);
 
 describe("intervention gate selection", () => {
   it("passes through what the platform can offer", () => {
-    expect(gateFrom(AD_AND_PASS)).toEqual(AD_AND_PASS);
-    expect(isTimedPause(AD_AND_PASS)).toBe(false);
-    expect(isTimedPause(PASS)).toBe(false);
+    expect(gateFrom(AD)).toEqual(AD);
+    expect(isTimedPause(AD)).toBe(false);
+    // An ad that is still loading is waited for, not replaced by the pause.
     expect(isTimedPause(PREPARING)).toBe(false);
   });
 
@@ -82,7 +79,7 @@ describe("intervention flow: ad first, decision after", () => {
     expect(entered).toMatchObject({ phase: "done", outcome: "entered" });
   });
 
-  it("keeps the reward as a stored pass when the user walks away after the ad", () => {
+  it("lets the user walk away after the ad, keeping nothing for later", () => {
     const leaving = run(
       atAdGate(),
       { type: "WATCH_AD" },
@@ -91,7 +88,6 @@ describe("intervention flow: ad first, decision after", () => {
       { type: "DECLINE" },
     );
     expect(leaving.phase).toBe("leaving");
-    expect(keepsRewardOnLeave(leaving)).toBe(true);
     expect(run(leaving, { type: "FINISHED" })).toMatchObject({
       phase: "done",
       outcome: "left",
@@ -101,7 +97,6 @@ describe("intervention flow: ad first, decision after", () => {
   it("lets the user leave from the gate without watching anything", () => {
     const leaving = run(atAdGate(), { type: "DECLINE" });
     expect(leaving.phase).toBe("leaving");
-    expect(keepsRewardOnLeave(leaving)).toBe(false);
   });
 
   it("returns to the gate without punishment when the ad is closed early", () => {
@@ -114,15 +109,16 @@ describe("intervention flow: ad first, decision after", () => {
   });
 
   it("moves to the next fallback when the ad fails or the claim is rejected", () => {
+    // Another ad is on its way: wait for it at the gate.
     const failed = run(
       atAdGate(),
       { type: "WATCH_AD" },
-      { type: "GATE_CHANGED", gate: PASS },
+      { type: "GATE_CHANGED", gate: PREPARING },
       { type: "AD_FAILED" },
     );
     expect(failed).toMatchObject({
       phase: "gate",
-      gate: PASS,
+      gate: PREPARING,
       notice: "ad_failed",
     });
 
@@ -140,11 +136,9 @@ describe("intervention flow: ad first, decision after", () => {
     });
   });
 
-  it("does not start an ad from a gate that has no ad to show", () => {
-    for (const gate of [PREPARING, PASS]) {
-      const state = createInterventionFlow({ gate });
-      expect(run(state, { type: "WATCH_AD" })).toEqual(state);
-    }
+  it("does not start an ad from a gate whose ad is still loading", () => {
+    const state = createInterventionFlow({ gate: PREPARING });
+    expect(run(state, { type: "WATCH_AD" })).toEqual(state);
   });
 
   it("clears the previous notice once the user acts again", () => {
@@ -159,55 +153,35 @@ describe("intervention flow: ad first, decision after", () => {
   });
 });
 
-describe("intervention flow: saved pass", () => {
-  it("sends a saved pass to the same duration choice the ad earns", () => {
-    const deciding = run(createInterventionFlow({ gate: PASS }), {
-      type: "USE_PASS",
-    });
-    expect(deciding).toMatchObject({ phase: "decision", earnedBy: "wallet" });
-    expect(canChooseDuration(deciding)).toBe(true);
-    expect(enterMethod(deciding)).toBe("wallet");
-    expect(run(deciding, { type: "ENTER" }).phase).toBe("entering");
-  });
-
-  it("lets a saved pass in without watching the ad that is ready", () => {
-    const gate = createInterventionFlow({ gate: AD_AND_PASS });
-    expect(gate.phase).toBe("gate");
-    expect(run(gate, { type: "USE_PASS" })).toMatchObject({
-      phase: "decision",
-      earnedBy: "wallet",
-    });
-    // The ad stays an option for whoever prefers to keep the pass.
-    expect(run(gate, { type: "WATCH_AD" }).phase).toBe("ad");
-  });
-
-  it("ignores a pass tap when there is no pass", () => {
-    const state = atAdGate();
-    expect(run(state, { type: "USE_PASS" })).toEqual(state);
-  });
-
-  it("keeps offering the pass when the ad fails", () => {
-    const failed = run(
-      createInterventionFlow({ gate: AD_AND_PASS }),
+describe("intervention flow: the ad is the only way to pay", () => {
+  it("pays for a visit with the ad just watched, or with the pause", () => {
+    const afterAd = run(
+      atAdGate(),
       { type: "WATCH_AD" },
-      { type: "GATE_CHANGED", gate: PASS },
-      { type: "AD_FAILED" },
+      { type: "AD_EARNED" },
+      { type: "CLAIM_CONFIRMED" },
     );
-    expect(failed).toMatchObject({ phase: "gate", gate: PASS, notice: "ad_failed" });
-    expect(run(failed, { type: "USE_PASS" }).phase).toBe("decision");
+    expect(enterMethod(afterAd)).toBe("fresh_reward");
+    const afterPause = run(
+      createInterventionFlow({ gate: NOTHING_LEFT }),
+      ...ticks(PAUSE_SECONDS),
+    );
+    expect(enterMethod(afterPause)).toBe("pause");
   });
 
-  it("keeps the chosen window on screen if the wallet unlock fails", () => {
+  it("keeps the chosen window on screen if the unlock after the ad fails", () => {
     const back = run(
-      createInterventionFlow({ gate: PASS }),
-      { type: "USE_PASS" },
+      atAdGate(),
+      { type: "WATCH_AD" },
+      { type: "AD_EARNED" },
+      { type: "CLAIM_CONFIRMED" },
       { type: "CHOOSE_DURATION", seconds: 1_800 },
       { type: "ENTER" },
       { type: "ENTER_FAILED", stage: "unlock" },
     );
     expect(back).toMatchObject({
       phase: "decision",
-      earnedBy: "wallet",
+      earnedBy: "ad",
       durationSeconds: 1_800,
       notice: "unlock_failed",
     });
@@ -239,7 +213,6 @@ describe("intervention flow: timed pause", () => {
     const decision = run(almost, { type: "PAUSE_TICK" });
     expect(decision).toMatchObject({ phase: "decision", earnedBy: "pause" });
     expect(enterMethod(decision)).toBe("pause");
-    expect(keepsRewardOnLeave(decision)).toBe(false);
   });
 
   it("can be abandoned at any second", () => {

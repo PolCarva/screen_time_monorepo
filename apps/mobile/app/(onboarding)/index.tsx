@@ -56,8 +56,8 @@ const steps = [
       "Vuelve, o entra\npor un tiempo claro.",
     ),
     body: localize(
-      "Going back is one tap. A pass keeps the app open for as long as you choose, from 1 minute to the rest of the day, and the pause returns the moment that time is up.",
-      "Volver requiere un toque. Un pase mantiene la app abierta durante el tiempo que elijas, de 1 minuto al resto del día, y la pausa vuelve en el momento en que ese tiempo se cumple.",
+      "Going back is one tap. Watching an ad keeps the app open for as long as you choose, from 1 minute to the rest of the day, and the pause returns the moment that time is up. If no ad is available, a short pause still lets you in.",
+      "Volver requiere un toque. Ver un anuncio mantiene la app abierta durante el tiempo que elijas, de 1 minuto al resto del día, y la pausa vuelve en el momento en que ese tiempo se cumple. Si no hay anuncio disponible, una pausa breve te deja entrar igual.",
     ),
     action: localize("Continue", "Continuar"),
     mode: "progress" as const,
@@ -69,8 +69,8 @@ const steps = [
       "Los nombres y el detalle\nse quedan en tu teléfono.",
     ),
     body: localize(
-      "Your apps and your history stay on your phone. Still only shares general counts for your passes and the fund.",
-      "Tus apps y tu historial se quedan en tu teléfono. Solo compartimos conteos generales para tus pases y el fondo.",
+      "Your apps and your history stay on your phone. Still only shares general counts for the ads you watch and the fund.",
+      "Tus apps y tu historial se quedan en tu teléfono. Solo compartimos conteos generales de los anuncios que ves y del fondo.",
     ),
     action: localize("Continue", "Continuar"),
     mode: "progress" as const,

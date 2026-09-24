@@ -1,6 +1,0 @@
-appId: com.apple.mobilecal
----
-- launchApp
-- assertNotVisible: "No passes available"
-- assertNotVisible: "Use 1 pass · 10 min"
-- takeScreenshot: still-target-unlocked

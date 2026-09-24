@@ -85,7 +85,7 @@ export type AccessWindow = {
 };
 export type PendingUnlockEvent = {
   clientSessionId: string;
-  /** A pass is the only paid way in; older builds may still queue "emergency". */
+  /** An ad is the only paid way in; older builds may still queue "emergency". */
   source: "rewarded";
   durationSeconds: number;
   startedAt: string;

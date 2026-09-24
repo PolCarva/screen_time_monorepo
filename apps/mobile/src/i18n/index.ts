@@ -9,17 +9,15 @@ import {
 } from "@/lib/system-strings";
 
 const en = {
-  today: "Today", tokens: "Passes", impact: "Impact", settings: "Settings",
+  today: "Today", impact: "Impact", settings: "Settings",
   greeting: "Today, recorded", screenTime: "Screen time", avoided: "Opens avoided", saved: "Estimated time saved",
-  available: "passes available", getToken: "Get 1 pass",
-  voteNow: "Vote now", estimated: "Estimated", nowNot: "Don't enter", useToken: "Use 1 pass",
+  voteNow: "Vote now", estimated: "Estimated", nowNot: "Don't enter",
   interventionTitle: "A pause before entering", permissionHealth: "Restriction health",
 } as const;
 const es: Record<keyof typeof en, string> = {
-  today: "Hoy", tokens: "Pases", impact: "Impacto", settings: "Ajustes",
+  today: "Hoy", impact: "Impacto", settings: "Ajustes",
   greeting: "Hoy, registrado", screenTime: "Tiempo en pantalla", avoided: "Entradas evitadas", saved: "Tiempo ahorrado estimado",
-  available: "pases disponibles", getToken: "Conseguir 1 pase",
-  voteNow: "Votar ahora", estimated: "Estimado", nowNot: "No entrar", useToken: "Usar 1 pase",
+  voteNow: "Votar ahora", estimated: "Estimado", nowNot: "No entrar",
   interventionTitle: "Una pausa antes de entrar", permissionHealth: "Estado de las restricciones",
 };
 

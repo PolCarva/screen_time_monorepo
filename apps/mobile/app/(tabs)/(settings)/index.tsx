@@ -1,7 +1,6 @@
 import { AdsConsent } from "react-native-google-mobile-ads";
-import { type UpdateUserPreferencesRequest } from "@screen-time/contracts";
 import { router, useFocusEffect, useIsFocused } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Platform,
   Share,
@@ -10,12 +9,11 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated from "react-native-reanimated";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { IdentityButtons } from "@/components/identity-buttons";
-import { Breathing, PressableScale, rise } from "@/components/motion";
+import { Breathing, PressableScale } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import {
   closeAction,
@@ -24,7 +22,7 @@ import {
   useStillSheet,
 } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
-import { formatClockTime, formatDayAndTime, localize } from "@/i18n";
+import { formatDayAndTime, localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import {
@@ -64,83 +62,14 @@ function authorizationLabel(
   }
 }
 
-function Stepper({
-  label,
-  value,
-  minimum,
-  maximum,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  minimum: number;
-  maximum: number;
-  onChange(value: number): void;
-}) {
-  // The new number comes in from the side it moved towards: up when it grows.
-  const previous = useRef(value);
-  const moved = previous.current !== value;
-  const direction = value > previous.current ? 1 : -1;
-  useEffect(() => {
-    previous.current = value;
-  }, [value]);
-  return (
-    <View style={styles.stepperRow}>
-      <Body style={styles.stepperLabel}>{label}</Body>
-      <View style={styles.stepper}>
-        <PressableScale
-          accessibilityLabel={localize(`Reduce ${label}`, `Reducir ${label}`)}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: value <= minimum }}
-          dimTo={0.55}
-          disabled={value <= minimum}
-          onPress={() => onChange(Math.max(minimum, value - 1))}
-          scaleTo={1}
-          style={[styles.stepperButton, value <= minimum && styles.disabled]}
-        >
-          <Text style={styles.stepperButtonLabel}>−</Text>
-        </PressableScale>
-        <View style={styles.stepperValueBox}>
-          <Animated.Text
-            accessibilityLiveRegion="polite"
-            entering={moved ? rise(0, 8 * direction, 220) : undefined}
-            key={value}
-            style={styles.stepperValue}
-          >
-            {value}
-          </Animated.Text>
-        </View>
-        <PressableScale
-          accessibilityLabel={localize(
-            `Increase ${label}`,
-            `Aumentar ${label}`,
-          )}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: value >= maximum }}
-          dimTo={0.55}
-          disabled={value >= maximum}
-          onPress={() => onChange(Math.min(maximum, value + 1))}
-          scaleTo={1}
-          style={[styles.stepperButton, value >= maximum && styles.disabled]}
-        >
-          <Text style={styles.stepperButtonLabel}>+</Text>
-        </PressableScale>
-      </View>
-    </View>
-  );
-}
-
 export default function SettingsScreen() {
   const {
     clearLocalData,
     config,
     health,
     lastSyncedAt,
-    preferences,
     refresh,
-    savePreferences,
     syncStatus,
-    wallet,
   } = useAppState();
   const shortcutTargets = useShortcutTargets();
   const sheet = useStillSheet();
@@ -152,13 +81,6 @@ export default function SettingsScreen() {
   const [identityBusy, setIdentityBusy] = useState<IdentityProvider | null>(
     null,
   );
-  const [preferencesBusy, setPreferencesBusy] = useState(false);
-  const [draftPreferences, setDraftPreferences] =
-    useState<UpdateUserPreferencesRequest>({
-      dailyPassLimit: preferences.dailyPassLimit,
-      unlockDurationSeconds: preferences.unlockDurationSeconds,
-      maxRewardedAdsPerUtcDay: preferences.maxRewardedAdsPerUtcDay,
-    });
   const accountLinked = linkedIdentities.length > 0;
   const offersApple = identityProviders().includes("apple");
 
@@ -180,33 +102,6 @@ export default function SettingsScreen() {
       };
     }, []),
   );
-  useEffect(() => {
-    setDraftPreferences({
-      dailyPassLimit: preferences.dailyPassLimit,
-      unlockDurationSeconds: preferences.unlockDurationSeconds,
-      maxRewardedAdsPerUtcDay: preferences.maxRewardedAdsPerUtcDay,
-    });
-  }, [preferences]);
-
-  async function persistPreferences() {
-    setPreferencesBusy(true);
-    try {
-      await savePreferences(draftPreferences);
-      sheet.toast({ message: localize("Limits saved.", "Límites guardados.") });
-    } catch {
-      void sheet.show({
-        title: localize(
-          "Your limits weren't saved",
-          "No se guardaron tus límites",
-        ),
-        message: localize("Check your connection.", "Revisa tu conexión."),
-        actions: [retryAction(() => persistPreferences()), closeAction()],
-      });
-    } finally {
-      setPreferencesBusy(false);
-    }
-  }
-
   async function link(provider: IdentityProvider) {
     if (
       !isIdentityProviderEnabled(provider) ||
@@ -355,8 +250,8 @@ export default function SettingsScreen() {
     void sheet.show({
       title: localize("Delete your account?", "¿Eliminar tu cuenta?"),
       message: localize(
-        "Your account, your passes and your history are erased. The donation record is kept without anything that identifies you. This is permanent.",
-        "Se borran tu cuenta, tus pases y tu historial. El registro de donaciones se conserva sin datos que te identifiquen. Es definitivo.",
+        "Your account and your history are erased. The donation record is kept without anything that identifies you. This is permanent.",
+        "Se borran tu cuenta y tu historial. El registro de donaciones se conserva sin datos que te identifiquen. Es definitivo.",
       ),
       actions: [
         {
@@ -408,20 +303,6 @@ export default function SettingsScreen() {
       : lastSyncedAt
         ? formatDayAndTime(new Date(lastSyncedAt))
         : localize("Updating…", "Actualizando…");
-  // The server resets the daily limits at UTC midnight; say when that is here.
-  // Saved passes never expire, so only the limits start over.
-  const resetAt = new Date(wallet.resetAt);
-  const passesRenewal =
-    Number.isFinite(resetAt.getTime()) && resetAt.getTime() > 0
-      ? localize(
-          `These limits start over every day at ${formatClockTime(resetAt)}. Saved passes stay saved.`,
-          `Estos límites vuelven a empezar cada día a las ${formatClockTime(resetAt)}. Los pases guardados se mantienen.`,
-        )
-      : localize(
-          "These limits start over every day. Saved passes stay saved.",
-          "Estos límites vuelven a empezar cada día. Los pases guardados se mantienen.",
-        );
-
   return (
     <Screen contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
@@ -551,51 +432,7 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>02 / {localize("PASS LIMITS", "LÍMITES DE PASES")}</Eyebrow>
-          <Mono>{localize("PER DAY", "POR DÍA")}</Mono>
-        </View>
-        <Heading style={styles.sectionTitle}>
-          {localize("Choose your guardrails.", "Elige tus límites.")}
-        </Heading>
-        <Body style={styles.muted}>{passesRenewal}</Body>
-        <Stepper
-          label={localize("Daily passes", "Pases diarios")}
-          value={draftPreferences.dailyPassLimit}
-          minimum={1}
-          maximum={20}
-          onChange={(dailyPassLimit) =>
-            setDraftPreferences((current) => ({
-              ...current,
-              dailyPassLimit,
-            }))
-          }
-        />
-        <Stepper
-          label={localize("Maximum ads", "Máximo de anuncios")}
-          value={draftPreferences.maxRewardedAdsPerUtcDay}
-          minimum={0}
-          maximum={config.maxRewardedAdsPerUtcDay}
-          onChange={(maxRewardedAdsPerUtcDay) =>
-            setDraftPreferences((current) => ({
-              ...current,
-              maxRewardedAdsPerUtcDay,
-            }))
-          }
-        />
-        <PrimaryButton
-          disabled={preferencesBusy || syncStatus === "offline"}
-          onPress={() => void persistPreferences()}
-          variant="secondary"
-        >
-          {preferencesBusy
-            ? localize("Saving…", "Guardando…")
-            : localize("Save pass limits", "Guardar límites de pases")}
-        </PrimaryButton>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeading}>
-          <Eyebrow>03 / {localize("ACCOUNT", "CUENTA")}</Eyebrow>
+          <Eyebrow>02 / {localize("ACCOUNT", "CUENTA")}</Eyebrow>
           <Mono>{localize("OPTIONAL", "OPCIONAL")}</Mono>
         </View>
         <Heading style={styles.sectionTitle}>
@@ -626,7 +463,7 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
-          <Eyebrow>04 / {localize("IMPROVE STILL", "MEJORAR STILL")}</Eyebrow>
+          <Eyebrow>03 / {localize("IMPROVE STILL", "MEJORAR STILL")}</Eyebrow>
           <Mono>
             {analyticsEnabled
               ? localize("ON", "ACTIVO")
@@ -666,7 +503,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Eyebrow>05 / {localize("YOUR DATA", "TUS DATOS")}</Eyebrow>
+        <Eyebrow>04 / {localize("YOUR DATA", "TUS DATOS")}</Eyebrow>
         <Heading style={styles.sectionTitle}>
           {localize(
             "Your data, whenever you want it.",
@@ -747,55 +584,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
   },
-  disabled: { opacity: 0.42 },
   between: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   switchCopy: { flex: 1, paddingRight: spacing.md, gap: spacing.xs },
-  stepperRow: {
-    minHeight: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  stepperLabel: {
-    flex: 1,
-    color: colors.graphite,
-    fontFamily: fonts.brandSemiBold,
-    fontSize: 14,
-  },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.fog,
-    borderRadius: radius.control,
-    overflow: "hidden",
-  },
-  stepperButton: {
-    width: 44,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.chalkRaised,
-  },
-  stepperButtonLabel: {
-    color: colors.graphite,
-    fontFamily: fonts.brandMedium,
-    fontSize: 22,
-  },
-  stepperValueBox: { minWidth: 42, overflow: "hidden" },
-  stepperValue: {
-    minWidth: 42,
-    color: colors.graphite,
-    fontFamily: fonts.mono,
-    fontSize: 15,
-    fontVariant: ["tabular-nums"],
-    textAlign: "center",
-  },
   privacyBody: { fontSize: 14, lineHeight: 22 },
   textAction: {
     minHeight: 48,

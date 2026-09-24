@@ -52,11 +52,6 @@ function forSettle({ current }: {
 
 const androidTabs = [
   { name: "(today)", label: () => t("today"), icon: "clock-outline" },
-  {
-    name: "(tokens)",
-    label: () => t("tokens"),
-    icon: "ticket-confirmation-outline",
-  },
   { name: "(impact)", label: () => t("impact"), icon: "receipt-text-outline" },
   { name: "(settings)", label: () => t("settings"), icon: "tune-variant" },
 ] as const;
@@ -183,13 +178,6 @@ export default function TabsLayout() {
           md="schedule"
         />
         <NativeTabs.Trigger.Label>{t("today")}</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="(tokens)">
-        <NativeTabs.Trigger.Icon
-          sf={{ default: "ticket", selected: "ticket.fill" }}
-          md="confirmation_number"
-        />
-        <NativeTabs.Trigger.Label>{t("tokens")}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(impact)">
         <NativeTabs.Trigger.Icon

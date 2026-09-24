@@ -1,4 +1,4 @@
-import type { RemoteConfig, Wallet } from "./schemas";
+import type { RemoteConfig } from "./schemas";
 
 export type RestrictionState =
   | "restricted"
@@ -78,12 +78,14 @@ export function transitionReward(
   return next;
 }
 
-export function canRequestReward(wallet: Wallet, config: RemoteConfig): boolean {
-  return (
-    wallet.rewardedBalance < config.maxRewardTokenBalance &&
-    wallet.rewardAdsRemainingToday > 0 &&
-    config.rewardProvider !== "disabled"
-  );
+/**
+ * Whether the pause may offer an ad. There is no limit on ads and no wallet to
+ * fill (docs/ads-only-pause-plan.md, D3-D5): only the operational switch.
+ */
+export function canRequestReward(
+  config: Pick<RemoteConfig, "rewardProvider">,
+): boolean {
+  return config.rewardProvider === "admob";
 }
 
 /**

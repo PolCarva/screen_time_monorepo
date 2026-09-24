@@ -9,9 +9,7 @@ import {
   unlockDurationSecondsSchema,
   userPreferencesSchema,
   type RemoteConfig,
-  type UpdateUserPreferencesRequest,
   type UserPreferences,
-  type Wallet,
 } from "@screen-time/contracts";
 import {
   createContext,
@@ -45,19 +43,16 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import { localDateString, type DayMetrics } from "@/lib/today-summary";
 import {
-  addProvisionalReward,
   isDefinitiveUnlockRefusal,
   mergePendingUnlockEvents,
-  projectPendingUnlocks,
-  spendLocalWallet,
   splitReportableUnlocks,
+  unlockReportBody,
 } from "@/state/offline-policy";
 import {
   restrictionEngine,
   type PendingUnlockEvent,
   type RestrictionHealth,
   type ShortcutUnlockSession,
-  type UnlockSession,
 } from "@/native/restriction-engine";
 
 type LocalStats = {
@@ -70,33 +65,27 @@ type LocalStats = {
 type SyncStatus = "syncing" | "online" | "offline";
 type AppStateValue = {
   ready: boolean;
-  walletHydrated: boolean;
+  /** The first sync finished (or failed and fell back to the cache). */
+  hydrated: boolean;
   onboarded: boolean;
   deviceId: string | null;
   setOnboarded(value: boolean): Promise<void>;
   config: RemoteConfig;
   preferences: UserPreferences;
-  wallet: Wallet;
   stats: LocalStats;
   health: RestrictionHealth;
   refresh(): Promise<void>;
-  savePreferences(
-    preferences: UpdateUserPreferencesRequest,
-  ): Promise<UserPreferences>;
-  addProvisionalToken(): Promise<void>;
-  unlockCurrent(options: {
-    freshReward?: boolean;
-    /** The window the user dragged the slider to, before it is resolved. */
-    durationSeconds: number;
-    /** The ad that just paid for this visit, so the server spends its pass. */
-    rewardIntentId?: string;
-  }): Promise<UnlockSession>;
+  /**
+   * Opens the app after the ad just watched. The ad is the only way to pay:
+   * there are no saved passes (docs/ads-only-pause-plan.md, D2).
+   */
   unlockShortcut(
     contextId: string,
     options: {
-      freshReward?: boolean;
+      /** The window the user dragged the slider to, before it is resolved. */
       durationSeconds: number;
-      rewardIntentId?: string;
+      /** The ad that paid for this visit, so the server charges it to that ad. */
+      rewardIntentId: string;
     },
   ): Promise<ShortcutUnlockSession>;
   /**
@@ -121,13 +110,12 @@ function withDevOverrides(config: RemoteConfig): RemoteConfig {
   });
 }
 
-const defaultWallet: Wallet = {
-  rewardedBalance: 0,
-  rewardedPassesRemainingToday: 0,
-  unresolvedRewardClaims: 0,
-  rewardAdsRemainingToday: 0,
-  resetAt: "1970-01-01T00:00:00.000Z",
-};
+/** When the native day counters roll over: the next UTC midnight. */
+function nextUtcMidnight(now = new Date()): string {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  ).toISOString();
+}
 function preferencesFromConfig(config: RemoteConfig): UserPreferences {
   const parsedDuration = unlockDurationSecondsSchema.safeParse(
     config.unlockDurationSeconds,
@@ -160,14 +148,7 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 async function reportUnlock(event: PendingUnlockEvent, deviceId: string) {
   return apiFetch("/api/v1/unlock-sessions", unlockResponseSchema, {
     method: "POST",
-    body: JSON.stringify({
-      clientSessionId: event.clientSessionId,
-      source: "rewarded",
-      durationSeconds: event.durationSeconds,
-      startedAt: event.startedAt,
-      deviceId,
-      appCategory: "other",
-    }),
+    body: JSON.stringify(unlockReportBody(event, deviceId)),
     headers: { "idempotency-key": event.clientSessionId },
   });
 }
@@ -227,13 +208,11 @@ const adClaimResponseSchema = z.object({
 });
 
 // Claim failures that will never succeed on retry, so the queued result is
-// dropped. The visit it paid for is still reported: the server spends the pass
-// only if AdMob's callback already turned the ad into one.
+// dropped. The visit it paid for is still reported: the server charges it to
+// the ad only if AdMob's callback already confirmed it.
 const DEFINITIVE_CLAIM_FAILURES = new Set([
   "reward_intent_expired",
   "reward_intent_not_found",
-  "wallet_full",
-  "daily_reward_limit",
 ]);
 
 const PRESIGNED_INTENTS_KEY = "presignedRewardIntents";
@@ -243,10 +222,10 @@ const ACCESS_DURATION_KEY = "lastAccessDurationSeconds";
 /**
  * Claims rewards the Android shield earned while React Native was not running.
  * The shield already granted the access window and queued the unlock report, so
- * claiming here is what actually turns the earned ad into a server-side pass
- * (which the queued rewarded unlock then spends, netting to zero — or, when the
- * user declined after the ad, stays as a saved pass, D4). Idempotent by
- * clientEventId; runs before unlock reports so the pass exists before it is spent.
+ * claiming here is what records the earned ad on the server (the queued visit
+ * then spends it, netting to zero; declining after the ad keeps nothing).
+ * Idempotent by clientEventId; runs before unlock reports so the ad is claimed
+ * before the visit is charged to it.
  * Returns the intents whose claim is still pending, so their visits wait.
  */
 async function claimPendingAdResults(): Promise<Set<string>> {
@@ -301,8 +280,8 @@ async function claimPendingAdResults(): Promise<Set<string>> {
 /**
  * Tops the shield's pre-signed intent buffer back up to capacity while React
  * Native is in the foreground, so the ad flow never reaches the network during
- * an intervention. Server caps (5 waiting, 24-hour expiry) are respected: a full
- * wallet or offline state just stops early and reuses what remains.
+ * an intervention. Server caps (5 waiting, 24-hour expiry) are respected:
+ * reaching them or being offline just stops early and reuses what remains.
  */
 async function syncRewardIntentBuffer(deviceId: string): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -341,8 +320,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState<UserPreferences>(() =>
     preferencesFromConfig(defaultRemoteConfig),
   );
-  const [wallet, setWallet] = useState(defaultWallet);
-  const [walletHydrated, setWalletHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [stats, setStats] = useState(defaultStats);
   const [health, setHealth] = useState(defaultHealth);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("syncing");
@@ -380,10 +358,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     let registrationSynced = false;
     let configSynced = false;
     let preferencesSynced = false;
-    let walletSynced = false;
     setHealth(await restrictionEngine.getHealth().catch(() => defaultHealth));
     let pendingUnlocksAwaitingReport: PendingUnlockEvent[] = [];
-    const reportedUnlocksThisRefresh: PendingUnlockEvent[] = [];
     let installationId = await getJson<string | null>("installationId", null);
     if (!installationId) {
       installationId = Crypto.randomUUID();
@@ -444,7 +420,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     }
 
     // Android A2: claim rewards the shield earned before reporting the unlocks
-    // it performed, so a rewarded pass exists before the unlock spends it. Then
+    // it performed, so each visit is charged to an ad the server has. Then
     // refill the shield's pre-signed intent buffer for next time.
     let unclaimedIntentIds = new Set<string>();
     if (Platform.OS === "android" && activeDeviceId) {
@@ -477,13 +453,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       for (const event of reportable) {
         try {
           await reportUnlock(event, activeDeviceId);
-          reportedUnlocksThisRefresh.push(event);
           await restrictionEngine
             .acknowledgeUnlockEvent(event.clientSessionId)
             .catch(() => undefined);
         } catch (error) {
-          // Includes the emergency visits older builds queued: the server no
-          // longer accepts them and they have nothing left to spend.
+          // Includes the emergency and saved-pass visits older builds queued:
+          // the server no longer accepts them and they have nothing to spend.
           if (error instanceof ApiError && isDefinitiveUnlockRefusal(error.code)) {
             await restrictionEngine
               .acknowledgeUnlockEvent(event.clientSessionId)
@@ -498,13 +473,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     }
     pendingUnlocksAwaitingReport = remaining;
     await setJson("pendingUnlockReports", remaining);
-    // Visits still waiting for their ad's claim net to zero: the reward and the
-    // spend reach the server together.
-    const unreportedSpends = (events: PendingUnlockEvent[]) =>
-      events.filter(
-        (event) =>
-          !(event.rewardIntentId && unclaimedIntentIds.has(event.rewardIntentId)),
-      );
 
     try {
       const local = await restrictionEngine.getLocalWellbeing();
@@ -537,40 +505,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         history: Array.isArray(cached.history) ? cached.history : [],
       });
     }
-    try {
-      const { walletSchema } = await import("@screen-time/contracts");
-      const serverWallet = await apiFetch(
-        `/api/v1/wallet?refresh=${Date.now()}`,
-        walletSchema,
-        { cache: "no-store" },
-      );
-      walletSynced = true;
-      const projectedWallet = projectPendingUnlocks(
-        serverWallet,
-        unreportedSpends(pendingUnlocksAwaitingReport),
-      );
-      setWallet(projectedWallet);
-      await setJson("wallet", projectedWallet);
-    } catch {
-      const cachedWallet = await getJson("wallet", defaultWallet);
-      const projectedWallet = projectPendingUnlocks(
-        cachedWallet,
-        unreportedSpends(
-          mergePendingUnlockEvents(
-            pendingUnlocksAwaitingReport,
-            reportedUnlocksThisRefresh,
-          ),
-        ),
-      );
-      setWallet(projectedWallet);
-      await setJson("wallet", projectedWallet);
-    }
-    setWalletHydrated(true);
+    setHydrated(true);
     const fullySynced =
       registrationSynced &&
       configSynced &&
       preferencesSynced &&
-      walletSynced &&
       pendingUnlocksAwaitingReport.length === 0;
     setSyncStatus(fullySynced ? "online" : "offline");
     if (fullySynced) {
@@ -581,23 +520,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       setLastSyncedAt(await getJson<string | null>("lastSyncedAt", null));
     }
   }, []);
-  const savePreferences = useCallback(
-    async (input: UpdateUserPreferencesRequest) => {
-      const saved = await apiFetch(
-        "/api/v1/preferences",
-        userPreferencesSchema,
-        {
-          method: "PUT",
-          body: JSON.stringify(input),
-        },
-      );
-      setPreferences(saved);
-      await setJson("userPreferences", saved);
-      await refresh();
-      return saved;
-    },
-    [refresh],
-  );
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -608,27 +530,27 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, [refresh]);
   useEffect(() => {
-    if (!walletHydrated) return;
+    if (!hydrated) return;
     const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
     void (async () => {
       if (Platform.OS === "ios") {
         await restrictionEngine.enableShortcutMode();
       }
+      // The native bridges keep their signature, but there is no saved pass
+      // for the shield to offer (docs/ads-only-pause-plan.md, D9).
       await restrictionEngine.syncWallet(
-        Math.min(wallet.rewardedBalance, wallet.rewardedPassesRemainingToday),
-        wallet.resetAt,
+        0,
+        nextUtcMidnight(),
         config.estimatedMinutesPerAvoidedOpen,
         preferences.unlockDurationSeconds,
         restrictionsEnabled,
       );
       if (Platform.OS === "android") {
         // Let the native shield preload a rewarded ad using the same
-        // eligibility the pause uses (getInterventionOptions): an ad pays for a
-        // visit, so none is offered once today's passes are used up.
+        // eligibility the pause uses (getInterventionOptions): no limit on ads,
+        // only the switches.
         await restrictionEngine.syncRewardConfig?.(
-          restrictionsEnabled &&
-            canRequestReward(wallet, config) &&
-            wallet.rewardedPassesRemainingToday > 0,
+          restrictionsEnabled && canRequestReward(config),
           androidRewardedAdUnitId,
           config.rewardProvider,
         );
@@ -639,37 +561,10 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     config.androidRestrictionEnabled,
     config.estimatedMinutesPerAvoidedOpen,
     config.iosRestrictionEnabled,
+    config.rewardProvider,
+    hydrated,
     preferences.unlockDurationSeconds,
-    wallet.resetAt,
-    wallet.rewardedBalance,
-    wallet.rewardedPassesRemainingToday,
-    walletHydrated,
   ]);
-  const addProvisionalToken = useCallback(async () => {
-    const next = addProvisionalReward(wallet, config.maxRewardTokenBalance);
-    setWallet(next);
-    await setJson("wallet", next);
-  }, [config.maxRewardTokenBalance, wallet]);
-  /**
-   * Mirrors the spend locally so the next pause does not offer a pass that was
-   * just used. A fresh ad earns the pass it spends. The visit is already
-   * granted, so a projection the wallet cannot cover is left to the server.
-   */
-  const projectSpend = useCallback(
-    (freshReward?: boolean) => {
-      const spendable = freshReward
-        ? addProvisionalReward(wallet, config.maxRewardTokenBalance)
-        : wallet;
-      try {
-        const next = spendLocalWallet(spendable);
-        setWallet(next);
-        void setJson("wallet", next);
-      } catch {
-        // The server's answer on the next sync is the truth.
-      }
-    },
-    [config.maxRewardTokenBalance, wallet],
-  );
   const clearLocalData = useCallback(async () => {
     const cleanup = await Promise.allSettled([
       restrictionEngine.resetLocalData(),
@@ -679,8 +574,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setDeviceId(null);
     setConfig(defaultRemoteConfig);
     setPreferences(preferencesFromConfig(defaultRemoteConfig));
-    setWallet(defaultWallet);
-    setWalletHydrated(false);
+    setHydrated(false);
     setStats(defaultStats);
     setHealth(defaultHealth);
     setSyncStatus("offline");
@@ -689,94 +583,34 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     if (cleanup.some((result) => result.status === "rejected"))
       throw new Error("local_cleanup_incomplete");
   }, []);
-  const unlockCurrent = useCallback(async (options: {
-    freshReward?: boolean;
-    durationSeconds: number;
-    rewardIntentId?: string;
-  }) => {
-    const durationSeconds = resolveAccessDurationSeconds(
-      options.durationSeconds,
-    );
-    const restrictionsEnabled =
-      Platform.OS === "ios"
-        ? config.iosRestrictionEnabled
-        : config.androidRestrictionEnabled;
-    if (!restrictionsEnabled) throw new Error("restrictions_disabled");
-    if (!deviceId) throw new Error("backend_required");
-    // A pass pays for every paid visit: the one an ad just earned, or one
-    // saved earlier. Emergency access no longer exists.
-    if (
-      !options.freshReward &&
-      (wallet.rewardedBalance < 1 || wallet.rewardedPassesRemainingToday < 1)
-    )
-      throw new Error("no_unlocks");
-
-    const event: PendingUnlockEvent = {
-      clientSessionId: Crypto.randomUUID(),
-      source: "rewarded",
-      durationSeconds,
-      startedAt: new Date().toISOString(),
-      ...(options.rewardIntentId ? { rewardIntentId: options.rewardIntentId } : {}),
-    };
-
-    // Start the native unlock first. If Screen Time cannot create the session,
-    // the reward must remain untouched so the user can retry safely.
-    const nativeSession = await restrictionEngine.startUnlock(
-      {
-        opaqueId: "current",
-        platform: Platform.OS === "ios" ? "ios" : "android",
-      },
-      durationSeconds,
-    );
-
-    projectSpend(options.freshReward);
-    await reportOrQueueUnlock(event, deviceId);
-    return nativeSession;
-  }, [
-    config.androidRestrictionEnabled,
-    config.iosRestrictionEnabled,
-    deviceId,
-    projectSpend,
-    wallet,
-  ]);
   const unlockShortcut = useCallback(
     async (
       contextId: string,
-      options: {
-        freshReward?: boolean;
-        durationSeconds: number;
-        rewardIntentId?: string;
-      },
+      options: { durationSeconds: number; rewardIntentId: string },
     ) => {
       if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
       const durationSeconds = resolveAccessDurationSeconds(
         options.durationSeconds,
       );
       if (!deviceId) throw new Error("backend_required");
-      if (
-        !options.freshReward &&
-        (wallet.rewardedBalance < 1 || wallet.rewardedPassesRemainingToday < 1)
-      )
-        throw new Error("no_unlocks");
+      // Only the ad just watched pays for a visit; there is nothing saved.
+      if (!options.rewardIntentId) throw new Error("no_unlocks");
 
       const event: PendingUnlockEvent = {
         clientSessionId: Crypto.randomUUID(),
         source: "rewarded",
         durationSeconds,
         startedAt: new Date().toISOString(),
-        ...(options.rewardIntentId
-          ? { rewardIntentId: options.rewardIntentId }
-          : {}),
+        rewardIntentId: options.rewardIntentId,
       };
       const session = await restrictionEngine.completeShortcutIntervention(
         contextId,
         durationSeconds,
       );
-      projectSpend(options.freshReward);
       await reportOrQueueUnlock(event, deviceId);
       return session;
     },
-    [deviceId, projectSpend, wallet],
+    [deviceId],
   );
   const unlockShortcutWithPause = useCallback(async (contextId: string) => {
     if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
@@ -791,19 +625,15 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const value = useMemo(
     () => ({
       ready,
-      walletHydrated,
+      hydrated,
       onboarded,
       deviceId,
       setOnboarded,
       config,
       preferences,
-      wallet,
       stats,
       health,
       refresh,
-      savePreferences,
-      addProvisionalToken,
-      unlockCurrent,
       unlockShortcut,
       unlockShortcutWithPause,
       cancelShortcut,
@@ -815,19 +645,15 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     }),
     [
       ready,
-      walletHydrated,
+      hydrated,
       onboarded,
       deviceId,
       setOnboarded,
       config,
       preferences,
-      wallet,
       stats,
       health,
       refresh,
-      savePreferences,
-      addProvisionalToken,
-      unlockCurrent,
       unlockShortcut,
       unlockShortcutWithPause,
       cancelShortcut,

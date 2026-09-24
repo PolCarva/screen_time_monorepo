@@ -11,56 +11,33 @@ const base = {
   hasDevice: true,
   rewardProvider: "admob" as const,
   rewardStatus: "ready" as const,
-  rewardAdsRemainingToday: 3,
-  rewardedPassesRemainingToday: 4,
-  rewardedBalance: 1,
-  maxRewardTokenBalance: 5,
 };
 
 describe("what the pause can offer", () => {
-  it("offers the prepared ad and the saved pass side by side", () => {
-    expect(getInterventionOptions(base)).toEqual({ ad: "ready", pass: true });
-  });
-
-  it("offers the ad alone to someone without a saved pass", () => {
-    expect(getInterventionOptions({ ...base, rewardedBalance: 0 })).toEqual({
-      ad: "ready",
-      pass: false,
-    });
+  it("offers the prepared ad", () => {
+    expect(getInterventionOptions(base)).toEqual({ ad: "ready" });
   });
 
   it("waits for an eligible ad to finish preparing", () => {
-    expect(
-      getInterventionOptions({ ...base, rewardStatus: "preparing" }),
-    ).toEqual({ ad: "preparing", pass: true });
+    for (const rewardStatus of ["idle", "preparing"] as const)
+      expect(getInterventionOptions({ ...base, rewardStatus })).toEqual({
+        ad: "preparing",
+      });
   });
 
-  it("keeps the saved pass when the ad is unavailable", () => {
+  it("leaves nothing but the pause when the ad is unavailable", () => {
     expect(
       getInterventionOptions({ ...base, rewardStatus: "unavailable" }),
-    ).toEqual({ ad: "none", pass: true });
+    ).toEqual({ ad: "none" });
   });
 
-  it("offers only the pass once the wallet is full, since an ad could not add one", () => {
+  it("offers no ad while rewards are switched off or the device is unknown", () => {
     expect(
-      getInterventionOptions({ ...base, rewardedBalance: 5 }),
-    ).toEqual({ ad: "none", pass: true });
-  });
-
-  it("offers neither once today's passes are used up", () => {
-    expect(
-      getInterventionOptions({ ...base, rewardedPassesRemainingToday: 0 }),
-    ).toEqual({ ad: "none", pass: false });
-  });
-
-  it("leaves nothing but the pause without an ad or a pass", () => {
-    expect(
-      getInterventionOptions({
-        ...base,
-        rewardStatus: "unavailable",
-        rewardedBalance: 0,
-      }),
-    ).toEqual({ ad: "none", pass: false });
+      getInterventionOptions({ ...base, rewardProvider: "disabled" }),
+    ).toEqual({ ad: "none" });
+    expect(getInterventionOptions({ ...base, hasDevice: false })).toEqual({
+      ad: "none",
+    });
   });
 
   it("does not enable direct ads on an unsupported intervention", () => {
@@ -74,9 +51,9 @@ describe("the ad status the gate waits on", () => {
   it("waits for a fresh attempt instead of pausing on an earlier failure", () => {
     const status = rewardStatusForGate("unavailable", true);
     expect(status).toBe("preparing");
-    expect(
-      getInterventionOptions({ ...base, rewardedBalance: 0, rewardStatus: status }),
-    ).toEqual({ ad: "preparing", pass: false });
+    expect(getInterventionOptions({ ...base, rewardStatus: status })).toEqual({
+      ad: "preparing",
+    });
   });
 
   it("pauses once the fresh attempt has failed too", () => {
@@ -107,7 +84,7 @@ describe("iOS Shortcut return orchestration", () => {
 
     await completeShortcutAndReturn({
       contextId: "youtube-context",
-      freshReward: true,
+      rewardIntentId: "intent-1",
       durationSeconds: 1_800,
       unlockShortcut,
       onUnlockActivated,
@@ -115,8 +92,8 @@ describe("iOS Shortcut return orchestration", () => {
     });
 
     expect(unlockShortcut).toHaveBeenCalledWith("youtube-context", {
-      freshReward: true,
       durationSeconds: 1_800,
+      rewardIntentId: "intent-1",
     });
     expect(order).toEqual([
       "allowance",
@@ -141,7 +118,7 @@ describe("iOS Shortcut return orchestration", () => {
     expect(openUrl).not.toHaveBeenCalled();
   });
 
-  it("uses an existing pass without claiming a fresh reward", async () => {
+  it("hands back after the pause without naming an ad", async () => {
     const unlockShortcut = vi.fn(async () => ({
       returnUrl: "shortcuts://run-shortcut?name=Still%20-%20YouTube",
     }));
@@ -154,7 +131,6 @@ describe("iOS Shortcut return orchestration", () => {
     });
 
     expect(unlockShortcut).toHaveBeenCalledWith("youtube-context", {
-      freshReward: false,
       durationSeconds: 60,
     });
   });

@@ -1,28 +1,19 @@
-import type { Wallet } from "@screen-time/contracts";
-
 import type { PendingUnlockEvent } from "@/native/restriction-engine";
 
-export function addProvisionalReward(
-  wallet: Wallet,
-  maximumBalance: number,
-): Wallet {
+/**
+ * What `POST /api/v1/unlock-sessions` receives for a visit. It names the ad
+ * that paid for it: without that the server has nothing to charge the visit
+ * to and refuses it (saved passes are gone, docs/ads-only-pause-plan.md D6).
+ */
+export function unlockReportBody(event: PendingUnlockEvent, deviceId: string) {
   return {
-    ...wallet,
-    rewardedBalance: Math.min(maximumBalance, wallet.rewardedBalance + 1),
-    unresolvedRewardClaims: wallet.unresolvedRewardClaims + 1,
-  };
-}
-
-/** A pass is the only thing a visit can spend: emergency access was removed. */
-export function spendLocalWallet(wallet: Wallet): Wallet {
-  if (wallet.rewardedBalance < 1)
-    throw new Error("insufficient_rewarded_balance");
-  if (wallet.rewardedPassesRemainingToday < 1)
-    throw new Error("daily_pass_limit_reached");
-  return {
-    ...wallet,
-    rewardedBalance: wallet.rewardedBalance - 1,
-    rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday - 1,
+    clientSessionId: event.clientSessionId,
+    source: "rewarded" as const,
+    durationSeconds: event.durationSeconds,
+    startedAt: event.startedAt,
+    deviceId,
+    appCategory: "other" as const,
+    ...(event.rewardIntentId ? { rewardIntentId: event.rewardIntentId } : {}),
   };
 }
 
@@ -38,25 +29,10 @@ export function mergePendingUnlockEvents(
   );
 }
 
-export function projectPendingUnlocks(
-  serverWallet: Wallet,
-  events: PendingUnlockEvent[],
-): Wallet {
-  return events.reduce((wallet) => {
-    try {
-      return spendLocalWallet(wallet);
-    } catch {
-      // The server is authoritative when another client already spent the
-      // balance. Never let a local projection create a negative balance.
-      return wallet;
-    }
-  }, serverWallet);
-}
-
 /**
- * A visit paid by an ad the shield just showed spends the pass that ad earns.
+ * A visit paid by an ad the shield just showed spends what that ad earns.
  * Until that reward is claimed the server has nothing to spend, so the report
- * waits; reporting it first would take a pass the user saved earlier.
+ * waits and the reward and the spend reach the server together.
  */
 export function splitReportableUnlocks(
   events: PendingUnlockEvent[],
@@ -74,14 +50,12 @@ export function splitReportableUnlocks(
 
 /**
  * Refusals that no retry can fix: an unknown source (an emergency access
- * queued by an older build), a pass the server does not have, or today's limit
- * already used. Retrying them would keep Still "offline" forever, and a retry
- * on a later day would spend a pass the user earns then.
+ * queued by an older build) or a visit that names no ad (a saved pass queued
+ * by an older build). Retrying them would keep Still "offline" forever.
  */
 const DEFINITIVE_UNLOCK_REFUSALS = new Set([
   "invalid_unlock_source",
   "insufficient_balance",
-  "daily_pass_limit",
   "validation_error",
 ]);
 

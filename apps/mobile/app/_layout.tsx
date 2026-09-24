@@ -22,10 +22,7 @@ import {
 import { localize } from "@/i18n";
 import { initializeObservability } from "@/lib/analytics";
 import { getJson, setJson } from "@/lib/storage";
-import {
-  restrictionEngine,
-  restrictionEvents,
-} from "@/native/restriction-engine";
+import { restrictionEngine } from "@/native/restriction-engine";
 import { AppStateProvider, useAppState } from "@/state/app-state";
 import { RewardAdProvider } from "@/state/reward-ad-state";
 import { ShortcutTargetsProvider } from "@/state/shortcut-targets";
@@ -55,8 +52,7 @@ function Navigation() {
   // Groups vanish from the pathname, so Today and onboarding are both "/".
   const onToday = segments[0] === "(tabs)" && segments[1] === "(today)";
   const sheet = useStillSheet();
-  const { onboarded, walletHydrated } = useAppState();
-  const lastRechargeNavigation = useRef(0);
+  const { onboarded, hydrated } = useAppState();
   const lastShortcutIntervention = useRef<string | null>(null);
   const noticePromptShown = useRef(false);
 
@@ -106,7 +102,7 @@ function Navigation() {
   }, [onboarded, onToday, sheet]);
 
   useEffect(() => {
-    if (!walletHydrated) return;
+    if (!hydrated) return;
     const checkPendingShortcut = async () => {
       if (Platform.OS !== "ios") return false;
       const pending = await restrictionEngine
@@ -126,63 +122,19 @@ function Navigation() {
       });
       return true;
     };
-    const openRecharge = (source: string, requestId: string) => {
-      const now = Date.now();
-      if (now - lastRechargeNavigation.current < 3_000) return;
-      lastRechargeNavigation.current = now;
-      router.replace({
-        pathname: "/(tabs)/(tokens)",
-        params: {
-          recharge: requestId,
-          rechargeSource: source,
-          autoUnlock: "1",
-        },
-      } as never);
-    };
-    const checkPendingRecharge = async (
-      source = "shield",
-      openTokensWhenStale = false,
-    ) => {
-      const pending = await restrictionEngine
-        .hasPendingIntervention()
-        .catch(() => null);
-      if (pending) openRecharge(source, pending);
-      else if (openTokensWhenStale) router.replace("/(tabs)/(tokens)" as never);
-    };
-    const subscription = restrictionEvents?.addListener(
-      "onInterventionRequested",
-      () => void checkPendingRecharge("native-event"),
-    );
+    // The Screen Time shield's "recharge" flow led to the Passes tab; passes
+    // are gone and iOS pauses through Shortcuts (docs/ads-only-pause-plan.md).
     const appStateSubscription = AppState.addEventListener(
       "change",
       (state) => {
-        if (state === "active") {
-          void checkPendingShortcut().then((opened) => {
-            if (!opened) void checkPendingRecharge("foreground");
-          });
-        }
+        if (state === "active") void checkPendingShortcut();
       },
     );
-    const notificationSubscription =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        if (response.notification.request.content.data?.route === "tokens")
-          void checkPendingRecharge("notification", true);
-      });
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response?.notification.request.content.data?.route !== "tokens")
-        return;
-      void Notifications.clearLastNotificationResponseAsync();
-      void checkPendingRecharge("cold-notification", true);
-    });
-    void checkPendingShortcut().then((opened) => {
-      if (!opened) void checkPendingRecharge();
-    });
+    void checkPendingShortcut();
     return () => {
-      subscription?.remove();
       appStateSubscription.remove();
-      notificationSubscription.remove();
     };
-  }, [router, walletHydrated]);
+  }, [hydrated, router]);
 
   return (
     <Stack
@@ -203,7 +155,6 @@ function Navigation() {
       <Stack.Screen name="shortcut-repair" />
       <Stack.Screen name="android-setup" />
       <Stack.Screen name="android-repair" />
-      <Stack.Screen name="unlock-ready" options={{ animation: "fade" }} />
       <Stack.Screen
         name="leave"
         options={{ animation: "fade", gestureEnabled: false }}

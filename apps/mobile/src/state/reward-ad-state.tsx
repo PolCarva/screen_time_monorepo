@@ -10,8 +10,10 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import { Platform } from "react-native";
 
 import { apiFetch } from "@/lib/api";
+import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import {
   admobRewardProvider,
   type RewardIntent,
@@ -32,17 +34,20 @@ type RewardAdStateValue = {
 const RewardAdStateContext = createContext<RewardAdStateValue | null>(null);
 
 export function RewardAdProvider({ children }: PropsWithChildren) {
-  const { onboarded, deviceId, wallet, config } = useAppState();
+  const { onboarded, deviceId, config } = useAppState();
   const [status, setStatus] = useState<PreparationStatus>("idle");
   const [retryKey, setRetryKey] = useState(0);
   const prepared = useRef<RewardIntent | null>(null);
   const pending = useRef<RewardIntent | null>(null);
   const generation = useRef(0);
+  // Only the iOS Shortcuts pause shows its ad from React Native; the Android
+  // shield loads its own natively. No limit on ads (docs/ads-only-pause-plan.md).
   const eligible =
+    Platform.OS === "ios" &&
     onboarded &&
     Boolean(deviceId) &&
-    canRequestReward(wallet, config) &&
-    config.rewardProvider === "admob";
+    isPauseFeatureEnabled(Platform.OS, config) &&
+    canRequestReward(config);
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
