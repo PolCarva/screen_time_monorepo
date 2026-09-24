@@ -1,12 +1,6 @@
-const { withAndroidManifest, withInfoPlist } = require("expo/config-plugins");
+const { withAndroidManifest } = require("expo/config-plugins");
 
 module.exports = function withStillNative(config) {
-  config = withInfoPlist(config, (result) => {
-    result.modResults.NSFamilyControlsUsageDescription =
-      "Still uses Screen Time only to pause apps you choose. Your selection stays on this device.";
-    return result;
-  });
-
   return withAndroidManifest(config, (result) => {
     const manifest = result.modResults.manifest;
     manifest.queries = manifest.queries ?? [];

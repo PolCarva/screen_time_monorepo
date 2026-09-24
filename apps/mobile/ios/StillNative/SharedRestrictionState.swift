@@ -5,7 +5,7 @@ import ManagedSettings
 import UserNotifications
 
 enum SharedRestrictionState {
-  static let appGroup = "group.com.still.screentime"
+  static let appGroup = "group.app.still.ios"
   static let defaults = UserDefaults(suiteName: appGroup)!
   static let store = ManagedSettingsStore(named: .init("still.restrictions"))
   private static let selectionKey = "familyActivitySelection"

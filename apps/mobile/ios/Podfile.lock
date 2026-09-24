@@ -180,6 +180,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ExpoAppleAuthentication (57.0.2):
+    - ExpoModulesCore
   - ExpoAsset (57.0.15):
     - ExpoModulesCore
   - ExpoClipboard (57.0.2):
@@ -2480,6 +2482,7 @@ DEPENDENCIES:
   - "expo-dev-launcher (from `../../../node_modules/.pnpm/expo-dev-launcher@57.0.16_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-na_ec93af3216b023fde13844a8f8391004/node_modules/expo-dev-launcher`)"
   - "expo-dev-menu (from `../../../node_modules/.pnpm/expo-dev-menu@57.0.16_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-native_57453d9bbef896cb4ffbc4ae55a4df99/node_modules/expo-dev-menu`)"
   - "expo-dev-menu-interface (from `../../../node_modules/.pnpm/expo-dev-menu-interface@57.0.0_expo@57.0.18/node_modules/expo-dev-menu-interface/ios`)"
+  - "ExpoAppleAuthentication (from `../../../node_modules/.pnpm/expo-apple-authentication@57.0.2_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@r_c65cffe80bfd4fb662ee41c60379eacf/node_modules/expo-apple-authentication/ios`)"
   - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@57.0.15_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-native+me_98ce7065137cddf8e4362a70355bb984/node_modules/expo-asset/ios`)"
   - "ExpoClipboard (from `../../../node_modules/.pnpm/expo-clipboard@57.0.2_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-native_b5ddb95c2a21c4b2e27e88ea56789fe5/node_modules/expo-clipboard/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.pnpm/expo-crypto@57.0.2_expo@57.0.18/node_modules/expo-crypto/ios`)"
@@ -2616,6 +2619,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/expo-dev-menu@57.0.16_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-native_57453d9bbef896cb4ffbc4ae55a4df99/node_modules/expo-dev-menu"
   expo-dev-menu-interface:
     :path: "../../../node_modules/.pnpm/expo-dev-menu-interface@57.0.0_expo@57.0.18/node_modules/expo-dev-menu-interface/ios"
+  ExpoAppleAuthentication:
+    :path: "../../../node_modules/.pnpm/expo-apple-authentication@57.0.2_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@r_c65cffe80bfd4fb662ee41c60379eacf/node_modules/expo-apple-authentication/ios"
   ExpoAsset:
     :path: "../../../node_modules/.pnpm/expo-asset@57.0.15_expo@57.0.18_react-native@0.86.3_@babel+core@7.29.7_@react-native+me_98ce7065137cddf8e4362a70355bb984/node_modules/expo-asset/ios"
   ExpoClipboard:
@@ -2846,6 +2851,7 @@ SPEC CHECKSUMS:
   expo-dev-launcher: d4f23607b4232f6f214c741cde5356607c95edac
   expo-dev-menu: d2f0a5c130f290466028fd1579a5b1f3bf441313
   expo-dev-menu-interface: 7a59e803916fbfd1b96c75ff91ea8dddac7e722f
+  ExpoAppleAuthentication: 16c2955d33ec7315e5a99d17fb5d62ed33cdb5b9
   ExpoAsset: ff225ee16cea2409800b20fe4945a7c720a24cee
   ExpoClipboard: 15b8cc88075d7c50af165ed8fca0a76915903bba
   ExpoCrypto: f392e5f076a4c11dbfa1a6046449747acec82711

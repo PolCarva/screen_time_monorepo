@@ -14,7 +14,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     let unlocks: Int
   }
 
-  private let appGroup = "group.com.still.screentime"
+  private let appGroup = "group.app.still.ios"
   private let walletKey = "localWallet"
   private let targetProductMetricsPrefix = "targetProductMetrics:"
   private let currentShieldMetricScopeKey = "currentShieldMetricScope"

@@ -33,7 +33,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>still</string>
-				<string>com.still.screentime</string>
+				<string>app.still.ios</string>
 			</array>
 		</dict>
 		<dict>
@@ -48,6 +48,8 @@
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-8052007653549292~7920548119</string>
 	<key>GADDelayAppMeasurementInit</key>
+	<false/>
+	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
@@ -116,10 +118,15 @@
 	<array>
 		<string>_expo._tcp</string>
 	</array>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Allow Still to protect your session.</string>
-	<key>NSFamilyControlsUsageDescription</key>
-	<string>Still uses Screen Time only to pause apps you choose. Your selection stays on this device.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
 	<key>NSUserActivityTypes</key>
