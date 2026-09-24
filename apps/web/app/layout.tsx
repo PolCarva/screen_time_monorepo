@@ -5,11 +5,12 @@ import "./globals.css";
 import { OG_LOCALE } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
-// One variable file: weight plus the MONO axis for the labels and CASL at 0
-// (docs/landing-seo-plan.md, D12).
+// One variable file: weight plus the MONO axis for the labels
+// (docs/landing-seo-plan.md, D12). CASL stays out: its default, 0, is the
+// look we use, and the axis doubled the file (143 → 73 KB).
 const recursive = Recursive({
   subsets: ["latin"],
-  axes: ["MONO", "CASL"],
+  axes: ["MONO"],
   display: "swap",
   variable: "--font-recursive",
 });

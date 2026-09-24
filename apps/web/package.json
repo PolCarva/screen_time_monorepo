@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "admob:connect": "node --env-file=.env.local scripts/admob-connect.mjs"
+    "admob:connect": "node --env-file=.env.local scripts/admob-connect.mjs",
+    "indexnow": "node --env-file-if-exists=.env.local scripts/indexnow.mjs",
+    "seo:check": "node scripts/check-seo.mjs"
   },
   "dependencies": {
     "@screen-time/contracts": "workspace:*",

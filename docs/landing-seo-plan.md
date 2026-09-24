@@ -285,9 +285,91 @@ un commit en español (convención del repo) en `feat/landing-v2-seo`.
 - Consultas de marca ("still app pausa") para saber si la marca ya se
   reconoce.
 
-## 9. Resultado
+## 9. Resultado (2026-09-24)
 
-Se completa al implementar (qué se hizo, verificación, pendientes).
+Rama `feat/landing-v2-seo`, sin push ni PR. Commits: `8b8428e` (plan),
+`beceee9` (F0), `cbcf16a` (F1), `f701ad3` (F2), `06dafc2` (F3), `c229a97`
+(F4) y el de F5, que incluye esta sección.
+
+### Qué se hizo
+
+| Fase | Resultado |
+|---|---|
+| F0 | `lib/site.ts` (URL canónica sin fallback en producción, estado de las tiendas, videos), `lib/seo.ts` (`pageMetadata`), `lib/structured-data.tsx`, `lib/routes.ts`; Recursive variable con `next/font`; `lang="es-419"`, `viewport`, `apple-icon` y PNG en el manifest; robots y sitemap desde el registro; `/impact` → `/impacto` (308); 404 propia. |
+| F1 | Home v2 en `components/landing/*` con CSS Modules: H1 de keyword (D6), insignias oficiales, datos en vivo, cómo funciona con Android/iPhone, fondo semanal en vivo, FAQ con `<details>`, formulario con plataforma (la API acepta `ios`, `android`, `both`), `PhoneVideo`, ISR, JSON-LD y OG. Cabecera y pie compartidos en todas las páginas, enlace para saltar al contenido. `globals.css` pasó de 1.882 a ~1.090 líneas. |
+| F2 | `/configurar/iphone`, `/configurar/android`, `/investigacion` y `/impacto` (título, H1, meta, ISR y OG propios). Layout de contenido compartido (`components/content/article.tsx`). Test que compara las etiquetas de las guías con `apps/mobile/src/lib/system-strings.ts`. |
+| F3 | `/guias` y cinco guías (900–930 palabras cada una), `/pausa-antes-de-abrir-apps`, `/alternativa-one-sec` y `/apps-para-dejar-el-celular`. Datos de terceros verificados el 2026-09-24 y enlazados en cada página. |
+| F4 | `/calculadora-tiempo-de-pantalla`: cálculo local con tests, resultado en `aria-live`. |
+| F5 | `/llms.txt`, clave e script de IndexNow (`pnpm --filter web indexnow`), `pnpm --filter web seo:check [url]` (título ≤ 60, descripción ≤ 155, sin repetidos, un `<h1>`, canonical, `og:image`, JSON-LD válido), CSS en línea y fuente más liviana. |
+
+### Ajustes sobre lo decidido
+
+- **D12:** la fuente carga solo el eje MONO. CASL quedaba en su valor por
+  defecto (0) y duplicaba el archivo (143 → 73 KB); el aspecto no cambia.
+- **F5:** `experimental.inlineCss` para que el CSS (~14 KB) llegue con el HTML:
+  el LCP simulado de la home bajó de 3,3 s a 2,7 s.
+- **D17:** la cifra del hero dice «Personas haciendo pausas», no «Personas
+  aportando»: `allTime.people` cuenta personas con al menos una pausa, no
+  donantes. Con el fondo semanal en 0 se muestra un texto neutro en vez de
+  «$0.00».
+- **Imágenes OG:** una imagen explícita en `openGraph` gana sobre el archivo
+  `opengraph-image` del segmento, y una página con `openGraph` propio no hereda
+  la de la raíz; por eso `pageMetadata` recibe la ruta de la imagen de cada
+  página.
+- **Insignias:** App Store (SVG oficial es-MX de
+  `toolbox.marketingtools.apple.com`) y Google Play (PNG oficial es-419, con
+  el margen transparente recortado para igualar la altura visible).
+- **Datos verificados que cambiaron respecto del plan:** iOS 27 renombró
+  Tiempo en pantalla («Límites de tiempo», «Horario de Tiempo en pantalla»,
+  «Promedio diario»); el «Modo silencio» de Instagram ahora es «modo
+  descanso»; Pause Point se llama «Momento de pausa» en la ayuda de Pixel y
+  solo está en Pixel. El informe danés enlaza a one sec en su metodología. El
+  57 % está textual en el artículo de PNAS.
+
+### Cómo se verificó
+
+- Cada fase: `pnpm check` (contracts 32, web 68, mobile 202 tests) y
+  `pnpm --filter web build` sin variables de Supabase, como en CI.
+- Navegador (servidor de desarrollo): capturas a 1440 y 390 px; medición de
+  cada sección (ninguna se superpone ni desborda; solo las barras del hero
+  salen del borde a propósito y el hero las recorta); teclado (enlace para
+  saltar, foco visible, FAQ, selector Android/iPhone con `aria-pressed`);
+  `prefers-reduced-motion`: una auditoría de las hojas de estilo no encontró
+  ninguna animación fuera de `no-preference`.
+- `next start`: la home responde `Cache-Control: s-maxage=300` y
+  `x-nextjs-cache: HIT`; `seo:check` pasa en las 19 páginas del sitemap;
+  `/llms.txt` y la clave de IndexNow responden 200.
+- Lighthouse 12, móvil, en `next start`: home 96 / 100 / 100 / 100
+  (rendimiento / accesibilidad / buenas prácticas / SEO; LCP 2,7 s simulado,
+  CLS 0, TBT 70 ms) y `/guias/dejar-de-scrollear` 100 / 100 / 100 / 100.
+- Capturas finales de la home: `docs/landing-v2/screenshots/`.
+
+Límites de la verificación: en el panel del navegador, las capturas emuladas
+a veces salen en blanco después de hacer scroll; en esas páginas el móvil se
+verificó midiendo el DOM y con la captura de página completa de Lighthouse.
+El servidor de desarrollo que corría en el puerto 3000 se reinició: se había
+roto al borrar `.next` para el primer build.
+
+### Pendiente para el usuario (sección 7)
+
+1. **U1, dominio propio** antes de indexar: conectarlo en Vercel,
+   `NEXT_PUBLIC_APP_URL` apuntando a él, actualizar las URL de las fichas y
+   confirmar `app-ads.txt` en ese dominio.
+2. **Desplegar** la rama (merge a `main`; el push lo hace el usuario).
+3. **U2:** Search Console (propiedad de dominio), enviar el sitemap y pedir la
+   indexación de la home, las guías de configuración y `/alternativa-one-sec`;
+   Bing Webmaster Tools; `pnpm --filter web indexnow` después de cada
+   despliegue grande.
+4. **U3:** grabar los cuatro videos, ponerlos en `public/videos/` y
+   completar `VIDEOS` en `lib/site.ts` (los botones aparecen solos).
+5. **U4:** cuando Apple apruebe la app, `STORES.ios.status = "live"` (activa
+   el Smart App Banner y el `installUrl`); igual con Android al pasar Play a
+   producción.
+6. Revisar en un teléfono real las rutas de menú de Instagram y TikTok: sus
+   propias ayudas no coinciden entre sí.
+7. **U5–U8:** palabras clave en las fichas, enlaces externos y prensa,
+   ratings reales cuando existan y, si quieres, el texto de «Quién hace
+   Still».
 
 ## 10. Prompt para `/goal`
 

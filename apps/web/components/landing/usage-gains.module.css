@@ -108,6 +108,7 @@
 }
 .metric dd {
   margin: 0;
+  white-space: nowrap;
   font-size: 36px;
   font-weight: 540;
   letter-spacing: -0.05em;
@@ -167,5 +168,8 @@
   }
   .today {
     padding: 24px;
+  }
+  .metric dd {
+    font-size: 28px;
   }
 }
