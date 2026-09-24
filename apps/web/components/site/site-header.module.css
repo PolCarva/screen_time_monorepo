@@ -3,6 +3,7 @@
   top: 0;
   z-index: 20;
   border-bottom: 1px solid var(--fog);
+  background: var(--chalk);
   background: color-mix(in srgb, var(--chalk) 88%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   backdrop-filter: blur(14px) saturate(1.2);

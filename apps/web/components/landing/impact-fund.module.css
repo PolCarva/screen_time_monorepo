@@ -124,7 +124,7 @@
   white-space: nowrap;
 }
 /* The vote bar grows and the projects fill in once the card is revealed. */
-@media (prefers-reduced-motion: no-preference) {
+@media screen and (prefers-reduced-motion: no-preference) {
   .bar span {
     transform-origin: left;
     transition: transform 900ms var(--ease-out);

@@ -127,8 +127,9 @@ img {
    screen; without it (no JS, reduced motion) everything is simply visible.
    One reveal per block, no loops. Stagger siblings with --stagger.
    Transitions live on the revealed state, so hiding what is below the fold
-   when `.motion` arrives is instant and only the reveal animates. */
-@media (prefers-reduced-motion: no-preference) {
+   when `.motion` arrives is instant and only the reveal animates. Screen
+   only: a printed page shows every block. */
+@media screen and (prefers-reduced-motion: no-preference) {
   .motion [data-revealed] {
     transition:
       opacity 800ms var(--ease-out),

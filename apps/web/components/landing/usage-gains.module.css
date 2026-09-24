@@ -132,7 +132,7 @@
   color: var(--graphite-soft);
 }
 /* The example day fills in row by row once the card is revealed. */
-@media (prefers-reduced-motion: no-preference) {
+@media screen and (prefers-reduced-motion: no-preference) {
   .apps li,
   .metric {
     transition:

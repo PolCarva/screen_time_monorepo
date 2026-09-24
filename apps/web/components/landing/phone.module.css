@@ -216,7 +216,7 @@
 /* Revealed with its card (components/motion/reveal-observer.tsx): the chosen
    apps switch on one after another, the setup steps appear in order and the
    field opens. Before the reveal they wait in their starting state. */
-@media (prefers-reduced-motion: no-preference) {
+@media screen and (prefers-reduced-motion: no-preference) {
   .toggle,
   .toggle::after {
     transition:

@@ -39,7 +39,7 @@
   line-height: 1.5;
 }
 /* Each icon traces itself as its reason rises (pathLength = 1). */
-@media (prefers-reduced-motion: no-preference) {
+@media screen and (prefers-reduced-motion: no-preference) {
   .icon :is(path, rect, circle) {
     stroke-dasharray: 1;
     transition: stroke-dashoffset 1000ms var(--ease-out);

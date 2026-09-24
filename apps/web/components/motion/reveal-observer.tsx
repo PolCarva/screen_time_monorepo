@@ -55,7 +55,24 @@ export function RevealObserver() {
       { rootMargin: "0px 0px -8% 0px", threshold: [0, VISIBLE] },
     );
     for (const target of pending) observer.observe(target);
-    return () => observer.disconnect();
+
+    // Tabbing can land in a block that never scrolls far enough in to reveal
+    // (a short one near the bottom edge); focus reveals it, and its ring.
+    const hidden = "[data-reveal]:not([data-revealed])";
+    const reveal = (event: FocusEvent) => {
+      if (!(event.target instanceof Element)) return;
+      let block = event.target.closest(hidden);
+      while (block) {
+        block.setAttribute("data-revealed", "");
+        observer.unobserve(block);
+        block = block.parentElement?.closest(hidden) ?? null;
+      }
+    };
+    document.addEventListener("focusin", reveal);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("focusin", reveal);
+    };
   }, [pathname]);
 
   return null;

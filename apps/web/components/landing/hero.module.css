@@ -269,6 +269,8 @@
     right: 0;
     border-radius: 0;
     height: 72px;
+    /* Full width here: drifting would pull their ends off the screen edges. */
+    animation: none;
   }
   .barTop {
     top: 80px;
