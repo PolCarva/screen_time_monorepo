@@ -37,9 +37,12 @@ import org.json.JSONObject
  * offers mirrors the pure state machine in `src/lib/intervention-flow.ts`: a
  * saved pass and the ad side by side (a pass never has to give way to an ad),
  * and the 15-second pause when there is neither. That module is the tested
- * source of truth (D6; docs/real-impact-stats-plan.md, D2-D3). Nothing about
- * the window is decided in advance: once the ad or the saved pass has paid for
- * it, the user drags a slider from one minute to the rest of the day.
+ * source of truth (D6; docs/real-impact-stats-plan.md, D2-D3). An ad still
+ * loading is waited for at the gate ("Preparing the ad…"), so the pause only
+ * starts once there is really no ad; a pause that started is never swapped
+ * for the ad. Nothing about the window is decided in advance: once the ad or
+ * the saved pass has paid for it, the user drags a slider from one minute to
+ * the rest of the day.
  */
 class InterventionActivity : Activity() {
   private val graphite = Color.rgb(36, 40, 38)
@@ -48,11 +51,15 @@ class InterventionActivity : Activity() {
   private val mineralLight = Color.rgb(167, 181, 186)
   private val peach = Color.rgb(211, 154, 131)
 
+  /** Mirrors `InterventionGate.ad` in intervention-flow.ts. */
+  private enum class AdOffer { READY, PREPARING, NONE }
+
   /** What the gate offers; with neither an ad nor a pass, the timed pause. */
-  private data class Gate(val adReady: Boolean, val passAvailable: Boolean) {
-    val nothingLeft get() = !adReady && !passAvailable
+  private data class Gate(val ad: AdOffer, val passAvailable: Boolean) {
+    val nothingLeft get() = ad == AdOffer.NONE && !passAvailable
   }
   private enum class EnterSource { FRESH_AD, SAVED_PASS, PAUSE }
+  private enum class Phase { GATE, AD, PAUSE, DECISION }
 
   private var spanish = false
   private var appLabel = ""
@@ -70,6 +77,12 @@ class InterventionActivity : Activity() {
   private var pauseTick: Runnable? = null
   /** The field's slow breath during the pause; stopped with every new screen. */
   private var breathing: Animator? = null
+  private var phase = Phase.GATE
+  /** Cancels the wait for the ad that is loading; null when not waiting. */
+  private var cancelAdWait: (() -> Unit)? = null
+  private val adWaitTimeout = Runnable { giveUpOnAd() }
+  /** The ad did not arrive in time: from here a load in flight is no offer. */
+  private var adGaveUp = false
 
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
@@ -123,7 +136,10 @@ class InterventionActivity : Activity() {
       ),
     ]
 
-    renderByGate()
+    // Starts the load at once when no ad is ready or on its way, so the gate
+    // below can wait for it instead of settling for the pause.
+    StillRewardedAdManager.preload(this, "shield")
+    if (!resumePause()) renderByGate()
   }
 
   /**
@@ -131,7 +147,11 @@ class InterventionActivity : Activity() {
    * React Native syncs the balance already capped by today's pass limit.
    */
   private fun currentGate() = Gate(
-    adReady = StillRewardedAdManager.isAdReady(),
+    ad = when (StillRewardedAdManager.state()) {
+      StillRewardedAdManager.AdState.READY -> AdOffer.READY
+      StillRewardedAdManager.AdState.LOADING -> if (adGaveUp) AdOffer.NONE else AdOffer.PREPARING
+      StillRewardedAdManager.AdState.NONE -> AdOffer.NONE
+    },
     passAvailable = preferences.getInt(StillRestrictionModule.KEY_REWARDED_BALANCE, 0) > 0,
   )
 
@@ -145,6 +165,7 @@ class InterventionActivity : Activity() {
    */
   private fun renderShield() {
     busy = false
+    phase = Phase.GATE
     val gate = currentGate()
     val attemptLabel = when {
       spanish && attempts == 1 -> "una vez"
@@ -171,12 +192,20 @@ class InterventionActivity : Activity() {
     root.addView(subtext(if (summary.isEmpty()) question else question + "\n\n" + summary))
     root.addView(spacer(1f))
     root.addView(filledButton(if (spanish) "Volver" else "Go back") { goHome() })
-    if (gate.adReady) {
-      root.addView(
+    when (gate.ad) {
+      AdOffer.READY -> root.addView(
         textButton(if (spanish) "Ver anuncio" else "Watch ad", chalk, enabled = true) {
           startAd()
         },
       )
+      AdOffer.PREPARING -> root.addView(
+        textButton(
+          if (spanish) "Preparando el anuncio…" else "Preparing the ad…",
+          mineralLight,
+          enabled = false,
+        ) {},
+      )
+      AdOffer.NONE -> Unit
     }
     if (gate.passAvailable) {
       // A saved pass is for emergencies: always there without watching an ad,
@@ -189,6 +218,36 @@ class InterventionActivity : Activity() {
       )
     }
     present(root)
+    if (gate.ad == AdOffer.PREPARING) waitForAd() else stopAdWait()
+  }
+
+  /**
+   * Keeps the gate on "Preparing the ad…" until the load in flight ends, for
+   * as long as the JS flow waits (REWARD_AD_LOAD_TIMEOUT_MS). The gate is then
+   * drawn again: with the ad, or without it, which is the pause when there is
+   * no saved pass either.
+   */
+  private fun waitForAd() {
+    if (cancelAdWait != null) return
+    pauseHandler.postDelayed(adWaitTimeout, AD_WAIT_MS)
+    cancelAdWait = StillRewardedAdManager.awaitLoad { ready ->
+      cancelAdWait = null
+      pauseHandler.removeCallbacks(adWaitTimeout)
+      if (!ready) adGaveUp = true
+      if (phase == Phase.GATE && !busy && !isFinishing) renderByGate()
+    }
+  }
+
+  private fun giveUpOnAd() {
+    stopAdWait()
+    adGaveUp = true
+    if (phase == Phase.GATE && !busy && !isFinishing) renderByGate()
+  }
+
+  private fun stopAdWait() {
+    pauseHandler.removeCallbacks(adWaitTimeout)
+    cancelAdWait?.invoke()
+    cancelAdWait = null
   }
 
   /** Shows the preloaded ad in this same window, then the decision (D2). */
@@ -196,6 +255,8 @@ class InterventionActivity : Activity() {
     if (busy) return
     busy = true
     adShowing = true
+    phase = Phase.AD
+    stopAdWait()
     val shown = StillRewardedAdManager.show(this) { outcome ->
       busy = false
       adShowing = false
@@ -203,7 +264,9 @@ class InterventionActivity : Activity() {
         freshAdIntentId = outcome.intentId
         renderDecision(EnterSource.FRESH_AD)
       } else {
-        // Closed early or could not show: no penalty, fall back to the gate.
+        // Closed early or could not show: no penalty, fall back to the gate,
+        // which waits again for the next ad (it started loading on close).
+        adGaveUp = false
         renderByGate()
       }
     }
@@ -217,9 +280,14 @@ class InterventionActivity : Activity() {
   /**
    * 15-second breathing pause when there is no ad and no saved pass (D3). Costs
    * nothing and is not reported; entering afterwards grants a short window only.
+   * Its start is remembered for this app, so a shield opened again mid-pause
+   * picks the pause up instead of offering an ad that arrived in the meantime.
    */
-  private fun renderPause() {
-    pauseSecondsLeft = PAUSE_SECONDS
+  private fun renderPause(secondsLeft: Int = PAUSE_SECONDS) {
+    stopAdWait()
+    phase = Phase.PAUSE
+    if (secondsLeft == PAUSE_SECONDS) rememberPauseStart()
+    pauseSecondsLeft = secondsLeft
     val root = column()
     root.addView(spacer(1.2f))
     val field = createFieldIcon()
@@ -272,6 +340,46 @@ class InterventionActivity : Activity() {
     breathing = null
   }
 
+  private val pauseStartKey: String?
+    get() = currentTargetPackage?.let {
+      StillRestrictionModule.appStateKey(STATE_PAUSE_STARTED_AT, it)
+    }
+
+  private fun bootCount() = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
+
+  private fun rememberPauseStart() {
+    val key = pauseStartKey ?: return
+    preferences.edit().putString(key, "${bootCount()}:${SystemClock.elapsedRealtime()}").apply()
+  }
+
+  private fun forgetPauseStart() {
+    val key = pauseStartKey ?: return
+    preferences.edit().remove(key).apply()
+  }
+
+  /**
+   * A shield for an app whose pause started moments ago (the user pressed Home
+   * mid-pause, or the app slipped in front) carries on with that pause or its
+   * decision: once the pause has begun it is never swapped for an ad. Returns
+   * false when there is no such pause, so the gate is drawn as usual.
+   */
+  private fun resumePause(): Boolean {
+    val key = pauseStartKey ?: return false
+    val stored = preferences.getString(key, null) ?: return false
+    val boot = stored.substringBefore(':').toIntOrNull()
+    val startedAt = stored.substringAfter(':').toLongOrNull()
+    val elapsedSeconds = startedAt?.let { (SystemClock.elapsedRealtime() - it) / 1_000L }
+    if (boot != bootCount() || elapsedSeconds == null || elapsedSeconds < 0 ||
+      elapsedSeconds > PAUSE_SECONDS + PAUSE_RESUME_GRACE_SECONDS
+    ) {
+      forgetPauseStart()
+      return false
+    }
+    val left = PAUSE_SECONDS - elapsedSeconds.toInt()
+    if (left > 0) renderPause(left) else renderDecision(EnterSource.PAUSE)
+    return true
+  }
+
   /**
    * After the ad or the saved pass has paid for the visit: choose the window,
    * then enter or leave. The free pause is the one path that
@@ -279,6 +387,8 @@ class InterventionActivity : Activity() {
    * pause never beats watching the ad (D3).
    */
   private fun renderDecision(source: EnterSource) {
+    stopAdWait()
+    phase = Phase.DECISION
     if (source == EnterSource.PAUSE) {
       renderPauseDecision()
       return
@@ -397,6 +507,7 @@ class InterventionActivity : Activity() {
       return
     }
     busy = true
+    forgetPauseStart()
     // "Rest of the day" becomes the time actually left in the day, here and
     // not a moment earlier, so the deadline is the one the label promised.
     val windowSeconds =
@@ -473,6 +584,7 @@ class InterventionActivity : Activity() {
     // This activity is singleTop. Recreate it so a new blocked app never
     // inherits the previous app's label, count, or actions.
     stopPause()
+    stopAdWait()
     recreate()
   }
 
@@ -490,6 +602,7 @@ class InterventionActivity : Activity() {
 
   override fun onDestroy() {
     stopPause()
+    stopAdWait()
     super.onDestroy()
   }
 
@@ -497,6 +610,9 @@ class InterventionActivity : Activity() {
 
   private fun goHome(recordAvoidedOpen: Boolean = true) {
     stopPause()
+    stopAdWait()
+    // Leaving closes this attempt; the next open starts at the gate again.
+    forgetPauseStart()
     if (recordAvoidedOpen) {
       val day = StillDay.today()
       val totalKey = "avoided_opens:$day"
@@ -838,5 +954,11 @@ class InterventionActivity : Activity() {
     // Mirror of intervention-flow.ts: 15 s breathing pause, 5 min access after it.
     private const val PAUSE_SECONDS = 15
     private const val PAUSE_ALLOWANCE_SECONDS = 5 * 60
+    // Mirror of REWARD_AD_LOAD_TIMEOUT_MS: how long the gate waits for an ad
+    // that is loading before it stops offering it.
+    private const val AD_WAIT_MS = 12_000L
+    // A shield opened this long after its pause ended starts a new attempt.
+    private const val PAUSE_RESUME_GRACE_SECONDS = 60
+    private const val STATE_PAUSE_STARTED_AT = "shield_pause_started_at"
   }
 }

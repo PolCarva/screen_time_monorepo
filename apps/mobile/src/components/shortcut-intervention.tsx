@@ -1,7 +1,14 @@
 import { formatAccessDuration } from "@screen-time/contracts";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { z } from "zod";
@@ -28,12 +35,20 @@ import { normalizeAppName } from "@/lib/ios-app-catalog";
 import {
   completeShortcutAndReturn,
   getInterventionOptions,
+  rewardStatusForGate,
 } from "@/lib/shortcut-intervention";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, motion, spacing } from "@/theme/tokens";
+
+/**
+ * How long a fresh ad attempt has to start after the pause opens on a failed
+ * one. It starts on the next render, so only a retry that never began (the ad
+ * stopped being eligible meanwhile) runs this out.
+ */
+const FRESH_AD_START_MS = 2_000;
 
 const claimSchema = z.object({
   intentId: z.string().uuid(),
@@ -98,6 +113,21 @@ export function ShortcutIntervention({
     wallet,
   } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
+  // Opened on a failed attempt: ask for a fresh ad and wait for it, rather
+  // than breathing now and having the ad turn up once the pause has begun.
+  const [awaitingFreshAd, setAwaitingFreshAd] = useState(
+    () => adStatus === "unavailable",
+  );
+  useEffect(() => {
+    if (!awaitingFreshAd) return;
+    if (adStatus !== "unavailable") {
+      setAwaitingFreshAd(false);
+      return;
+    }
+    retry();
+    const timer = setTimeout(() => setAwaitingFreshAd(false), FRESH_AD_START_MS);
+    return () => clearTimeout(timer);
+  }, [adStatus, awaitingFreshAd, retry]);
   const { targets, disableScheme } = useShortcutTargets();
   // The first state arrives with the screen; each later one (the pause, the
   // choice of time) fades in on its own.
@@ -112,7 +142,7 @@ export function ShortcutIntervention({
     supportsDirectAd: true,
     hasDevice: Boolean(deviceId),
     rewardProvider: config.rewardProvider,
-    rewardStatus: adStatus,
+    rewardStatus: rewardStatusForGate(adStatus, awaitingFreshAd),
     rewardAdsRemainingToday: wallet.rewardAdsRemainingToday,
     rewardedPassesRemainingToday: wallet.rewardedPassesRemainingToday,
     rewardedBalance: wallet.rewardedBalance,

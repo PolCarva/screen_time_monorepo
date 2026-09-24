@@ -49,12 +49,17 @@ describe("committed native production configuration", () => {
     expect(intervention).toContain('if (spanish) "Ver anuncio" else "Watch ad"');
     expect(intervention).toContain('"Usar 1 pase de emergencia"');
     // The pass is the quiet option under the ad, never the first choice.
-    expect(intervention.indexOf("if (gate.adReady)")).toBeLessThan(
+    expect(intervention.indexOf("when (gate.ad)")).toBeLessThan(
       intervention.indexOf("if (gate.passAvailable)"),
     );
     expect(intervention).toContain("if (gate.passAvailable)");
-    expect(intervention).toContain("if (gate.adReady)");
+    expect(intervention).toContain("when (gate.ad)");
     expect(intervention).toContain("renderPause()");
+    // An ad still loading is waited for at the gate, like the JS flow, and a
+    // pause that started is picked up again instead of turning into the ad.
+    expect(intervention).toContain('"Preparando el anuncio…"');
+    expect(intervention).toContain("StillRewardedAdManager.awaitLoad");
+    expect(intervention).toContain("if (!resumePause()) renderByGate()");
     // The free daily allowance is gone: no counter, no "emergency" source. The
     // saved pass is only called an emergency pass in its label.
     expect(intervention).not.toContain("EMERGENCY_REMAINING");

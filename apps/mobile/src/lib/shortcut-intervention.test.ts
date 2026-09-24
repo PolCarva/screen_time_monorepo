@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   completeShortcutAndReturn,
   getInterventionOptions,
+  rewardStatusForGate,
 } from "./shortcut-intervention";
 
 const base = {
@@ -66,6 +67,25 @@ describe("what the pause can offer", () => {
     expect(
       getInterventionOptions({ ...base, supportsDirectAd: false }),
     ).toBeNull();
+  });
+});
+
+describe("the ad status the gate waits on", () => {
+  it("waits for a fresh attempt instead of pausing on an earlier failure", () => {
+    const status = rewardStatusForGate("unavailable", true);
+    expect(status).toBe("preparing");
+    expect(
+      getInterventionOptions({ ...base, rewardedBalance: 0, rewardStatus: status }),
+    ).toEqual({ ad: "preparing", pass: false });
+  });
+
+  it("pauses once the fresh attempt has failed too", () => {
+    expect(rewardStatusForGate("unavailable", false)).toBe("unavailable");
+  });
+
+  it("passes every other status through", () => {
+    for (const status of ["idle", "preparing", "ready"] as const)
+      expect(rewardStatusForGate(status, true)).toBe(status);
   });
 });
 

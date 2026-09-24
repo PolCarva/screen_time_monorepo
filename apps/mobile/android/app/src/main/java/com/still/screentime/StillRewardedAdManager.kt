@@ -31,8 +31,10 @@ import org.json.JSONObject
  * AccessibilityService runs in the app's main process and is kept alive by the
  * system while accessibility is on, so a preload done there survives between
  * interventions (measured >30 min). The Google Mobile Ads SDK still expires a
- * loaded ad after about an hour, so [preload] refreshes before that and after
- * every use.
+ * loaded ad after about an hour, so an ad that old is replaced as soon as it is
+ * checked, and a new one loads after every use. A load still in flight is
+ * reported as [AdState.LOADING], so the shield waits for it (see [awaitLoad])
+ * instead of settling for the pause.
  */
 object StillRewardedAdManager {
   private const val TAG = "StillRewardedAd"
@@ -41,12 +43,25 @@ object StillRewardedAdManager {
   // comfortably before that so a tap never meets a stale ad.
   private const val AD_TTL_MS = 55 * 60 * 1_000L
 
+  // The SDK normally answers a load within seconds. Past this, a load that
+  // never called back no longer blocks a fresh one.
+  private const val LOAD_STUCK_MS = 60_000L
+
   private val main = Handler(Looper.getMainLooper())
 
   @Volatile private var initialized = false
   @Volatile private var loading = false
+  @Volatile private var loadStartedAtElapsed = 0L
   @Volatile private var loadedAd: RewardedAd? = null
   @Volatile private var loadedAtElapsed = 0L
+  /** Set on the first preload, so an expired ad can be replaced on its own. */
+  @Volatile private var appContext: Context? = null
+
+  /** Told once when the load in flight ends: true when an ad is now ready. */
+  private val loadWaiters = mutableListOf<(Boolean) -> Unit>()
+
+  /** What the shield can count on right now. */
+  enum class AdState { READY, LOADING, NONE }
 
   /**
    * How the ad ended. [intentId] is the pre-signed intent it was shown with, so
@@ -59,60 +74,106 @@ object StillRewardedAdManager {
     val ad = loadedAd ?: return false
     if (SystemClock.elapsedRealtime() - loadedAtElapsed >= AD_TTL_MS) {
       loadedAd = null
+      // Replace it now rather than at the next shield, which would then have
+      // to wait for the load.
+      appContext?.let { preload(it, "expired") }
       return false
     }
     return true
   }
 
+  fun state(): AdState = when {
+    isAdReady() -> AdState.READY
+    isLoading() -> AdState.LOADING
+    else -> AdState.NONE
+  }
+
+  private fun isLoading(): Boolean =
+    loading && SystemClock.elapsedRealtime() - loadStartedAtElapsed < LOAD_STUCK_MS
+
+  /**
+   * Calls [onSettled] on the main thread once the load in flight ends (true
+   * when an ad is ready), or right away when nothing is loading. The returned
+   * function cancels the wait.
+   */
+  fun awaitLoad(onSettled: (Boolean) -> Unit): () -> Unit {
+    if (!isLoading()) {
+      val ready = isAdReady()
+      main.post { onSettled(ready) }
+      return {}
+    }
+    onMain { loadWaiters.add(onSettled) }
+    return { onMain { loadWaiters.remove(onSettled) } }
+  }
+
+  private fun onMain(block: () -> Unit) {
+    if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block)
+  }
+
+  private fun settleWaiters(ready: Boolean) {
+    val waiters = loadWaiters.toList()
+    loadWaiters.clear()
+    waiters.forEach { it(ready) }
+  }
+
   /**
    * Initialize the SDK once and, when rewards are eligible, keep an ad ready.
    * Safe to call repeatedly (service connect, foreground event, after use).
+   * On the main thread it runs at once, so a caller reading [state] right
+   * after already sees the load it started.
    */
   fun preload(context: Context, reason: String) {
-    val appContext = context.applicationContext
-    main.post {
-      val preferences = appContext.getSharedPreferences(
-        StillRestrictionModule.PREFERENCES,
-        Context.MODE_PRIVATE,
-      )
-      if (!adsEligible(preferences)) {
-        // Rewards disabled, wallet full, or daily cap reached: drop any stale ad
-        // instead of holding inventory that policy would not let us grant.
-        loadedAd = null
-        return@post
-      }
-      if (!initialized) {
-        initialized = true
-        runCatching { MobileAds.initialize(appContext) {} }
-          .onFailure { Log.w(TAG, "SDK init failed", it) }
-      }
-      if (isAdReady() || loading) return@post
-      val unitId = preferences.getString(StillRestrictionModule.KEY_ADMOB_REWARDED_UNIT, null)
-        ?: return@post
-      loading = true
-      runCatching {
-        RewardedAd.load(
-          appContext,
-          unitId,
-          AdRequest.Builder().build(),
-          object : RewardedAdLoadCallback() {
-            override fun onAdLoaded(ad: RewardedAd) {
-              loading = false
-              loadedAd = ad
-              loadedAtElapsed = SystemClock.elapsedRealtime()
-            }
+    val applicationContext = context.applicationContext
+    appContext = applicationContext
+    onMain { startLoad(applicationContext, reason) }
+  }
 
-            override fun onAdFailedToLoad(error: LoadAdError) {
-              loading = false
-              loadedAd = null
-              Log.w(TAG, "load failed ($reason): ${error.code} ${error.message}")
-            }
-          },
-        )
-      }.onFailure {
-        loading = false
-        Log.w(TAG, "load threw ($reason)", it)
-      }
+  private fun startLoad(appContext: Context, reason: String) {
+    val preferences = appContext.getSharedPreferences(
+      StillRestrictionModule.PREFERENCES,
+      Context.MODE_PRIVATE,
+    )
+    if (!adsEligible(preferences)) {
+      // Rewards disabled, wallet full, or daily cap reached: drop any stale ad
+      // instead of holding inventory that policy would not let us grant.
+      loadedAd = null
+      return
+    }
+    if (!initialized) {
+      initialized = true
+      runCatching { MobileAds.initialize(appContext) {} }
+        .onFailure { Log.w(TAG, "SDK init failed", it) }
+    }
+    if (isAdReady() || isLoading()) return
+    val unitId = preferences.getString(StillRestrictionModule.KEY_ADMOB_REWARDED_UNIT, null)
+      ?: return
+    loading = true
+    loadStartedAtElapsed = SystemClock.elapsedRealtime()
+    runCatching {
+      RewardedAd.load(
+        appContext,
+        unitId,
+        AdRequest.Builder().build(),
+        object : RewardedAdLoadCallback() {
+          override fun onAdLoaded(ad: RewardedAd) {
+            loading = false
+            loadedAd = ad
+            loadedAtElapsed = SystemClock.elapsedRealtime()
+            settleWaiters(ready = true)
+          }
+
+          override fun onAdFailedToLoad(error: LoadAdError) {
+            loading = false
+            loadedAd = null
+            Log.w(TAG, "load failed ($reason): ${error.code} ${error.message}")
+            settleWaiters(ready = false)
+          }
+        },
+      )
+    }.onFailure {
+      loading = false
+      Log.w(TAG, "load threw ($reason)", it)
+      settleWaiters(ready = false)
     }
   }
 
