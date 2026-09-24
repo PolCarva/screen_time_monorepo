@@ -58,18 +58,6 @@ export async function POST(request: Request) {
             "Reward provider is not supported",
           ],
           [
-            "wallet_balance_cap_reached",
-            409,
-            "wallet_full",
-            "Pass limit reached",
-          ],
-          [
-            "daily_reward_limit_reached",
-            409,
-            "daily_reward_limit",
-            "Daily reward limit reached",
-          ],
-          [
             "pending_reward_intent_limit_reached",
             429,
             "too_many_pending_rewards",

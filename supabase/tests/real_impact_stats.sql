@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(49);
+select plan(48);
 
 -- Fixtures -----------------------------------------------------------------
 
@@ -60,10 +60,10 @@ values (
   now()
 );
 
--- Enough passes a day for every visit these tests record.
+-- The strictest old preferences: they no longer limit visits or ads.
 insert into public.user_preferences (
   user_id, daily_pass_limit, unlock_duration_seconds, max_rewarded_ads_per_utc_day
-) values ('92000000-0000-4000-8000-000000000001', 20, 600, 10);
+) values ('92000000-0000-4000-8000-000000000001', 1, 600, 0);
 
 -- The fallback eCPM must come from the configuration, not from whatever this
 -- database already imported.
@@ -81,7 +81,7 @@ select
   'impact-intent-' || n
 from generate_series(1, 6) as n;
 
--- Emergency access is gone; the chosen window is recorded -----------------
+-- Emergency access and saved passes are gone ------------------------------
 
 select throws_ok(
   $$select public.create_unlock_session(
@@ -101,28 +101,23 @@ insert into public.token_ledger (
   '92000000-0000-4000-8000-000000000002',
   'admin_adjustment', 1, 'impact-test-balance'
 );
-select lives_ok(
+select throws_ok(
   $$select public.create_unlock_session(
     '92000000-0000-4000-8000-000000000001',
     '92000000-0000-4000-8000-000000000004',
     '92000000-0000-4000-8000-000000000002',
     'rewarded', 180, 'other', now()
   )$$,
-  'a saved pass opens an app'
-);
-select is(
-  (select duration_seconds from public.unlock_sessions
-   where client_session_id = '92000000-0000-4000-8000-000000000004'),
-  180,
-  'the server records the window the user chose on the slider'
+  'P0001', 'insufficient_rewarded_balance',
+  'a saved pass no longer opens an app'
 );
 select is(
   public.rewarded_balance('92000000-0000-4000-8000-000000000001'),
-  0,
-  'using the pass spends it'
+  1,
+  'and the saved balance is left as it was'
 );
 
--- A visit paid by a fresh ad spends that ad's pass, never a saved one -------
+-- A visit paid by a fresh ad spends what that ad earned, nothing else -------
 
 insert into public.token_ledger (
   user_id, device_id, entry_type, amount, reference_id, idempotency_key
@@ -136,15 +131,16 @@ select lives_ok(
     '92000000-0000-4000-8000-000000000001',
     '92000000-0000-4000-8000-000000000005',
     '92000000-0000-4000-8000-000000000002',
-    'rewarded', 600, 'other', now(),
+    'rewarded', 180, 'other', now(),
     '92000000-0000-4000-8000-000000000101'
   )$$,
   'a visit paid by a claimed fresh ad is recorded'
 );
 select is(
-  public.rewarded_balance('92000000-0000-4000-8000-000000000001'),
-  0,
-  'it spends the pass that ad earned'
+  (select duration_seconds from public.unlock_sessions
+   where client_session_id = '92000000-0000-4000-8000-000000000005'),
+  180,
+  'the server records the window the user chose on the slider'
 );
 insert into public.token_ledger (
   user_id, device_id, entry_type, amount, idempotency_key
@@ -167,8 +163,8 @@ select lives_ok(
 );
 select is(
   public.rewarded_balance('92000000-0000-4000-8000-000000000001'),
-  1,
-  'and it does not take the pass the user saved'
+  2,
+  'and it spends nothing it did not earn'
 );
 select lives_ok(
   $$select public.create_unlock_session(
@@ -182,8 +178,8 @@ select lives_ok(
 );
 select is(
   public.rewarded_balance('92000000-0000-4000-8000-000000000001'),
-  1,
-  'but one ad pays for one pass only'
+  2,
+  'but one ad pays for one visit only'
 );
 delete from public.unlock_sessions
 where client_session_id in (

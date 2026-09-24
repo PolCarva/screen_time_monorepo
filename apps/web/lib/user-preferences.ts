@@ -21,6 +21,11 @@ function closestDuration(value: number): (typeof durationChoices)[number] {
   );
 }
 
+/**
+ * `dailyPassLimit` and `maxRewardedAdsPerUtcDay` are only echoed back to builds
+ * published before saved passes and the ad limit were removed; nothing
+ * enforces them (docs/ads-only-pause-plan.md).
+ */
 export function resolveUserPreferences(
   config: RemoteConfig,
   stored: StoredPreferences,

@@ -39,13 +39,7 @@ export async function POST(request: Request) {
             "insufficient_rewarded_balance",
             409,
             "insufficient_balance",
-            "No rewarded pass is available",
-          ],
-          [
-            "daily_pass_limit_reached",
-            409,
-            "daily_pass_limit",
-            "Daily pass limit reached",
+            "A visit needs the ad just watched",
           ],
           [
             "invalid_unlock_source",

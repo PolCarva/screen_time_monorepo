@@ -50,18 +50,6 @@ export async function POST(
             "reward_intent_expired",
             "Reward intent has expired",
           ],
-          [
-            "wallet_balance_cap_reached",
-            409,
-            "wallet_full",
-            "Pass limit reached",
-          ],
-          [
-            "daily_reward_limit_reached",
-            409,
-            "daily_reward_limit",
-            "Daily reward limit reached",
-          ],
         ],
         {
           status: 409,

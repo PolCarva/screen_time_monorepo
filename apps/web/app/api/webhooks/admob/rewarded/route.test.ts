@@ -125,9 +125,9 @@ describe("AdMob rewarded callback", () => {
     );
   });
 
-  it("keeps counting the ad when the pass is refused by a limit", async () => {
+  it("keeps counting the ad when its intent expired before the claim", async () => {
     const client = fakeClient({
-      claim: { error: { message: "wallet_balance_cap_reached" } },
+      claim: { error: { message: "reward_intent_expired" } },
     });
     mocks.client = client;
 

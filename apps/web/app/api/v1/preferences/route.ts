@@ -62,14 +62,9 @@ export async function PUT(request: Request) {
   try {
     const user = await requireApiUser(request);
     const input = await parseJson(request, updateUserPreferencesRequestSchema);
+    // Published builds still send the old pass and ad limits; they are
+    // stored as sent and no longer limit anything (docs/ads-only-pause-plan.md).
     const { client, config } = await loadPreferences(user.id);
-    if (input.maxRewardedAdsPerUtcDay > config.maxRewardedAdsPerUtcDay) {
-      throw new HttpError(
-        400,
-        "preference_exceeds_operational_limit",
-        "The ad limit exceeds the current operational maximum",
-      );
-    }
     const { data, error } = await client
       .from("user_preferences")
       .upsert(

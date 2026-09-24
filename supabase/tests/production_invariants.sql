@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(25);
+select plan(30);
 
 select ok(
   not has_function_privilege('authenticated', 'public.reconcile_stale_reward_intents(integer)', 'EXECUTE'),
@@ -186,6 +186,10 @@ select throws_ok(
   'abandoned active reward intents are bounded independently of SSV'
 );
 
+-- Settle stale intents the database already holds, so the counts below are
+-- only this test's (a real database has some).
+do $$ begin perform public.reconcile_stale_reward_intents(5000); end $$;
+
 insert into public.reward_intents (
   id, user_id, device_id, provider, state, custom_data, expires_at, updated_at
 ) values (
@@ -271,43 +275,103 @@ insert into public.token_ledger (
   'admin_adjustment', 2, 'preference-test-balance'
 );
 
-select lives_ok(
+-- The strictest old preferences and a saved balance: neither limits anything
+-- now, and the balance never pays for a visit (docs/ads-only-pause-plan.md).
+select throws_ok(
   $$select public.create_unlock_session(
     '91000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000003',
     '91000000-0000-4000-8000-000000000002',
     'rewarded', 600, 'other', now()
   )$$,
-  'a rewarded pass is allowed below the user daily limit'
+  'P0001', 'insufficient_rewarded_balance',
+  'a saved balance no longer opens an app'
 );
-select is(
-  (
-    select duration_seconds from public.unlock_sessions
-    where client_session_id = '91000000-0000-4000-8000-000000000003'
-  ),
-  600,
-  'the server records the window the user chose, not the old Settings duration'
+select lives_ok(
+  $sql$do $ads$
+  declare
+    ad_id uuid;
+  begin
+    for n in 1..12 loop
+      ad_id := gen_random_uuid();
+      perform public.create_reward_intent(
+        ad_id,
+        '91000000-0000-4000-8000-000000000001',
+        '91000000-0000-4000-8000-000000000002',
+        'admob', 'unlimited-ad-' || n, now() + interval '1 day',
+        'unlimited-ad-' || n
+      );
+      perform public.claim_reward_intent(
+        '91000000-0000-4000-8000-000000000001', ad_id, gen_random_uuid(), now()
+      );
+    end loop;
+  end
+  $ads$$sql$,
+  'twelve ads in a day are granted despite a zero ad preference and a full wallet'
 );
-select throws_ok(
-  $$select public.create_unlock_session(
-    '91000000-0000-4000-8000-000000000001',
-    '91000000-0000-4000-8000-000000000004',
-    '91000000-0000-4000-8000-000000000002',
-    'rewarded', 600, 'other', now()
-  )$$,
-  'P0001', 'daily_pass_limit_reached',
-  'the database enforces the user daily pass limit'
-);
-select throws_ok(
+select lives_ok(
   $$select public.create_reward_intent(
     '91000000-0000-4000-8000-000000000005',
     '91000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000002',
-    'admob', 'preferences-ad-limit', now() + interval '15 minutes',
-    'preferences-ad-limit'
+    'admob', 'visit-ad-one', now() + interval '1 day', 'visit-ad-one'
   )$$,
-  'P0001', 'daily_reward_limit_reached',
-  'the database enforces the user ad limit'
+  'another ad can still be signed'
+);
+select lives_ok(
+  $$select public.claim_reward_intent(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000005',
+    '91000000-0000-4000-8000-00000000000a',
+    now()
+  )$$,
+  'and claimed'
+);
+select lives_ok(
+  $$select public.create_unlock_session(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000004',
+    '91000000-0000-4000-8000-000000000002',
+    'rewarded', 600, 'other', now(),
+    '91000000-0000-4000-8000-000000000005'
+  )$$,
+  'a visit paid by the ad just watched opens an app'
+);
+select is(
+  (
+    select duration_seconds from public.unlock_sessions
+    where client_session_id = '91000000-0000-4000-8000-000000000004'
+  ),
+  600,
+  'the server records the window the user chose, not the old Settings duration'
+);
+select lives_ok(
+  $$select public.create_reward_intent(
+    '91000000-0000-4000-8000-000000000006',
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000002',
+    'admob', 'visit-ad-two', now() + interval '1 day', 'visit-ad-two'
+  )$$,
+  'a second ad for a second visit can be signed'
+);
+select lives_ok(
+  $$select public.claim_reward_intent(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000006',
+    '91000000-0000-4000-8000-00000000000b',
+    now()
+  )$$,
+  'and claimed'
+);
+select lives_ok(
+  $$select public.create_unlock_session(
+    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000007',
+    '91000000-0000-4000-8000-000000000002',
+    'rewarded', 600, 'other', now(),
+    '91000000-0000-4000-8000-000000000006'
+  )$$,
+  'visits paid by ads have no daily limit'
 );
 
 select lives_ok(

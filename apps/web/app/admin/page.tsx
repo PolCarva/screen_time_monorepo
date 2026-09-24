@@ -253,20 +253,15 @@ function OperationalSetup({
           >
             <div className="admin-fields">
               <label>
-                Duración de un pase
+                Duración por defecto de una entrada
                 <input defaultValue={(config?.unlockDurationSeconds ?? 600) / 60} max="1440" min="1" name="unlockDurationMinutes" required type="number" />
                 <span className="admin-hint">Minutos (1–1440)</span>
               </label>
-              <label>
-                Anuncios recompensados por día
-                <input defaultValue={config?.maxRewardedAdsPerUtcDay ?? 0} max="30" min="0" name="maxRewardedAdsPerUtcDay" required type="number" />
-                <span className="admin-hint">Por día UTC (0–30)</span>
-              </label>
-              <label>
-                Saldo máximo de pases
-                <input defaultValue={config?.maxRewardTokenBalance ?? 0} max="20" min="0" name="maxRewardTokenBalance" required type="number" />
-                <span className="admin-hint">0–20</span>
-              </label>
+              {/* Ads have no limit and passes are gone, but builds published
+                  before that still read both values, so they are republished
+                  as they are (docs/ads-only-pause-plan.md, D12). */}
+              <input name="maxRewardedAdsPerUtcDay" type="hidden" value={config?.maxRewardedAdsPerUtcDay ?? 10} />
+              <input name="maxRewardTokenBalance" type="hidden" value={config?.maxRewardTokenBalance ?? 3} />
               <label>
                 Porcentaje destinado al fondo
                 <input defaultValue={config?.impactPercentage ?? 0} max="100" min="0" name="impactPercentage" required step="0.01" type="number" />

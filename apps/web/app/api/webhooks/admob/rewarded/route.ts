@@ -13,11 +13,7 @@ const PASS_WINDOW_MS = 24 * 60 * 60 * 1_000;
  * Rules that can refuse the pass without making the ad any less real: the ad
  * still counts for the fund, and Google must not retry the callback.
  */
-const EXPECTED_CLAIM_REFUSALS = [
-  "reward_intent_expired",
-  "wallet_balance_cap_reached",
-  "daily_reward_limit_reached",
-] as const;
+const EXPECTED_CLAIM_REFUSALS = ["reward_intent_expired"] as const;
 
 type IntentClaims = ReturnType<typeof verifyRewardIntent>;
 
