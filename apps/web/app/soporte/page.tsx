@@ -25,7 +25,7 @@ const sections = [
   },
   {
     title: "No hay anuncio disponible",
-    body: "Si no hay anuncio ni pase guardado, una pausa breve te deja entrar igual. Nunca quedas bloqueado.",
+    body: "Si no hay anuncio disponible, una pausa breve te deja entrar igual. Nunca quedas bloqueado.",
   },
   {
     title: "Votar en Impacto",

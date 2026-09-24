@@ -215,8 +215,8 @@ export default function ResearchPage() {
           efecto después de un año.
         </li>
         <li>
-          Still no es one sec: sus diferencias (el anuncio opcional, los pases,
-          elegir el tiempo) pueden cambiar el efecto, para bien o para mal.
+          Still no es one sec: sus diferencias (el anuncio opcional, elegir el
+          tiempo) pueden cambiar el efecto, para bien o para mal.
         </li>
       </ul>
 

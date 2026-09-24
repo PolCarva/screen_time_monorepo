@@ -71,7 +71,6 @@ export function PauseScreen({
       <div className={styles.actions}>
         <span className={styles.primary}>Ya no quiero entrar</span>
         <span className={styles.secondary}>Ver anuncio</span>
-        {full ? <span className={styles.quiet}>Usar 1 pase de emergencia</span> : null}
       </div>
       {full ? <p className={styles.footnote}>Entrar también es una elección.</p> : null}
     </>

@@ -23,6 +23,11 @@ y tiempo recuperado, y decidir qué hacer con los pases de emergencia.
 
 ## 2. Decisiones
 
+> **Reemplazado en parte (2026-09-24):** los pases guardados, el límite diario de
+> pases y el tope de anuncios se quitaron. D2 y D3 ya no rigen: la pausa ofrece
+> solo el anuncio y, sin anuncio, la respiración. Ver
+> [ads-only-pause-plan.md](ads-only-pause-plan.md).
+
 | # | Decisión |
 |---|---|
 | D1 | **Se quitan los accesos de emergencia** (gratis, diarios). No cumplen el modelo pedido y el pase ya lo cumple. Sin anuncio y sin pase queda la pausa de 15 s (5 min), que ya era el último recurso. |

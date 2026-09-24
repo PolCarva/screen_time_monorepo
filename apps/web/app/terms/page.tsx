@@ -9,7 +9,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/terms",
   title: "Términos de uso | Still",
   description:
-    "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
+    "Condiciones para usar Still, sus anuncios opcionales y el fondo de impacto.",
 });
 
 const sections = [
@@ -27,11 +27,11 @@ const sections = [
   },
   {
     title: "4. Permisos y control del dispositivo",
-    body: "Las pausas requieren permisos y automatizaciones explícitas del sistema. En Android, Still usa Accesibilidad; en iOS, usa una automatización personal que tú creas en la app Atajos de Apple. Puedes revocar estos accesos desde los ajustes del dispositivo. Still no garantiza que cada plataforma, fabricante o versión aplique las restricciones de la misma manera; si no hay anuncio ni pase disponible, una pausa breve permite entrar igual, para evitar un bloqueo sin salida.",
+    body: "Las pausas requieren permisos y automatizaciones explícitas del sistema. En Android, Still usa Accesibilidad; en iOS, usa una automatización personal que tú creas en la app Atajos de Apple. Puedes revocar estos accesos desde los ajustes del dispositivo. Still no garantiza que cada plataforma, fabricante o versión aplique las restricciones de la misma manera; si no hay anuncio disponible, una pausa breve permite entrar igual, para evitar un bloqueo sin salida.",
   },
   {
-    title: "5. Anuncios y pases",
-    body: "Los anuncios recompensados son opcionales. Un anuncio elegible puede conceder un pase temporal después de la verificación del proveedor. Los pases son personales, no transferibles, no tienen valor monetario y están sujetos a límites diarios y controles antifraude publicados en la configuración activa del producto.",
+    title: "5. Anuncios",
+    body: "Los anuncios recompensados son opcionales. Ver un anuncio completo te deja entrar a la app pausada por el tiempo que elijas en ese momento; no se acumula nada para después. Entrar con un anuncio es personal, no transferible, no tiene valor monetario y está sujeto a la verificación del proveedor y a controles antifraude.",
   },
   {
     title: "6. Fondo de impacto",
@@ -75,10 +75,10 @@ export default function TermsPage() {
             <div className="legal-hero__intro">
               <p>
                 Estas condiciones explican qué ofrece Still, cómo funcionan los
-                pases y qué responsabilidades acompañan el uso del producto.
+                anuncios y qué responsabilidades acompañan el uso del producto.
               </p>
               <p className="legal-date">
-                Vigentes desde el 23 de septiembre de 2026
+                Vigentes desde el 24 de septiembre de 2026
               </p>
             </div>
           </header>
@@ -90,7 +90,7 @@ export default function TermsPage() {
             <strong>Resumen directo</strong>
             <p>
               Still ayuda a interrumpir aperturas automáticas. Los anuncios son
-              opcionales, los pases no son dinero y el fondo se publica con
+              opcionales, no generan saldo ni dinero y el fondo se publica con
               cifras conciliadas y pruebas.
             </p>
           </section>

@@ -47,7 +47,7 @@ PRIVADO POR DISEÑO
 Los nombres de las apps que eliges y tu historial detallado se quedan en el iPhone. Still no crea ni lee tus automatizaciones.
 
 NUNCA QUEDAS BLOQUEADO
-Si no hay anuncio disponible ni un pase guardado, una pausa breve te deja entrar igual.
+Si no hay anuncio disponible, una pausa breve te deja entrar igual.
 
 Still es para personas de 18 años o más.
 
@@ -80,7 +80,7 @@ PRIVATE BY DESIGN
 The names of the apps you choose and your detailed history stay on your iPhone. Still never creates or reads your automations.
 
 NEVER LOCKED OUT
-If no ad is available and you have no saved pass, a short pause still lets you in.
+If no ad is available, a short pause still lets you in.
 
 Still is for people 18 and older.
 

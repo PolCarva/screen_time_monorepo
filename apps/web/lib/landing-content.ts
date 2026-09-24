@@ -116,7 +116,7 @@ export const HOME_FAQ: FaqEntry[] = [
   {
     question: "¿Qué datos salen de mi teléfono?",
     answer:
-      "Los nombres de las apps que eliges y tu historial detallado se quedan en el teléfono. Solo compartimos conteos generales necesarios para los pases, el fondo de impacto y el funcionamiento.",
+      "Los nombres de las apps que eliges y tu historial detallado se quedan en el teléfono. Solo compartimos conteos generales necesarios para los anuncios, el fondo de impacto y el funcionamiento.",
   },
   {
     question: "¿Es gratis?",
@@ -132,7 +132,7 @@ export const HOME_FAQ: FaqEntry[] = [
   {
     question: "¿Qué pasa si no hay anuncio disponible?",
     answer:
-      "Nunca quedas bloqueado. Si no hay anuncio ni un pase guardado, una pausa breve te deja entrar igual.",
+      "Nunca quedas bloqueado. Si no hay anuncio disponible, una pausa breve te deja entrar igual.",
   },
   {
     question: "¿Necesito crear una cuenta?",

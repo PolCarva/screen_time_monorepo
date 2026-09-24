@@ -125,15 +125,6 @@
 .secondary {
   border: 1.5px solid var(--mineral-light);
 }
-.quiet {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--mineral-light);
-  font-size: 13px;
-  text-decoration: underline;
-}
 .footnote {
   margin: 10px 0 0;
   color: var(--mineral-light);

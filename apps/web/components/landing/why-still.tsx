@@ -18,7 +18,7 @@ const ICON_PROPS = {
 const REASONS = [
   {
     title: "Nunca quedas bloqueado",
-    text: "Si no hay anuncio ni pase guardado, una pausa breve te deja entrar igual.",
+    text: "Si no hay anuncio disponible, una pausa breve te deja entrar igual.",
     icon: (
       <svg {...ICON_PROPS}>
         <rect pathLength={1} height="11" rx="2" width="16" x="4" y="10" />
