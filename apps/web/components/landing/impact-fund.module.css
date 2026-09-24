@@ -1,0 +1,167 @@
+.section {
+  padding: 112px 0;
+  border-top: 1px solid var(--fog);
+  background: var(--chalk-raised);
+  scroll-margin-top: 0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
+  gap: 80px;
+}
+.copy {
+  display: flex;
+  flex-direction: column;
+}
+.copy h2 {
+  margin-top: 24px;
+}
+.copy :global(.lead) {
+  max-width: 520px;
+  margin-top: 28px;
+}
+.steps {
+  margin: 36px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--graphite);
+  list-style: none;
+}
+.steps li {
+  display: flex;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--fog);
+  font-size: 17px;
+}
+.steps li span:first-child {
+  padding-top: 3px;
+  font-size: 12px;
+}
+.more {
+  margin-top: 32px;
+  align-self: flex-start;
+}
+.card {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  padding: 36px;
+  border: 1px solid var(--graphite);
+  border-radius: 16px;
+  background: var(--white);
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--graphite);
+  color: var(--chalk);
+  font-size: 10px;
+}
+.amount {
+  margin: 20px 0 0;
+  font-size: clamp(52px, 5vw, 72px);
+  font-weight: 520;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+}
+.amountNote {
+  margin: 12px 0 0;
+  color: var(--graphite-soft);
+  font-size: 14px;
+}
+.pending {
+  margin: 20px 0 0;
+  font-size: 22px;
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+.bar {
+  margin-top: 28px;
+  height: 14px;
+  display: flex;
+  gap: 4px;
+}
+.bar span {
+  min-width: 6px;
+  border-radius: 3px;
+}
+.projects {
+  margin: 24px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--graphite);
+  list-style: none;
+}
+.projects li {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--fog);
+}
+.project {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.project strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+.project span {
+  font-size: 10px;
+}
+.share {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.states {
+  margin: 24px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.states div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--fog);
+  border-radius: 8px;
+}
+.states dt {
+  font-size: 10px;
+}
+.states dd {
+  margin: 0;
+  font-size: 13px;
+}
+@media (max-width: 1000px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+@media (max-width: 560px) {
+  .section {
+    padding: 56px 0 64px;
+  }
+  .steps li {
+    font-size: 15px;
+    gap: 16px;
+  }
+  .card {
+    padding: 24px;
+  }
+  .states {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

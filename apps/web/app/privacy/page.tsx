@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 export const metadata: Metadata = {
   title: "Privacidad",
-  description: "Cómo Still trata los datos del dispositivo, bienestar, publicidad e impacto.",
+  description:
+    "Cómo Still trata los datos del dispositivo, bienestar, publicidad e impacto.",
 };
 
 const sections = [
@@ -53,55 +55,69 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main>
+    <>
       <SiteHeader />
-      <article className="legal-page shell-wide">
-        <header className="legal-hero">
-          <p className="mono-label">PRIVACIDAD / EN LENGUAJE CLARO</p>
-          <h1>Tu atención es tuya.</h1>
-          <div className="legal-hero__intro">
-            <p>Esta política explica cómo Still trata la información en la app, el fondo público y los servicios administrativos.</p>
-            <p className="legal-date">Vigente desde el 23 de septiembre de 2026</p>
-          </div>
-        </header>
+      <main id="contenido">
+        <article className="legal-page shell-wide">
+          <header className="legal-hero">
+            <p className="mono-label">PRIVACIDAD / EN LENGUAJE CLARO</p>
+            <h1>Tu atención es tuya.</h1>
+            <div className="legal-hero__intro">
+              <p>
+                Esta política explica cómo Still trata la información en la app,
+                el fondo público y los servicios administrativos.
+              </p>
+              <p className="legal-date">
+                Vigente desde el 23 de septiembre de 2026
+              </p>
+            </div>
+          </header>
 
-        <section className="legal-summary" aria-label="Privacy summary">
-          <strong>Promesa directa</strong>
-          <p>
-            Las apps elegidas y el historial detallado permanecen en el dispositivo.
-            Recopilamos solo los datos agregados y operativos necesarios para pases,
-            sesiones, votos, transparencia, seguridad y solicitudes de privacidad.
-          </p>
-        </section>
-
-        <div className="legal-grid">
-          {sections.map((section) => (
-            <section key={section.title}>
-              <h2>{section.title}</h2>
-              <p>{section.body}</p>
-            </section>
-          ))}
-        </div>
-
-        <section className="legal-contact">
-          <h2>Preguntas o solicitudes</h2>
-          <div>
+          <section className="legal-summary" aria-label="Privacy summary">
+            <strong>Promesa directa</strong>
             <p>
-              Usa <strong>Ajustes → Privacidad</strong> en la app para exportar o eliminar datos,
-              o sigue los pasos de{" "}
-              <Link className="text-link" href="/eliminar-cuenta">
-                eliminar tu cuenta
-              </Link>
-              . Las consultas también pueden enviarse a{" "}
-              <a className="text-link" href="mailto:pablocarvalhogimenez@gmail.com">
-                pablocarvalhogimenez@gmail.com
-              </a>
-              .
+              Las apps elegidas y el historial detallado permanecen en el
+              dispositivo. Recopilamos solo los datos agregados y operativos
+              necesarios para pases, sesiones, votos, transparencia, seguridad y
+              solicitudes de privacidad.
             </p>
-            <Link className="text-link" href="/terms">Leer los Términos de uso</Link>
+          </section>
+
+          <div className="legal-grid">
+            {sections.map((section) => (
+              <section key={section.title}>
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </section>
+            ))}
           </div>
-        </section>
-      </article>
-    </main>
+
+          <section className="legal-contact">
+            <h2>Preguntas o solicitudes</h2>
+            <div>
+              <p>
+                Usa <strong>Ajustes → Privacidad</strong> en la app para
+                exportar o eliminar datos, o sigue los pasos de{" "}
+                <Link className="text-link" href="/eliminar-cuenta">
+                  eliminar tu cuenta
+                </Link>
+                . Las consultas también pueden enviarse a{" "}
+                <a
+                  className="text-link"
+                  href="mailto:pablocarvalhogimenez@gmail.com"
+                >
+                  pablocarvalhogimenez@gmail.com
+                </a>
+                .
+              </p>
+              <Link className="text-link" href="/terms">
+                Leer los Términos de uso
+              </Link>
+            </div>
+          </section>
+        </article>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

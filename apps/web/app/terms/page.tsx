@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 export const metadata: Metadata = {
   title: "Términos de uso",
-  description: "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
+  description:
+    "Condiciones para usar Still, sus pases opcionales y el fondo de impacto.",
 };
 
 const sections = [
@@ -61,53 +63,64 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <main>
+    <>
       <SiteHeader />
-      <article className="legal-page shell-wide">
-        <header className="legal-hero">
-          <p className="mono-label">TÉRMINOS / EN LENGUAJE CLARO</p>
-          <h1>Una pausa útil, con reglas claras.</h1>
-          <div className="legal-hero__intro">
+      <main id="contenido">
+        <article className="legal-page shell-wide">
+          <header className="legal-hero">
+            <p className="mono-label">TÉRMINOS / EN LENGUAJE CLARO</p>
+            <h1>Una pausa útil, con reglas claras.</h1>
+            <div className="legal-hero__intro">
+              <p>
+                Estas condiciones explican qué ofrece Still, cómo funcionan los
+                pases y qué responsabilidades acompañan el uso del producto.
+              </p>
+              <p className="legal-date">
+                Vigentes desde el 23 de septiembre de 2026
+              </p>
+            </div>
+          </header>
+
+          <section
+            className="legal-summary"
+            aria-label="Resumen de los términos"
+          >
+            <strong>Resumen directo</strong>
             <p>
-              Estas condiciones explican qué ofrece Still, cómo funcionan los pases y
-              qué responsabilidades acompañan el uso del producto.
+              Still ayuda a interrumpir aperturas automáticas. Los anuncios son
+              opcionales, los pases no son dinero y el fondo se publica con
+              cifras conciliadas y pruebas.
             </p>
-            <p className="legal-date">Vigentes desde el 23 de septiembre de 2026</p>
+          </section>
+
+          <div className="legal-grid">
+            {sections.map((section) => (
+              <section key={section.title}>
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </section>
+            ))}
           </div>
-        </header>
 
-        <section className="legal-summary" aria-label="Resumen de los términos">
-          <strong>Resumen directo</strong>
-          <p>
-            Still ayuda a interrumpir aperturas automáticas. Los anuncios son opcionales,
-            los pases no son dinero y el fondo se publica con cifras conciliadas y pruebas.
-          </p>
-        </section>
-
-        <div className="legal-grid">
-          {sections.map((section) => (
-            <section key={section.title}>
-              <h2>{section.title}</h2>
-              <p>{section.body}</p>
-            </section>
-          ))}
-        </div>
-
-        <section className="legal-contact">
-          <h2>Privacidad y cierre de cuenta</h2>
-          <div>
-            <p>
-              Usa <strong>Ajustes → Privacidad</strong> en la app para exportar o eliminar
-              datos, o sigue los pasos de{" "}
-              <Link className="text-link" href="/eliminar-cuenta">
-                eliminar tu cuenta
+          <section className="legal-contact">
+            <h2>Privacidad y cierre de cuenta</h2>
+            <div>
+              <p>
+                Usa <strong>Ajustes → Privacidad</strong> en la app para
+                exportar o eliminar datos, o sigue los pasos de{" "}
+                <Link className="text-link" href="/eliminar-cuenta">
+                  eliminar tu cuenta
+                </Link>
+                . Consulta la política para conocer qué se conserva y por qué.
+              </p>
+              <Link className="text-link" href="/privacy">
+                Leer la Política de privacidad
               </Link>
-              . Consulta la política para conocer qué se conserva y por qué.
-            </p>
-            <Link className="text-link" href="/privacy">Leer la Política de privacidad</Link>
-          </div>
-        </section>
-      </article>
-    </main>
+            </div>
+          </section>
+        </article>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

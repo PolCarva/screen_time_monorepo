@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 export const metadata: Metadata = {
   title: "Eliminar cuenta",
@@ -32,45 +33,48 @@ const sections = [
 
 export default function DeleteAccountPage() {
   return (
-    <main>
+    <>
       <SiteHeader />
-      <article className="legal-page shell-wide">
-        <header className="legal-hero">
-          <p className="mono-label">ELIMINAR CUENTA / STILL</p>
-          <h1>Tu cuenta, cuando quieras.</h1>
-          <div className="legal-hero__intro">
-            <p>
-              Cómo eliminar tu cuenta de Still (app de Still Screen Time para
-              Android y iPhone) y los datos asociados.
-            </p>
-          </div>
-        </header>
+      <main id="contenido">
+        <article className="legal-page shell-wide">
+          <header className="legal-hero">
+            <p className="mono-label">ELIMINAR CUENTA / STILL</p>
+            <h1>Tu cuenta, cuando quieras.</h1>
+            <div className="legal-hero__intro">
+              <p>
+                Cómo eliminar tu cuenta de Still (app de Still Screen Time para
+                Android y iPhone) y los datos asociados.
+              </p>
+            </div>
+          </header>
 
-        <div className="legal-grid">
-          {sections.map((section) => (
-            <section key={section.title}>
-              <h2>{section.title}</h2>
-              <p>{section.body}</p>
-            </section>
-          ))}
-        </div>
-
-        <section className="legal-contact">
-          <h2>¿Dudas?</h2>
-          <div>
-            <p>
-              Escríbenos a{" "}
-              <a className="text-link" href={`mailto:${CONTACT_EMAIL}`}>
-                {CONTACT_EMAIL}
-              </a>
-              .
-            </p>
-            <Link className="text-link" href="/privacy">
-              Leer la Política de privacidad
-            </Link>
+          <div className="legal-grid">
+            {sections.map((section) => (
+              <section key={section.title}>
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </section>
+            ))}
           </div>
-        </section>
-      </article>
-    </main>
+
+          <section className="legal-contact">
+            <h2>¿Dudas?</h2>
+            <div>
+              <p>
+                Escríbenos a{" "}
+                <a className="text-link" href={`mailto:${CONTACT_EMAIL}`}>
+                  {CONTACT_EMAIL}
+                </a>
+                .
+              </p>
+              <Link className="text-link" href="/privacy">
+                Leer la Política de privacidad
+              </Link>
+            </div>
+          </section>
+        </article>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

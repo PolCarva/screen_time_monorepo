@@ -1,0 +1,239 @@
+/* Phones drawn in markup: the product screens the landing talks about. */
+.frame {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--phone-frame);
+}
+.lg {
+  width: 330px;
+  height: 676px;
+  padding: 10px;
+  border-radius: 48px;
+  box-shadow: 0 30px 80px rgba(36, 40, 38, 0.28);
+}
+.md {
+  width: 262px;
+  height: 536px;
+  padding: 8px;
+  border-radius: 38px;
+}
+.screen {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.lg .screen {
+  padding: 56px 24px 26px;
+  border-radius: 38px;
+}
+.md .screen {
+  padding: 44px 18px 18px;
+  border-radius: 30px;
+}
+.dark {
+  background: var(--graphite);
+  color: var(--chalk);
+}
+.md .dark {
+  border: 1px solid #3a403d;
+}
+.light {
+  background: var(--chalk);
+  color: var(--graphite);
+}
+.label {
+  margin: 0;
+  font-size: 10px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.lg .label {
+  font-size: 11px;
+}
+.dark .label {
+  color: var(--mineral-light);
+}
+.light .label {
+  color: var(--graphite-soft);
+}
+.field {
+  width: 100%;
+  margin-top: 20px;
+  overflow: visible;
+}
+.lg .field {
+  margin-top: 28px;
+}
+.headline {
+  margin: 26px 0 0;
+  font-size: 26px;
+  font-weight: 540;
+  letter-spacing: -0.05em;
+  line-height: 1.04;
+  white-space: pre-line;
+}
+.lg .headline {
+  margin-top: 36px;
+  font-size: 28px;
+}
+.question {
+  margin: 10px 0 0;
+  color: var(--mineral-light);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.lg .question {
+  margin-top: 14px;
+  font-size: 15px;
+}
+.actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lg .actions {
+  gap: 10px;
+}
+.primary,
+.secondary {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.lg .primary,
+.lg .secondary {
+  height: 50px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.primary {
+  background: var(--chalk);
+  color: var(--graphite);
+}
+.light .primary {
+  background: var(--graphite);
+  color: var(--chalk);
+}
+.secondary {
+  border: 1.5px solid var(--mineral-light);
+}
+.quiet {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mineral-light);
+  font-size: 13px;
+  text-decoration: underline;
+}
+.footnote {
+  margin: 10px 0 0;
+  color: var(--mineral-light);
+  font-size: 12px;
+  text-align: center;
+}
+.title {
+  margin: 12px 0 0;
+  font-size: 21px;
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+}
+.list {
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--graphite);
+  list-style: none;
+}
+.row {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--fog);
+  font-size: 15px;
+}
+.toggle {
+  width: 38px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 2px;
+  display: flex;
+  border-radius: 11px;
+  background: var(--fog);
+}
+.toggle::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--white);
+}
+.toggleOn {
+  justify-content: flex-end;
+  background: var(--graphite);
+}
+.toggleOn::after {
+  background: var(--chalk);
+}
+.step {
+  padding: 12px 0;
+  display: flex;
+  gap: 10px;
+  border-bottom: 1px solid var(--fog);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.step span:first-child {
+  padding-top: 2px;
+  color: var(--graphite-soft);
+  font-size: 11px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-weight: 600;
+}
+.note {
+  margin: 14px 0 0;
+  color: var(--graphite-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* The middle row of the field opens once, like the pause itself (D14). */
+.fieldLeft,
+.fieldRight {
+  transform-box: fill-box;
+}
+@keyframes fieldLeft {
+  from {
+    transform: translateX(18px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes fieldRight {
+  from {
+    transform: translateX(-18px);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fieldLeft {
+    animation: fieldLeft var(--duration-field) var(--ease-out) both;
+  }
+  .fieldRight {
+    animation: fieldRight var(--duration-field) var(--ease-out) both;
+  }
+}

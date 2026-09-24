@@ -24,7 +24,20 @@ export function formatReturnedTime(minutes: number): string {
   const { value, unit } = returnedTimeParts(minutes);
   return `${decimal.format(value)} ${unit}`;
 }
-const statusLabels: Record<ImpactWeek["status"], string> = {
+export const categoryLabels: Record<
+  ImpactWeek["candidates"][number]["charity"]["category"],
+  string
+> = {
+  children: "Infancia",
+  poverty: "Pobreza",
+  environment: "Ambiente",
+  health: "Salud",
+  animals: "Animales",
+  emergencies: "Emergencias",
+  other: "Otras causas",
+};
+
+export const statusLabels: Record<ImpactWeek["status"], string> = {
   draft: "En preparación",
   open: "Votación abierta",
   voting_closed: "Votación cerrada",
@@ -70,7 +83,6 @@ export function ImpactCard({
         </span>
       </div>
       <AttentionField
-        kind="impact"
         values={week.candidates.map((candidate) => candidate.percentage)}
         label={`Campo de asignación del fondo por ${amount}`}
       />
@@ -91,7 +103,7 @@ export function ImpactCard({
             <div className="candidate-ledger__cause">
               <strong>{candidate.charity.name}</strong>
               <span>
-                {candidate.charity.category} · {candidate.charity.country}
+                {categoryLabels[candidate.charity.category]} · {candidate.charity.country}
               </span>
             </div>
             <b>{candidate.percentage}%</b>

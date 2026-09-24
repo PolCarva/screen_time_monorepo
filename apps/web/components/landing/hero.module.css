@@ -1,0 +1,287 @@
+.hero {
+  padding: 64px 0 72px;
+  overflow: hidden;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 660px) minmax(0, 1fr);
+  gap: 40px;
+}
+.copy {
+  display: flex;
+  flex-direction: column;
+}
+.display {
+  margin: 28px 0 0;
+  font-size: clamp(58px, 7.2vw, 104px);
+  font-weight: 520;
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+}
+.lead {
+  max-width: 580px;
+  margin: 32px 0 0;
+  color: var(--graphite-soft);
+  font-size: 21px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.lead strong {
+  color: var(--graphite);
+  font-weight: 600;
+}
+.badges {
+  margin-top: 40px;
+}
+.note {
+  margin: 14px 0 0;
+  color: var(--graphite-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.stats {
+  margin: auto 0 0;
+  padding-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  border-top: 1px solid var(--graphite);
+}
+.statsSpacer {
+  height: 48px;
+  flex-shrink: 0;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stat dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.stat dd {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.stat dd.pending {
+  color: var(--graphite-soft);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+}
+
+/* The field behind the phone. */
+.visual {
+  position: relative;
+  height: 760px;
+  margin: 0;
+}
+.bar {
+  position: absolute;
+  height: 96px;
+  background: var(--fog);
+}
+.barTop,
+.barBottom {
+  left: 0;
+  right: -50vw;
+  border-radius: 18px 0 0 18px;
+}
+.barTop {
+  top: 96px;
+}
+.barBottom {
+  top: 404px;
+}
+.barLeft {
+  top: 250px;
+  left: 60px;
+  width: 150px;
+  border-radius: 18px;
+  background: var(--mineral);
+}
+.barRight {
+  top: 250px;
+  left: 470px;
+  right: -50vw;
+  border-radius: 18px 0 0 18px;
+  background: var(--peach);
+}
+.phoneSlot {
+  position: absolute;
+  top: 0;
+  left: 155px;
+}
+.caption {
+  position: absolute;
+  top: 704px;
+  left: 155px;
+  width: 330px;
+  display: flex;
+  justify-content: center;
+}
+
+/* One opening on load, no loop: the middle row parts and the phone settles
+   (D14). The heading and the display line never animate. */
+@keyframes openLeft {
+  from {
+    transform: translateX(48px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes openRight {
+  from {
+    transform: translateX(-48px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .barLeft {
+    animation: openLeft var(--duration-field) var(--ease-out) 120ms both;
+  }
+  .barRight {
+    animation: openRight var(--duration-field) var(--ease-out) 120ms both;
+  }
+  .phone {
+    animation: settle var(--duration-field) var(--ease-out) both;
+  }
+}
+
+@media (max-width: 1180px) {
+  .visual {
+    transform: scale(0.88);
+    transform-origin: top left;
+    height: 680px;
+  }
+}
+@media (max-width: 980px) {
+  /* One column in the design's order: copy, badges, phone, then the live
+     numbers. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .copy {
+    display: contents;
+  }
+  .statsSpacer {
+    display: none;
+  }
+  .stats {
+    order: 2;
+    margin-top: 32px;
+  }
+  .visual {
+    order: 1;
+    margin-top: 36px;
+    height: 556px;
+    margin-inline: calc(-1 * var(--gutter));
+    transform: none;
+  }
+  .barTop,
+  .barBottom {
+    right: 0;
+    border-radius: 0;
+    height: 72px;
+  }
+  .barTop {
+    top: 80px;
+  }
+  .barBottom {
+    top: 360px;
+  }
+  .barLeft {
+    top: 220px;
+    left: 0;
+    width: calc(50% - 76px);
+    height: 72px;
+    border-radius: 0 14px 14px 0;
+  }
+  .barRight {
+    top: 220px;
+    left: auto;
+    right: 0;
+    width: calc(50% - 76px);
+    height: 72px;
+    border-radius: 14px 0 0 14px;
+  }
+  .phoneSlot {
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .phone {
+    zoom: 0.794;
+  }
+  .caption {
+    top: 552px;
+    left: 0;
+    width: 100%;
+  }
+}
+@media (max-width: 520px) {
+  .hero {
+    padding: 36px 0 64px;
+  }
+  .display {
+    margin-top: 20px;
+  }
+  .lead {
+    margin-top: 20px;
+    font-size: 17px;
+  }
+  .badges {
+    margin-top: 28px;
+  }
+  .note {
+    font-size: 13px;
+  }
+  .stats {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-top: 0;
+  }
+  .stat {
+    min-height: 56px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--fog);
+  }
+  .stat dd {
+    font-size: 22px;
+    text-align: right;
+  }
+  .stat dd.pending {
+    max-width: 55%;
+    font-size: 13px;
+  }
+}

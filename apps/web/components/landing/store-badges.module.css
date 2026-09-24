@@ -1,0 +1,32 @@
+.badges {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  list-style: none;
+}
+.badge {
+  display: block;
+  border-radius: 10px;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.badge:hover {
+  transform: translateY(-1px);
+}
+.badge img {
+  height: 56px;
+  width: auto;
+}
+.small .badge img {
+  height: 48px;
+}
+@media (max-width: 520px) {
+  .badges {
+    gap: 10px;
+  }
+  .badge img {
+    height: 48px;
+  }
+}

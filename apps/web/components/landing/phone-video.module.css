@@ -1,0 +1,58 @@
+.play {
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 0 8px;
+  border: 0;
+  border-radius: 26px;
+  background: var(--white);
+  box-shadow: 0 10px 30px rgba(36, 40, 38, 0.16);
+  color: var(--graphite);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.play:hover {
+  transform: translateY(-1px);
+}
+.icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--graphite);
+}
+.dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--graphite);
+  color: var(--chalk);
+}
+.dialog::backdrop {
+  background: rgba(22, 25, 24, 0.72);
+}
+.dialog video {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 19.5;
+  display: block;
+  border-radius: 12px;
+  background: #000;
+}
+.close {
+  min-height: 44px;
+  margin-top: 12px;
+  width: 100%;
+  border: 1px solid var(--mineral-light);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--chalk);
+  cursor: pointer;
+  font-weight: 600;
+}
