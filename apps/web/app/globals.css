@@ -244,8 +244,6 @@ img {
   align-items: end;
   gap: 9px;
   perspective: 700px;
-  transform: rotateX(14deg) rotateZ(-2deg);
-  transform-origin: center bottom;
 }
 .field--impact i {
   height: var(--field-height);
