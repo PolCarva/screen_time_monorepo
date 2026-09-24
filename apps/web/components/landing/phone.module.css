@@ -180,11 +180,11 @@
   background: var(--white);
 }
 .toggleOn {
-  justify-content: flex-end;
   background: var(--graphite);
 }
 .toggleOn::after {
   background: var(--chalk);
+  transform: translateX(16px);
 }
 .step {
   padding: 12px 0;
@@ -213,6 +213,46 @@
 .fieldRight {
   transform-box: fill-box;
 }
+/* Revealed with its card (components/motion/reveal-observer.tsx): the chosen
+   apps switch on one after another, the setup steps appear in order and the
+   field opens. Before the reveal they wait in their starting state. */
+@media (prefers-reduced-motion: no-preference) {
+  .toggle,
+  .toggle::after {
+    transition:
+      background 260ms var(--ease-out),
+      transform 320ms var(--ease-out);
+    transition-delay: calc(var(--row, 0) * 160ms + 450ms);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .toggleOn {
+    background: var(--fog);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .toggleOn::after {
+    background: var(--white);
+    transform: none;
+  }
+  .step {
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+    transition-delay: calc(var(--row, 0) * 140ms + 450ms);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .step {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .fieldLeft,
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .fieldRight {
+    animation: none;
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .fieldLeft {
+    transform: translateX(18px);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .fieldRight {
+    transform: translateX(-18px);
+  }
+}
+
 @keyframes fieldLeft {
   from {
     transform: translateX(18px);
@@ -231,9 +271,9 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .fieldLeft {
-    animation: fieldLeft var(--duration-field) var(--ease-out) both;
+    animation: fieldLeft var(--duration-field) var(--ease-out) 300ms both;
   }
   .fieldRight {
-    animation: fieldRight var(--duration-field) var(--ease-out) both;
+    animation: fieldRight var(--duration-field) var(--ease-out) 300ms both;
   }
 }

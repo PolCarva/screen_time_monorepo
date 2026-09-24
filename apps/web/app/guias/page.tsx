@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { stagger } from "@/components/motion/stagger";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { CONTENT_PAGES, type ContentPage } from "@/lib/content-pages";
@@ -92,10 +93,12 @@ export default function GuidesPage() {
           </header>
           {GROUPS.map((group) => (
             <section aria-labelledby={`grupo-${group.title}`} className={styles.group} key={group.title}>
-              <h2 id={`grupo-${group.title}`}>{group.title}</h2>
+              <h2 data-reveal="mask" id={`grupo-${group.title}`}>
+                {group.title}
+              </h2>
               <ul className={styles.grid}>
-                {group.pages.map((item) => (
-                  <li className="reveal" key={item.path}>
+                {group.pages.map((item, index) => (
+                  <li data-reveal="" key={item.path} style={stagger(index % 3)}>
                     <Link className={styles.card} href={item.path}>
                       <span className="eyebrow">{item.eyebrow}</span>
                       <strong>{item.h1}</strong>

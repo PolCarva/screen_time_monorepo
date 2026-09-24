@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { stagger } from "@/components/motion/stagger";
+
 import { STUDIES_DISCLAIMER } from "@/lib/landing-content";
 
 import styles from "./proof-band.module.css";
@@ -35,15 +37,22 @@ export function ProofBand() {
           </Link>
         </div>
         <ul className={styles.grid}>
-          {ITEMS.map((item) => (
-            <li className={`${styles.item} reveal`} key={item.figure}>
+          {ITEMS.map((item, index) => (
+            <li
+              className={`${styles.item} draws-rule`}
+              data-reveal=""
+              key={item.figure}
+              style={stagger(index)}
+            >
               <p className={styles.figure}>{item.figure}</p>
               <p className={styles.text}>{item.text}</p>
               <p className={`eyebrow ${styles.source}`}>{item.source}</p>
             </li>
           ))}
         </ul>
-        <p className={styles.disclaimer}>{STUDIES_DISCLAIMER}</p>
+        <p className={styles.disclaimer} data-reveal="fade" style={stagger(3)}>
+          {STUDIES_DISCLAIMER}
+        </p>
       </div>
     </section>
   );

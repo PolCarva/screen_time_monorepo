@@ -1,3 +1,7 @@
+import type { CSSProperties } from "react";
+
+import { stagger } from "@/components/motion/stagger";
+
 import styles from "./usage-gains.module.css";
 
 const GAINS = [
@@ -25,19 +29,19 @@ export function UsageGains() {
         <div className={styles.top}>
           <div className={styles.heading}>
             <p className="eyebrow">Lo que ganas tú</p>
-            <h2 className="section-title" id="gains-title">
+            <h2 className="section-title" data-reveal="mask" id="gains-title">
               Lo que cambia cuando aparece la pausa.
             </h2>
           </div>
-          <p className="lead">
+          <p className="lead" data-reveal="fade" style={stagger(1)}>
             Resultados medidos en estudios sobre pausas antes de abrir una app.
             Tu propio cambio lo ves en Still, día a día.
           </p>
         </div>
         <div className={styles.body}>
           <ul className={styles.cards}>
-            {GAINS.map((gain) => (
-              <li className={`${styles.card} reveal`} key={gain.label}>
+            {GAINS.map((gain, index) => (
+              <li className={styles.card} data-reveal="" key={gain.label} style={stagger(index)}>
                 <span className={`eyebrow ${styles.cardLabel}`}>{gain.label}</span>
                 <span className={styles.figure}>{gain.figure}</span>
                 <span className={styles.cardText}>{gain.text}</span>
@@ -45,7 +49,7 @@ export function UsageGains() {
               </li>
             ))}
           </ul>
-          <figure className={`${styles.today} reveal`}>
+          <figure className={styles.today} data-reveal="" style={stagger(2)}>
             <div className={styles.todayTop}>
               <span className="eyebrow">Hoy · en Still</span>
               <span className={`eyebrow ${styles.chip}`}>Ejemplo</span>
@@ -62,8 +66,8 @@ export function UsageGains() {
               </div>
             </dl>
             <ul className={styles.apps}>
-              {EXAMPLE_APPS.map(([app, detail]) => (
-                <li key={app}>
+              {EXAMPLE_APPS.map(([app, detail], index) => (
+                <li key={app} style={{ "--row": index } as CSSProperties}>
                   <span>{app}</span>
                   <span>{detail}</span>
                 </li>

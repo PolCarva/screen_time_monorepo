@@ -1,3 +1,5 @@
+import { stagger } from "@/components/motion/stagger";
+
 import styles from "./why-second.module.css";
 
 const STAGES = [
@@ -16,17 +18,17 @@ export function WhySecond() {
       <div className={`shell ${styles.grid}`}>
         <div className={styles.copy}>
           <p className="eyebrow">Por qué un segundo</p>
-          <h2 className="section-title" id="why-second-title">
+          <h2 className="section-title" data-reveal="mask" id="why-second-title">
             Casi nadie te pide abrir esa app. Lo hace la mano.
           </h2>
-          <p className="lead">
+          <p className="lead" data-reveal="" style={stagger(1)}>
             La mayoría de las veces que tomas el celular no hubo notificación:
             fue un gesto. Still no intenta convencerte de nada. Pone un segundo
             entre el gesto y la app para que la intención alcance a la mano.
           </p>
         </div>
         <div className={styles.side}>
-          <div className={`${styles.stat} reveal`}>
+          <div className={styles.stat} data-reveal="">
             <p className={styles.figure}>89 %</p>
             <p className={styles.statText}>
               de las interacciones con el teléfono las empieza la persona, no
@@ -37,10 +39,12 @@ export function WhySecond() {
             </p>
           </div>
           <ol className={styles.stages}>
-            {STAGES.map((stage) => (
+            {STAGES.map((stage, index) => (
               <li
-                className={`${styles.stage}${stage.on ? ` ${styles.stageOn}` : ""} reveal`}
+                className={`${styles.stage}${stage.on ? ` ${styles.stageOn}` : ""}`}
+                data-reveal=""
                 key={stage.label}
+                style={stagger(index + 1)}
               >
                 <span className={`eyebrow ${styles.stageLabel}`}>{stage.label}</span>
                 <span className={styles.stageTitle}>{stage.title}</span>

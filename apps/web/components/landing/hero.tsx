@@ -35,7 +35,7 @@ export function Hero({ impact }: { impact: PublicImpact }) {
           </div>
           <p className={styles.note}>{storeNote()}</p>
           <div className={styles.statsSpacer} />
-          <dl className={styles.stats}>
+          <dl className={`${styles.stats} draws-rule`} data-reveal="fade">
             {stats.map((stat, index) => (
               <div className={styles.stat} key={stat.label}>
                 <dt className="eyebrow">

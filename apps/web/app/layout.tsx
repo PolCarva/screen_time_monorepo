@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Recursive } from "next/font/google";
 import "./globals.css";
 
+import { RevealObserver } from "@/components/motion/reveal-observer";
 import { OG_LOCALE } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
@@ -45,7 +46,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es-419" className={recursive.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <RevealObserver />
+      </body>
     </html>
   );
 }

@@ -131,6 +131,27 @@
 .apps li span:last-child {
   color: var(--graphite-soft);
 }
+/* The example day fills in row by row once the card is revealed. */
+@media (prefers-reduced-motion: no-preference) {
+  .apps li,
+  .metric {
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+    transition-delay: calc(var(--row, 0) * 120ms + 500ms);
+  }
+  .metric + .metric {
+    --row: 1;
+  }
+  .apps li {
+    transition-delay: calc(var(--row, 0) * 120ms + 760ms);
+  }
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .apps li,
+  :global(.motion) :global([data-reveal]):not(:global([data-revealed])) .metric {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
 .todayNote {
   margin: auto 0 0;
   padding-top: 20px;

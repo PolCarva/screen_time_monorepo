@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { StoreBadges } from "@/components/landing/store-badges";
+import { stagger } from "@/components/motion/stagger";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { storeNote } from "@/lib/site";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/structured-data";
 
 import styles from "./article.module.css";
+import { TocSpy } from "./toc-spy";
 
 export type TocItem = { id: string; label: string };
 export type RelatedLink = { href: string; title: string; description: string };
@@ -89,6 +91,7 @@ export function Article({
         )}
       />
       <SiteHeader />
+      <div aria-hidden="true" className={styles.progress} />
       <main className={styles.page} id="contenido">
         <div className="shell">
           <nav aria-label="Migas de pan" className={styles.crumbs}>
@@ -117,7 +120,11 @@ export function Article({
             <article className={styles.prose}>
               {children}
               {cta ? (
-                <section aria-labelledby="cta-title" className={styles.cta}>
+                <section
+                  aria-labelledby="cta-title"
+                  className={styles.cta}
+                  data-reveal=""
+                >
                   <h2 id="cta-title">{cta.title}</h2>
                   <p>{cta.text}</p>
                   <StoreBadges small />
@@ -128,13 +135,7 @@ export function Article({
             {toc && toc.length > 0 ? (
               <aside aria-label="En esta página" className={styles.aside}>
                 <p className="eyebrow">En esta página</p>
-                <ol>
-                  {toc.map((item) => (
-                    <li key={item.id}>
-                      <a href={`#${item.id}`}>{item.label}</a>
-                    </li>
-                  ))}
-                </ol>
+                <TocSpy items={toc} />
               </aside>
             ) : null}
           </div>
@@ -143,10 +144,12 @@ export function Article({
           <section aria-labelledby="related-title" className={styles.related}>
             <div className="shell">
               <p className="eyebrow">Sigue leyendo</p>
-              <h2 id="related-title">Guías relacionadas</h2>
+              <h2 data-reveal="mask" id="related-title">
+                Guías relacionadas
+              </h2>
               <ul>
-                {related.map((item) => (
-                  <li key={item.href}>
+                {related.map((item, index) => (
+                  <li data-reveal="" key={item.href} style={stagger(index)}>
                     <Link href={item.href}>
                       <strong>{item.title}</strong>
                       <span>{item.description}</span>
