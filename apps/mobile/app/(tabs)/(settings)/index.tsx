@@ -315,8 +315,8 @@ export default function SettingsScreen() {
         </Heading>
         <Body style={styles.lede}>
           {localize(
-            "Your apps, your limits and your account.",
-            "Tus apps, tus límites y tu cuenta.",
+            "Your apps, your pauses and your account.",
+            "Tus apps, tus pausas y tu cuenta.",
           )}
         </Body>
       </View>

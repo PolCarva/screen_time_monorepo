@@ -185,9 +185,87 @@ ni aplicar migraciones en prod (§6).
    `docs/store-listing.md`.
 5. Avisar a los testers que actualicen: los pases guardados desaparecen.
 
-## 7. Resultados
+## 7. Resultados (2026-09-24)
 
-(Completar al implementar.)
+Commits en la rama, sobre `main` 68a6bb2: `40c9a8b` (espera al anuncio, §2),
+`49ecd77` (este plan), `7a11d37` (fase 1), `f2ff7e6` (fase 2), `edf2523`
+(fase 3), `a05625c` (fase 4) y el de la fase 5 (subtítulo de Ajustes y esta
+sección). Nada pusheado ni aplicado en prod.
+
+### Verificado
+
+- `pnpm check` (lint + typecheck + tests: contratos 30, móvil 196, web 68) y
+  `pnpm build`: exit 0.
+- pgTAP contra prod dentro de `begin/rollback`, con la migración
+  `202609240001`: `production_invariants` 30/30, `real_impact_stats` 48/48,
+  `admin_login` 8/8. `admob_refresh_token` 6/7: la prueba 1 falla igual sin la
+  migración, porque prod ya tiene el token guardado en Vault y la prueba supone
+  una base vacía. `production_invariants` ahora concilia primero los intents
+  viejos que ya tenga la base (prod tenía 2), así no depende de datos reales.
+- `supabase db lint --linked`: solo los avisos previos de parámetros sin usar
+  (`p_started_at`, `p_earned_at`), que se conservan por compatibilidad.
+- Simulador iOS ("Still QA", dev client, anuncios de prueba, contra un mock
+  local de la API: no se escribió nada en prod): onboarding con los textos
+  nuevos; 3 pestañas (Hoy, Impacto, Ajustes); Ajustes sin límites ("01 /
+  PAUSAS" → "02 / CUENTA"); la app no llama `/wallet`. Pausa: "Ya no quiero
+  entrar" + "Ver anuncio", sin pase. Anuncio de prueba → reclamo → elegir el
+  tiempo, sin la frase del pase guardado → se prepara otro anuncio en el acto
+  (sin tope). Irse después del anuncio → "Listo. Te quedaste fuera.", sin
+  guardar nada. Sin anuncio (intents fallando): al abrir la pausa pide un
+  anuncio nuevo y, cuando falla, respira. Con la respiración empezada, el
+  anuncio quedó listo a los 30 s y la pantalla siguió respirando hasta
+  "¿Sigues queriendo abrir Instagram? … 5 min".
+- Emulador Android (`Still_QA_API_36`, APK debug de la rama): el escudo
+  muestra "Go back / Watch ad" y el anuncio de prueba se abre al tocarlo. Sin
+  red: el anuncio falla, respira (guarda `shield_pause_started_at`) y termina
+  en "Do you still want to open Gmail? … 5 min". Con la respiración empezada se
+  volvió a poner la red, YouTube cargó un anuncio y al reabrir Gmail siguió la
+  pausa, sin "Watch ad". Después de "I don't want to go in anymore" la marca se
+  borra y la siguiente apertura ofrece "Watch ad". Ninguna pantalla muestra un
+  pase.
+- `acceptance:shield` en este emulador falla en YouTube (no aparece a tiempo o
+  cuenta dos intentos) **igual con el Kotlin de `main`**: es una carrera previa
+  del entorno (YouTube y Gmail ponen pantallas propias encima del escudo:
+  permiso de notificaciones, "Update available", "New in Gmail"), no de esta
+  rama.
+- No se pudo probar en el simulador el traspaso real de un atajo (la
+  automatización "Al abrir" no corre en el simulador, y el atajo de prueba del
+  simulador ejecuta la acción de la app vieja `com.still.screentime`); la
+  pausa se abrió con `app.still.ios://intervention`. Que el reporte de la
+  entrada nombre su anuncio lo cubre `unlockReportBody` con tests.
+
+### Hallazgos
+
+- **Los builds publicados (0.2.0) nunca mandaron `rewardIntentId`** al
+  reportar una entrada: en prod, 0 de 14 entradas recientes nombran su anuncio
+  (todas gastaron saldo). Con la migración esos reportes se rechazan
+  (`insufficient_balance`) y los builds viejos los descartan en silencio: el
+  usuario entra igual y el anuncio cuenta igual por SSV, pero esas entradas no
+  quedan en `unlock_sessions` y el +1 de cada reclamo queda sin gastar en el
+  libro (sin efecto: nada lee ese saldo). El build nuevo lo arregla
+  (`unlockReportBody`).
+- Términos y privacidad cambiaron de contenido; dicen "vigentes desde el 24 de
+  septiembre de 2026": ajustar a la fecha real de publicación.
+- Quedan sin tocar las extensiones heredadas de Screen Time de iOS
+  (`StillShieldAction`, que todavía hablan de "recargar"): no están activas.
+
+### Pendiente del usuario
+
+1. Aplicar la migración `202609240001` en prod (`supabase db push --linked`)
+   antes o junto con el despliegue de la API (Vercel desde `main`): las rutas
+   nuevas ya no traducen los códigos de tope que la base vieja todavía lanza.
+2. Revisar la rama, mergearla y pushear `main`.
+3. Builds nuevos: Android vc15 (cambió el Kotlin) e iOS build 7 (solo JS);
+   decidir qué hacer con el build 6 que está en revisión.
+4. AdMob: vincular las dos apps a su tienda cuando estén publicadas (iOS: App
+   Store; Android: ficha pública de Play) y esperar la revisión de
+   preparación. Sin esto iOS sigue sin anuncios y cae en la respiración.
+5. Actualizar las descripciones de App Store Connect y Play Console con
+   `docs/store-listing.md`.
+6. Avisar a los testers que actualicen: los pases guardados desaparecen, y en
+   el build viejo "Conseguir 1 pase" ya no deja nada usable.
+7. Probar en el iPhone físico el traspaso real del atajo y en el Xiaomi el
+   escudo con anuncios reales.
 
 ## 8. Prompt para `/goal`
 
