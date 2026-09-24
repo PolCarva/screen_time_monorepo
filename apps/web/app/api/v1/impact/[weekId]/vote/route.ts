@@ -1,7 +1,7 @@
 import { castVoteRequestSchema, uuidSchema } from "@screen-time/contracts";
 
 import { requireApiUser } from "@/lib/auth";
-import { hasGoogleIdentity } from "@/lib/google-identity";
+import { hasVotingIdentity } from "@/lib/voting-identity";
 import {
   databaseHttpError,
   HttpError,
@@ -16,11 +16,11 @@ export async function PUT(
 ) {
   try {
     const user = await requireApiUser(request);
-    if (!hasGoogleIdentity(user)) {
+    if (!hasVotingIdentity(user)) {
       throw new HttpError(
         403,
         "account_required",
-        "Link Google before voting",
+        "Link Google or Apple before voting",
       );
     }
     const input = await parseJson(request, castVoteRequestSchema);

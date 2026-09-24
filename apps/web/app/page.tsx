@@ -386,6 +386,7 @@ export default async function HomePage() {
           <Link href="/impact">Impacto</Link>
           <Link href="/privacy">Privacidad</Link>
           <Link href="/terms">Términos</Link>
+          <Link href="/soporte">Soporte</Link>
         </nav>
       </footer>
     </main>

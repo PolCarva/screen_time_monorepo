@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
-import { hasGoogleIdentity } from "./google-identity";
+import { hasVotingIdentity } from "./voting-identity";
 
 function user(overrides: Partial<User>): User {
   return {
@@ -14,10 +14,10 @@ function user(overrides: Partial<User>): User {
   } as User;
 }
 
-describe("Google identity requirement", () => {
+describe("Voting identity requirement", () => {
   it("accepts a linked Google identity", () => {
     expect(
-      hasGoogleIdentity(
+      hasVotingIdentity(
         user({
           identities: [
             {
@@ -37,15 +37,23 @@ describe("Google identity requirement", () => {
 
   it("accepts Google in Supabase provider metadata", () => {
     expect(
-      hasGoogleIdentity(
+      hasVotingIdentity(
         user({ app_metadata: { provider: "email", providers: ["google"] } }),
       ),
     ).toBe(true);
   });
 
-  it("rejects anonymous and non-Google accounts", () => {
+  it("accepts a linked Apple identity", () => {
     expect(
-      hasGoogleIdentity(
+      hasVotingIdentity(
+        user({ app_metadata: { provider: "apple", providers: ["apple"] } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects anonymous and email-only accounts", () => {
+    expect(
+      hasVotingIdentity(
         user({
           is_anonymous: true,
           app_metadata: { provider: "anonymous", providers: ["anonymous"] },
@@ -53,8 +61,8 @@ describe("Google identity requirement", () => {
       ),
     ).toBe(false);
     expect(
-      hasGoogleIdentity(
-        user({ app_metadata: { provider: "apple", providers: ["apple"] } }),
+      hasVotingIdentity(
+        user({ app_metadata: { provider: "email", providers: ["email"] } }),
       ),
     ).toBe(false);
   });
