@@ -1,3 +1,4 @@
+import { StatusBar } from "expo-status-bar";
 import {
   Children,
   isValidElement,
@@ -27,7 +28,11 @@ type ScreenProps = PropsWithChildren<ScrollViewProps> & {
    * truly does not fit.
    */
   fit?: boolean;
-  /** Each top-level block rises into place in order the first time. */
+  /**
+   * Each top-level block rises into place in order the first time. A
+   * <StatusBar> child is left unwrapped: it draws nothing, and a wrapper would
+   * be one more item in the layout (another gap, a share of the free space).
+   */
   reveal?: boolean;
 };
 
@@ -55,7 +60,7 @@ export function Screen({
   let order = 0;
   const content = reveal
     ? Children.map(children, (child) => {
-        if (!isValidElement(child)) return child;
+        if (!isValidElement(child) || child.type === StatusBar) return child;
         const delay = staggering ? staggerDelay(order++) : 0;
         return <Animated.View entering={rise(delay)}>{child}</Animated.View>;
       })

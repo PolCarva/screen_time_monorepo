@@ -1,6 +1,6 @@
 import { AdsConsent } from "react-native-google-mobile-ads";
 import { type UpdateUserPreferencesRequest } from "@screen-time/contracts";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -144,6 +144,7 @@ export default function SettingsScreen() {
   } = useAppState();
   const shortcutTargets = useShortcutTargets();
   const sheet = useStillSheet();
+  const focused = useIsFocused();
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [linkedIdentities, setLinkedIdentities] = useState<IdentityProvider[]>(
     [],
@@ -449,9 +450,10 @@ export default function SettingsScreen() {
           </Mono>
         </View>
         <View style={styles.health}>
-          {/* A pause that is on breathes, slowly; one that needs work holds still. */}
+          {/* A pause that is on breathes, slowly; one that needs work holds still.
+              Tabs stay mounted, so it only breathes while Settings is shown. */}
           <Breathing
-            active={restrictionHealthy}
+            active={restrictionHealthy && focused}
             opacityTo={0.4}
             period={1_600}
             scaleTo={1}

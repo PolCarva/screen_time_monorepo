@@ -275,8 +275,12 @@ export function CheckFill({
     opacity: Math.min(1, on.value * 1.4),
     transform: [{ scale: interpolate(on.value, [0, 1], [0.4, 1]) }],
   }));
+  // The tick is always drawn (at 0 opacity when unchecked), so it stays out of
+  // what screen readers announce; the row's checked state says it instead.
   return (
     <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, styles.fill, { backgroundColor: color }, fillStyle]}
     >
