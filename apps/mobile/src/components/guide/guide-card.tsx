@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
+import { PressableScale } from "@/components/motion";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
 
 /**
@@ -21,12 +22,14 @@ export function GuideCard({
   children: ReactNode;
 }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityHint={actionLabel}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="imagebutton"
+      dimTo={0.82}
       onPress={onPress}
-      style={({ pressed }) => [styles.root, pressed && styles.pressed]}
+      scaleTo={0.985}
+      style={styles.root}
     >
       <View
         accessibilityElementsHidden
@@ -39,7 +42,7 @@ export function GuideCard({
         <Text style={styles.footerLabel}>{actionLabel}</Text>
         <Text style={styles.footerArrow}>↗</Text>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -52,7 +55,6 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     backgroundColor: colors.white,
   },
-  pressed: { opacity: 0.78 },
   footer: {
     minHeight: 40,
     paddingHorizontal: spacing.md,

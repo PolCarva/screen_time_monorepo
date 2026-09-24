@@ -1,5 +1,10 @@
 package com.still.screentime
 
+import android.animation.Animator
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
@@ -12,8 +17,11 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -60,6 +68,8 @@ class InterventionActivity : Activity() {
   private var freshAdIntentId: String? = null
   private val pauseHandler = Handler(Looper.getMainLooper())
   private var pauseTick: Runnable? = null
+  /** The field's slow breath during the pause; stopped with every new screen. */
+  private var breathing: Animator? = null
 
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
@@ -70,9 +80,7 @@ class InterventionActivity : Activity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    window.statusBarColor = graphite
-    window.navigationBarColor = graphite
-    window.decorView.systemUiVisibility = 0
+    StillInsets.drawEdgeToEdge(this, lightBars = false)
 
     spanish = resources.configuration.locales[0].language == "es"
     val targetPackage = currentTargetPackage
@@ -180,7 +188,7 @@ class InterventionActivity : Activity() {
         },
       )
     }
-    setContentView(root)
+    present(root)
   }
 
   /** Shows the preloaded ad in this same window, then the decision (D2). */
@@ -214,7 +222,8 @@ class InterventionActivity : Activity() {
     pauseSecondsLeft = PAUSE_SECONDS
     val root = column()
     root.addView(spacer(1.2f))
-    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
+    val field = createFieldIcon()
+    root.addView(field, LinearLayout.LayoutParams(dp(64), dp(64)))
     val counter = headline(if (spanish) "Respira.\n$pauseSecondsLeft" else "Breathe.\n$pauseSecondsLeft")
     root.addView(counter)
     root.addView(
@@ -235,7 +244,7 @@ class InterventionActivity : Activity() {
       enabled = false,
     ) {}
     root.addView(enter)
-    setContentView(root)
+    present(root)
 
     stopPause()
     pauseTick = object : Runnable {
@@ -253,11 +262,14 @@ class InterventionActivity : Activity() {
       }
     }
     pauseHandler.postDelayed(pauseTick!!, 1_000)
+    breathe(field)
   }
 
   private fun stopPause() {
     pauseTick?.let(pauseHandler::removeCallbacks)
     pauseTick = null
+    breathing?.cancel()
+    breathing = null
   }
 
   /**
@@ -328,7 +340,7 @@ class InterventionActivity : Activity() {
         enabled = true,
       ) { goHome() },
     )
-    setContentView(root)
+    present(root)
   }
 
   private fun enterLabel(): String {
@@ -368,7 +380,7 @@ class InterventionActivity : Activity() {
         enabled = true,
       ) { goHome() },
     )
-    setContentView(root)
+    present(root)
   }
 
   /**
@@ -511,6 +523,62 @@ class InterventionActivity : Activity() {
 
   // --- View helpers -------------------------------------------------------
 
+  /**
+   * Shows [root]. The dark background is on screen at once; the content
+   * settles in over it, one piece after another, so the shield never waits on
+   * an animation to be there.
+   */
+  private fun present(root: LinearLayout) {
+    breathing?.cancel()
+    breathing = null
+    setContentView(root)
+    var order = 0
+    for (index in 0 until root.childCount) {
+      val child = root.getChildAt(index)
+      val restingAlpha = child.alpha
+      child.alpha = 0f
+      child.translationY = dp(12).toFloat()
+      child.animate()
+        .alpha(restingAlpha)
+        .translationY(0f)
+        .setStartDelay(minOf(order++, 6) * 32L)
+        .setDuration(320L)
+        .setInterpolator(DecelerateInterpolator(2.2f))
+        .start()
+    }
+  }
+
+  /** Buttons give a little under the finger, like Still's buttons in the app. */
+  @SuppressLint("ClickableViewAccessibility")
+  private fun View.sinksWhenPressed() {
+    setOnTouchListener { view, event ->
+      when (event.actionMasked) {
+        MotionEvent.ACTION_DOWN ->
+          view.animate().scaleX(0.97f).scaleY(0.97f).setStartDelay(0L).setDuration(90L).start()
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+          view.animate().scaleX(1f).scaleY(1f).setStartDelay(0L).setDuration(200L).start()
+      }
+      false
+    }
+  }
+
+  /** "Breathe.": the field swells and settles, three seconds each way. */
+  private fun breathe(field: View) {
+    breathing?.cancel()
+    breathing = ObjectAnimator.ofPropertyValuesHolder(
+      field,
+      PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.12f),
+      PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.12f),
+    ).apply {
+      duration = 3_000L
+      startDelay = 520L
+      repeatCount = ValueAnimator.INFINITE
+      repeatMode = ValueAnimator.REVERSE
+      interpolator = AccelerateDecelerateInterpolator()
+      start()
+    }
+  }
+
   /** The chosen window, read out large above the slider. */
   private fun durationValue(label: String) = TextView(this).apply {
     text = label
@@ -583,6 +651,16 @@ class InterventionActivity : Activity() {
     gravity = Gravity.CENTER_HORIZONTAL
     setPadding(dp(28), dp(44), dp(28), dp(28))
     setBackgroundColor(graphite)
+    // The background runs under the system bars; the buttons stay above the
+    // navigation bar and the text below the status bar.
+    StillInsets.onEdges(this) { edges ->
+      setPadding(
+        dp(28) + edges.left,
+        dp(28) + edges.top,
+        dp(28) + edges.right,
+        dp(20) + edges.bottom,
+      )
+    }
   }
 
   private fun spacer(weight: Float) = View(this).also {
@@ -631,6 +709,7 @@ class InterventionActivity : Activity() {
     isFocusable = true
     contentDescription = label
     setOnClickListener { onClick() }
+    sinksWhenPressed()
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54))
   }
 
@@ -650,6 +729,7 @@ class InterventionActivity : Activity() {
     alpha = if (enabled) 1f else 0.42f
     contentDescription = label
     setOnClickListener { if (enabled) onClick() }
+    if (enabled) sinksWhenPressed()
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply {
       topMargin = dp(6)
     }
@@ -666,6 +746,7 @@ class InterventionActivity : Activity() {
     isFocusable = true
     contentDescription = label
     setOnClickListener { onClick() }
+    sinksWhenPressed()
     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
       topMargin = dp(2)
     }

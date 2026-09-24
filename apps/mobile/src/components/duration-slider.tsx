@@ -4,7 +4,7 @@ import {
   nearestAccessDurationStep,
 } from "@screen-time/contracts";
 import * as Haptics from "expo-haptics";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
   PanResponder,
@@ -12,9 +12,16 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
+import { settle } from "@/components/motion";
 import { localize } from "@/i18n";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, fonts, motion, spacing } from "@/theme/tokens";
 
 const KNOB = 30;
 const TRACK_HEIGHT = 3;
@@ -47,8 +54,13 @@ export function DurationSlider({
   tone = "dark",
 }: Props) {
   const palette = tone === "dark" ? darkPalette : lightPalette;
+  const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
   const index = indexOfSeconds(value);
+  // The knob glides from stop to stop and grows a little under the finger.
+  const knobX = useSharedValue(0);
+  const touching = useSharedValue(0);
+  const placed = useRef(false);
   // The gesture reads these instead of closing over them, so the responder can
   // stay the same object while the value changes under an active drag.
   const gesture = useRef({ width, disabled, startX: 0, sent: value });
@@ -81,14 +93,21 @@ export function DurationSlider({
         onMoveShouldSetPanResponder: () => !gesture.current.disabled,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (event) => {
+          touching.value = withTiming(1, { duration: motion.pressIn });
           gesture.current.startX = event.nativeEvent.locationX;
           commit(indexFromX(gesture.current.startX));
         },
         onPanResponderMove: (_event, drag) => {
           commit(indexFromX(gesture.current.startX + drag.dx));
         },
+        onPanResponderRelease: () => {
+          touching.value = withTiming(0, { duration: motion.pressOut });
+        },
+        onPanResponderTerminate: () => {
+          touching.value = withTiming(0, { duration: motion.pressOut });
+        },
       }),
-    [commit, indexFromX],
+    [commit, indexFromX, touching],
   );
 
   const onTrackLayout = useCallback((event: LayoutChangeEvent) => {
@@ -101,6 +120,27 @@ export function DurationSlider({
   );
   const knobLeft =
     width > 0 ? (index / LAST_INDEX) * Math.max(1, width - KNOB) : 0;
+
+  useEffect(() => {
+    if (width === 0) return;
+    // The first placement (and every move under Reduce Motion) is immediate.
+    if (!placed.current || reduceMotion) {
+      placed.current = true;
+      knobX.value = knobLeft;
+      return;
+    }
+    knobX.value = withTiming(knobLeft, { duration: 180, easing: settle });
+  }, [knobLeft, knobX, reduceMotion, width]);
+
+  const knobStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: knobX.value },
+      { scale: 1 + touching.value * 0.14 },
+    ],
+  }));
+  const filledStyle = useAnimatedStyle(() => ({
+    width: knobX.value + KNOB / 2,
+  }));
 
   return (
     <View style={[styles.root, disabled && styles.rootDisabled]}>
@@ -128,10 +168,11 @@ export function DurationSlider({
       >
         <View onLayout={onTrackLayout} style={styles.track}>
           <View style={[styles.rail, { backgroundColor: palette.rail }]} />
-          <View
+          <Animated.View
             style={[
               styles.filled,
-              { width: knobLeft + KNOB / 2, backgroundColor: palette.filled },
+              { backgroundColor: palette.filled },
+              filledStyle,
             ]}
           />
           <View style={styles.ticks} pointerEvents="none">
@@ -148,14 +189,14 @@ export function DurationSlider({
               />
             ))}
           </View>
-          <View
+          <Animated.View
             style={[
               styles.knob,
               {
-                left: knobLeft,
                 backgroundColor: palette.knob,
                 borderColor: palette.knobRing,
               },
+              knobStyle,
             ]}
             pointerEvents="none"
           />
@@ -228,6 +269,7 @@ const styles = StyleSheet.create({
   tick: { width: 1, height: 9 },
   knob: {
     position: "absolute",
+    left: 0,
     width: KNOB,
     height: KNOB,
     borderRadius: KNOB / 2,

@@ -25,7 +25,7 @@ export default function UnlockReadyScreen() {
   const endTime = endValid ? formatClockTime(end) : null;
 
   return (
-    <Screen contentContainerStyle={styles.screen}>
+    <Screen fit contentContainerStyle={styles.screen}>
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
         <Eyebrow>{localize("PASS ACTIVE", "PASE ACTIVO")}</Eyebrow>
@@ -87,12 +87,7 @@ export default function UnlockReadyScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flexGrow: 1,
-    minHeight: 720,
-    justifyContent: "space-between",
-    paddingVertical: spacing.lg,
-  },
+  screen: { justifyContent: "space-between" },
   topline: {
     flexDirection: "row",
     justifyContent: "space-between",

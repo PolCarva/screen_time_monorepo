@@ -3,15 +3,19 @@ package com.still.screentime
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.OvershootInterpolator
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -40,13 +44,7 @@ class AppPickerActivity : Activity() {
       .toMutableSet()
     originalCount = selected.size
 
-    window.statusBarColor = chalkRaised
-    window.navigationBarColor = chalkRaised
-    @Suppress("DEPRECATION")
-    run {
-      window.decorView.systemUiVisibility =
-        View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-    }
+    StillInsets.drawEdgeToEdge(this, lightBars = true)
 
     val spanish = resources.configuration.locales[0].language == "es"
     val launchable = packageManager.getInstalledApplications(0)
@@ -112,6 +110,11 @@ class AppPickerActivity : Activity() {
       addView(list)
     }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
+    // Cancel and Done stay below the status bar, the last row above the
+    // navigation bar, and the list shrinks above the keyboard while searching.
+    StillInsets.onEdges(root) { edges ->
+      root.setPadding(edges.left, edges.top, edges.right, edges.bottom)
+    }
     setContentView(root)
   }
 
@@ -149,6 +152,7 @@ class AppPickerActivity : Activity() {
     textSize = 15f
     typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     setTextColor(color)
+    background = pressFeedback(bounded = false)
     isClickable = true
     isFocusable = true
     contentDescription = label
@@ -157,7 +161,7 @@ class AppPickerActivity : Activity() {
 
   private fun createAppRow(packageName: String, label: String): View {
     lateinit var indicator: TextView
-    fun updateIndicator() {
+    fun updateIndicator(animate: Boolean = false) {
       val active = packageName in selected
       indicator.text = if (active) "✓" else ""
       indicator.setTextColor(if (active) chalkRaised else Color.TRANSPARENT)
@@ -170,12 +174,25 @@ class AppPickerActivity : Activity() {
           setStroke(dp(1), Color.rgb(167, 181, 186))
         }
       }
+      if (animate) {
+        // A small settle on the circle confirms the tap without a flourish.
+        indicator.animate().cancel()
+        indicator.scaleX = if (active) 0.72f else 0.88f
+        indicator.scaleY = indicator.scaleX
+        indicator.animate()
+          .scaleX(1f)
+          .scaleY(1f)
+          .setDuration(if (active) 240L else 160L)
+          .setInterpolator(OvershootInterpolator(if (active) 2.4f else 0f))
+          .start()
+      }
     }
 
     return LinearLayout(this).apply {
       orientation = LinearLayout.HORIZONTAL
       gravity = Gravity.CENTER_VERTICAL
       setPadding(dp(20), 0, dp(20), 0)
+      background = pressFeedback(bounded = true)
       isClickable = true
       isFocusable = true
       contentDescription = label
@@ -204,11 +221,11 @@ class AppPickerActivity : Activity() {
       setOnClickListener {
         if (StillSelfProtection.isOwnPackage(this@AppPickerActivity.packageName, packageName)) {
           selected.remove(packageName)
-          updateIndicator()
+          updateIndicator(animate = true)
           return@setOnClickListener
         }
         if (!selected.add(packageName)) selected.remove(packageName)
-        updateIndicator()
+        updateIndicator(animate = true)
         contentDescription = "$label, ${if (packageName in selected) "selected" else "not selected"}"
       }
     }.also { row ->
@@ -222,6 +239,13 @@ class AppPickerActivity : Activity() {
       row.visibility = if (normalized.isEmpty() || label.contains(normalized)) View.VISIBLE else View.GONE
     }
   }
+
+  /** The system's ripple in graphite: rows fill, toolbar actions bloom. */
+  private fun pressFeedback(bounded: Boolean) = RippleDrawable(
+    ColorStateList.valueOf(Color.argb(26, 36, 40, 38)),
+    null,
+    if (bounded) ColorDrawable(Color.WHITE) else null,
+  )
 
   private fun roundedBackground(fill: Int, stroke: Int, radius: Float) = GradientDrawable().apply {
     setColor(fill)

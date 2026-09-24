@@ -6,11 +6,18 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import {
+  AnimatedNumber,
+  GrowIn,
+  PressableScale,
+  Skeleton,
+} from "@/components/motion";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
-import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
+import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { locale, localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
@@ -26,7 +33,7 @@ import {
 import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
-import { colors, fonts, radius, spacing } from "@/theme/tokens";
+import { colors, fonts, motion, radius, spacing } from "@/theme/tokens";
 
 /** mm:ss, or h:mm:ss once there is more than an hour left. */
 function countdown(seconds: number): string {
@@ -121,10 +128,10 @@ function WeekChart({
             </Text>
             <View style={styles.barTrack}>
               {total > 0 ? (
-                <View style={[styles.bar, { height: total }]}>
+                <GrowIn delay={120 + index * 45} style={[styles.bar, { height: total }]}>
                   <View style={[styles.barEntered, { flex: total - notEnteredHeight }]} />
                   <View style={[styles.barNotEntered, { flex: notEnteredHeight }]} />
-                </View>
+                </GrowIn>
               ) : null}
             </View>
             <View style={styles.baseline} />
@@ -225,14 +232,20 @@ export default function TodayScreen() {
 
   const impact = impactQuery.data;
   const impactDigits = impact ? impactAmountFractionDigits(impact.impactFundMinor) : 0;
-  const impactAmount = impact
-    ? new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: impact.currency,
-        minimumFractionDigits: impactDigits,
-        maximumFractionDigits: impactDigits,
-      }).format(impact.impactFundMinor / 100)
-    : null;
+  const impactFormat = useMemo(
+    () =>
+      impact
+        ? new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: impact.currency,
+            minimumFractionDigits: impactDigits,
+            maximumFractionDigits: impactDigits,
+          })
+        : null,
+    [impact, impactDigits],
+  );
+  const formatImpact = (value: number) => impactFormat?.format(value) ?? "";
+  const impactAmount = impact ? formatImpact(impact.impactFundMinor / 100) : null;
 
   return (
     <Screen contentContainerStyle={styles.screen}>
@@ -277,7 +290,7 @@ export default function TodayScreen() {
       ) : (
         <View style={styles.hero}>
           <View style={styles.heroLine}>
-            <Data style={styles.heroNumber}>{minutes}</Data>
+            <AnimatedNumber style={styles.heroNumber} value={minutes} />
             <View style={styles.heroCopy}>
               <Heading style={styles.heroUnit}>min</Heading>
               <Body style={styles.muted}>
@@ -301,11 +314,11 @@ export default function TodayScreen() {
 
       <View style={styles.numbers}>
         <View style={styles.number}>
-          <Data>{today.pauses}</Data>
+          <AnimatedNumber value={today.pauses} />
           <Body style={styles.numberLabel}>{localize("Pauses", "Pausas")}</Body>
         </View>
         <View style={styles.number}>
-          <Data>{today.notEntered}</Data>
+          <AnimatedNumber value={today.notEntered} />
           <View style={styles.numberKey}>
             <View style={[styles.legendSwatch, styles.swatchNotEntered]} />
             <Body style={styles.numberLabel}>
@@ -314,7 +327,7 @@ export default function TodayScreen() {
           </View>
         </View>
         <View style={styles.number}>
-          <Data>{today.entered}</Data>
+          <AnimatedNumber value={today.entered} />
           <View style={styles.numberKey}>
             <View style={[styles.legendSwatch, styles.swatchEntered]} />
             <Body style={styles.numberLabel}>{localize("Went in", "Entraste")}</Body>
@@ -363,22 +376,29 @@ export default function TodayScreen() {
               <LegendKey color={colors.peach} label={localize("Went in", "Entraste")} />
             </View>
             {selectedColumn ? (
-              <Body accessibilityLiveRegion="polite" style={styles.dayDetail}>
-                {dayBreakdown(selectedColumn)}
-              </Body>
+              <Animated.View
+                entering={selectedDay === null ? undefined : FadeIn.duration(motion.standard)}
+                key={selectedColumn.date}
+              >
+                <Body accessibilityLiveRegion="polite" style={styles.dayDetail}>
+                  {dayBreakdown(selectedColumn)}
+                </Body>
+              </Animated.View>
             ) : null}
           </>
         )}
       </View>
 
       {appsRow && status.kind !== "choose" ? (
-        <Pressable
+        <PressableScale
           accessibilityRole={appsRow.route ? "button" : undefined}
+          dimTo={0.58}
           disabled={!appsRow.route}
           onPress={() => {
             if (appsRow.route) router.push(appsRow.route as never);
           }}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          scaleTo={1}
+          style={styles.row}
         >
           <View style={styles.rowCopy}>
             <Eyebrow>{localize("YOUR APPS", "TUS APPS")}</Eyebrow>
@@ -390,22 +410,28 @@ export default function TodayScreen() {
               <Text style={styles.arrow}>→</Text>
             </View>
           ) : null}
-        </Pressable>
+        </PressableScale>
       ) : null}
 
       {impactQuery.isLoading ? (
         <View style={styles.row}>
-          <View style={styles.skeleton} />
+          <Skeleton style={styles.skeleton} />
         </View>
       ) : impactAmount && impact ? (
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
+          dimTo={0.58}
           onPress={() => router.push("/(tabs)/(impact)" as never)}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          scaleTo={1}
+          style={styles.row}
         >
           <View style={styles.rowCopy}>
             <Eyebrow>{localize("THIS WEEK'S FUND", "FONDO DE ESTA SEMANA")}</Eyebrow>
-            <Data style={styles.impactAmount}>{impactAmount}</Data>
+            <AnimatedNumber
+              format={formatImpact}
+              style={styles.impactAmount}
+              value={impact.impactFundMinor / 100}
+            />
           </View>
           <View style={styles.rowAction}>
             <Mono>
@@ -415,7 +441,7 @@ export default function TodayScreen() {
             </Mono>
             <Text style={styles.arrow}>→</Text>
           </View>
-        </Pressable>
+        </PressableScale>
       ) : null}
     </Screen>
   );
@@ -531,7 +557,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.brandMedium,
     fontSize: 25,
   },
-  pressed: { opacity: 0.58 },
   skeleton: {
     flex: 1,
     height: 64,

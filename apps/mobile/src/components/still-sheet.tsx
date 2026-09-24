@@ -113,10 +113,11 @@ function Sheet({
   }, []);
 
   useEffect(() => {
+    // Same settle curve as the rest of Still: quick to rise, slow to land.
     Animated.timing(progress, {
       toValue: 1,
-      duration: motion.standard,
-      easing: Easing.out(Easing.cubic),
+      duration: motion.reveal - 120,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
       useNativeDriver: true,
     }).start(() => {
       if (titleRef.current)

@@ -9,6 +9,7 @@ import { capture } from "@/lib/analytics";
 import { AttentionField } from "@/components/attention-field";
 import { DurationSlider } from "@/components/duration-slider";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { AnimatedNumber } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import { PrimaryButton } from "@/components/primary-button";
 import {
@@ -16,7 +17,7 @@ import {
   retryAction,
   useStillSheet,
 } from "@/components/still-sheet";
-import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
+import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -243,7 +244,7 @@ export default function TokensScreen() {
           </Mono>
         </View>
         <View style={styles.balanceRow}>
-          <Data style={styles.balance}>{wallet.rewardedBalance}</Data>
+          <AnimatedNumber style={styles.balance} value={wallet.rewardedBalance} />
           <View style={styles.balanceCopy}>
             <Heading>
               {wallet.rewardedBalance === 1

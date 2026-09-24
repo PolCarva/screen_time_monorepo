@@ -3,13 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
   Platform,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
 } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import { CheckFill, PressableScale } from "@/components/motion";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
@@ -137,15 +137,19 @@ export default function IosAppsScreen() {
           )
         : localize("Not tested yet", "Falta probar");
     return (
-      <Pressable
+      <PressableScale
         accessibilityRole="checkbox"
         accessibilityState={{ checked: selected }}
+        dimTo={0.62}
         key={target.id}
         onPress={() => void setSelected(target.id, !selected)}
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        scaleTo={1}
+        style={styles.row}
       >
         <View style={[styles.check, selected && styles.checkOn]}>
-          {selected ? <Body style={styles.checkMark}>✓</Body> : null}
+          <CheckFill checked={selected} color={colors.graphite}>
+            <Body style={styles.checkMark}>✓</Body>
+          </CheckFill>
         </View>
         <View style={styles.rowCopy}>
           <Body style={styles.rowName}>{target.name}</Body>
@@ -158,7 +162,7 @@ export default function IosAppsScreen() {
         {target.origin === "detected" ? (
           <Mono>{localize("FROM SHORTCUTS", "DESDE ATAJOS")}</Mono>
         ) : null}
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -336,17 +340,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
   },
-  pressed: { opacity: 0.62 },
   check: {
     width: 24,
     height: 24,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.mineralLight,
     borderRadius: radius.sm,
   },
-  checkOn: { borderColor: colors.graphite, backgroundColor: colors.graphite },
+  checkOn: { borderColor: colors.graphite },
   checkMark: { color: colors.chalk, fontSize: 14, lineHeight: 18 },
   rowCopy: { flex: 1, gap: 2 },
   rowName: { fontFamily: fonts.brandSemiBold, fontSize: 16 },

@@ -81,4 +81,22 @@ export const type = {
   data: { fontSize: 30, lineHeight: 32, letterSpacing: -1 },
 } as const;
 
-export const motion = { fast: 120, standard: 200, fieldOpen: 520 } as const;
+/**
+ * Durations in ms. Still moves little and settles slowly: content rises a few
+ * points into place, controls answer the finger at once and ease back.
+ */
+export const motion = {
+  fast: 120,
+  standard: 200,
+  fieldOpen: 520,
+  /** Blocks rising into place when a screen first shows. */
+  reveal: 460,
+  /** Gap between one block and the next as a screen reveals. */
+  stagger: 55,
+  /** Numbers counting to their value. */
+  count: 720,
+  /** Bars and fills growing to their value. */
+  grow: 620,
+  pressIn: 90,
+  pressOut: 220,
+} as const;

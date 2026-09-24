@@ -2,11 +2,13 @@ import { formatAccessDuration } from "@screen-time/contracts";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
 import { DurationSlider } from "@/components/duration-slider";
+import { Breathing, PressableScale, rise } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
@@ -31,7 +33,7 @@ import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
-import { colors, fonts, spacing } from "@/theme/tokens";
+import { colors, fonts, motion, spacing } from "@/theme/tokens";
 
 const claimSchema = z.object({
   intentId: z.string().uuid(),
@@ -97,6 +99,14 @@ export function ShortcutIntervention({
   } = useAppState();
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   const { targets, disableScheme } = useShortcutTargets();
+  // The first state arrives with the screen; each later one (the pause, the
+  // choice of time) fades in on its own.
+  const shown = useRef(false);
+  useEffect(() => {
+    shown.current = true;
+  }, []);
+  const change = (delay = 0) =>
+    shown.current ? rise(delay, 8, motion.reveal) : undefined;
 
   const offer = getInterventionOptions({
     supportsDirectAd: true,
@@ -298,7 +308,7 @@ export function ShortcutIntervention({
 
   if (flow.phase === "setup_test" || flow.outcome === "tested") {
     return (
-      <Screen style={styles.root} contentContainerStyle={styles.screen}>
+      <Screen fit style={styles.root} contentContainerStyle={styles.screen}>
         <StatusBar style="light" />
         <View style={styles.topline}>
           <Eyebrow style={styles.lightLabel}>
@@ -450,7 +460,7 @@ export function ShortcutIntervention({
   }
 
   return (
-    <Screen style={styles.root} contentContainerStyle={styles.screen}>
+    <Screen fit style={styles.root} contentContainerStyle={styles.screen}>
       <StatusBar style="light" />
       <View style={styles.topline}>
         <Eyebrow style={styles.lightLabel}>{appLabel}</Eyebrow>
@@ -459,35 +469,52 @@ export function ShortcutIntervention({
       {/* The field is the focus of the gate; on the duration screen the slider
           is, and the screen has to fit without scrolling. */}
       {chooses ? null : (
-        <AttentionField
-          accessibilityLabel={localize(
-            "The attention field opens to make space for a decision.",
-            "El campo de atención se abre para dejar espacio a una decisión.",
-          )}
-          mode="intervention"
-          dark
-        />
+        // "Breathe.": the field swells and settles while the pause runs.
+        <Breathing
+          active={flow.phase === "pause"}
+          delay={motion.fieldOpen}
+          scaleTo={1.06}
+        >
+          <AttentionField
+            accessibilityLabel={localize(
+              "The attention field opens to make space for a decision.",
+              "El campo de atención se abre para dejar espacio a una decisión.",
+            )}
+            mode="intervention"
+            dark
+          />
+        </Breathing>
       )}
 
-      <View style={[styles.copy, chooses && styles.copyCompact]}>
-        <Display style={[styles.title, chooses && styles.titleCompact]}>
-          {headline}
-        </Display>
-        <Body style={styles.question}>{question}</Body>
-        {flow.notice ? (
-          <Body accessibilityLiveRegion="polite" style={styles.notice}>
-            {noticeCopy(flow.notice, appLabel)}
-          </Body>
-        ) : null}
-        {chooses ? (
-          <DurationSlider
-            disabled={busy}
-            onChange={(seconds) =>
-              dispatch({ type: "CHOOSE_DURATION", seconds })
-            }
-            value={flow.durationSeconds}
-          />
-        ) : null}
+      <View>
+        {/* Keyed by state, not by text: the pause's countdown changes every
+            second without the block fading in again. */}
+        <Animated.View
+          entering={change()}
+          key={`copy:${flow.phase}:${chooses ? "choose" : "fixed"}`}
+          style={[styles.copy, chooses && styles.copyCompact]}
+        >
+          <Display style={[styles.title, chooses && styles.titleCompact]}>
+            {headline}
+          </Display>
+          <Body style={styles.question}>{question}</Body>
+          {flow.notice ? (
+            <Animated.View entering={FadeIn.duration(motion.standard)}>
+              <Body accessibilityLiveRegion="polite" style={styles.notice}>
+                {noticeCopy(flow.notice, appLabel)}
+              </Body>
+            </Animated.View>
+          ) : null}
+          {chooses ? (
+            <DurationSlider
+              disabled={busy}
+              onChange={(seconds) =>
+                dispatch({ type: "CHOOSE_DURATION", seconds })
+              }
+              value={flow.durationSeconds}
+            />
+          ) : null}
+        </Animated.View>
       </View>
 
       <View style={styles.actions}>
@@ -499,16 +526,18 @@ export function ShortcutIntervention({
               label={localize("Go to the Home Screen", "Ir a la pantalla de inicio")}
               onPress={() => void onLeave()}
             />
-            <Pressable
+            <PressableScale
               accessibilityRole="button"
+              dimTo={0.62}
               onPress={() => router.replace("/shortcut-setup")}
-              style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+              scaleTo={1}
+              style={styles.secondary}
             >
               <Text style={styles.secondaryLabel}>
                 {localize("Make it open by itself", "Hacer que se abra sola")}
               </Text>
               <Text style={styles.secondaryArrow}>→</Text>
-            </Pressable>
+            </PressableScale>
           </>
         ) : (
           <>
@@ -520,40 +549,42 @@ export function ShortcutIntervention({
               )}
               onPress={() => void decline()}
             />
-            {options.map((option) =>
-              option.quiet ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: busy || !option.action }}
-                  disabled={busy || !option.action}
-                  key={option.key}
-                  onPress={option.action ?? undefined}
-                  style={({ pressed }) => [
-                    styles.quiet,
-                    pressed && styles.pressed,
-                    (busy || !option.action) && styles.disabled,
-                  ]}
-                >
-                  <Text style={styles.quietLabel}>{option.label}</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: busy || !option.action }}
-                  disabled={busy || !option.action}
-                  key={option.key}
-                  onPress={option.action ?? undefined}
-                  style={({ pressed }) => [
-                    styles.secondary,
-                    pressed && styles.pressed,
-                    (busy || !option.action) && styles.disabled,
-                  ]}
-                >
-                  <Text style={styles.secondaryLabel}>{option.label}</Text>
-                  <Text style={styles.secondaryArrow}>→</Text>
-                </Pressable>
-              ),
-            )}
+            {options.map((option, index) => (
+              <Animated.View entering={change(60 + index * 40)} key={option.key}>
+                {option.quiet ? (
+                  <PressableScale
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: busy || !option.action }}
+                    dimTo={0.62}
+                    disabled={busy || !option.action}
+                    onPress={option.action ?? undefined}
+                    scaleTo={1}
+                    style={[
+                      styles.quiet,
+                      (busy || !option.action) && styles.disabled,
+                    ]}
+                  >
+                    <Text style={styles.quietLabel}>{option.label}</Text>
+                  </PressableScale>
+                ) : (
+                  <PressableScale
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: busy || !option.action }}
+                    dimTo={0.62}
+                    disabled={busy || !option.action}
+                    onPress={option.action ?? undefined}
+                    scaleTo={1}
+                    style={[
+                      styles.secondary,
+                      (busy || !option.action) && styles.disabled,
+                    ]}
+                  >
+                    <Text style={styles.secondaryLabel}>{option.label}</Text>
+                    <Text style={styles.secondaryArrow}>→</Text>
+                  </PressableScale>
+                )}
+              </Animated.View>
+            ))}
             <Body style={styles.note}>
               {localize(
                 "Going in is a choice too.",
@@ -577,29 +608,22 @@ function FilledButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.primary,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
-      ]}
+      style={[styles.primary, disabled && styles.disabled]}
     >
       <Text style={styles.primaryLabel}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.graphite },
   screen: {
-    minHeight: 760,
-    flexGrow: 1,
     justifyContent: "space-between",
-    paddingVertical: spacing.lg,
     backgroundColor: colors.graphite,
   },
   topline: {
@@ -666,6 +690,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  pressed: { opacity: 0.62 },
   disabled: { opacity: 0.42 },
 });

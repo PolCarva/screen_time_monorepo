@@ -7,13 +7,20 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
 import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { IdentityButtons } from "@/components/identity-buttons";
+import {
+  AnimatedNumber,
+  CheckFill,
+  GrowIn,
+  PressableScale,
+  Reveal,
+} from "@/components/motion";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import {
@@ -22,7 +29,7 @@ import {
   retryAction,
   useStillSheet,
 } from "@/components/still-sheet";
-import { Body, Data, Eyebrow, Heading, Mono } from "@/components/typography";
+import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { localize, t } from "@/i18n";
 import { ApiError, apiFetch } from "@/lib/api";
 import { openExternalBrowser } from "@/lib/external-browser";
@@ -238,14 +245,20 @@ export default function ImpactScreen() {
 
   // Cents while the fund is small, so a young fund never reads as zero.
   const fractionDigits = week ? impactAmountFractionDigits(week.impactFundMinor) : 0;
-  const amount = week
-    ? new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: week.currency,
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      }).format(week.impactFundMinor / 100)
-    : "—";
+  const currencyFormat = useMemo(
+    () =>
+      week
+        ? new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: week.currency,
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+          })
+        : null,
+    [fractionDigits, week],
+  );
+  const formatAmount = (value: number) => currencyFormat?.format(value) ?? "—";
+  const amount = week ? formatAmount(week.impactFundMinor / 100) : "—";
   const stage = week?.isEstimated
     ? localize("ESTIMATED", "ESTIMADO")
     : localize("CONFIRMED", "CONFIRMADO");
@@ -315,7 +328,11 @@ export default function ImpactScreen() {
                 <Text style={styles.badgeText}>{stage}</Text>
               </View>
             </View>
-            <Data style={styles.amount}>{amount}</Data>
+            <AnimatedNumber
+              format={formatAmount}
+              style={styles.amount}
+              value={week.impactFundMinor / 100}
+            />
             <Body style={styles.muted}>
               {week.impactPercentage}%{" "}
               {localize(
@@ -359,19 +376,18 @@ export default function ImpactScreen() {
               </View>
             </View>
             {week.donationProofUrl ? (
-              <Pressable
+              <PressableScale
                 accessibilityRole="link"
+                dimTo={0.62}
                 onPress={() => void openExternal(week.donationProofUrl!)}
-                style={({ pressed }) => [
-                  styles.proof,
-                  pressed && styles.pressed,
-                ]}
+                scaleTo={1}
+                style={styles.proof}
               >
                 <Text style={styles.actionLabel}>
                   {localize("See the receipt", "Ver comprobante")}
                 </Text>
                 <Text style={styles.arrow}>↗</Text>
-              </Pressable>
+              </PressableScale>
             ) : (
               <Body style={styles.pendingProof}>
                 {localize(
@@ -384,9 +400,11 @@ export default function ImpactScreen() {
 
           <View style={styles.returned}>
             <Eyebrow>{localize("TIME GIVEN BACK", "TIEMPO RECUPERADO")}</Eyebrow>
-            <Data style={styles.returnedAmount}>
-              {returnedTime(week.minutesReturned)}
-            </Data>
+            <AnimatedNumber
+              format={returnedTime}
+              style={styles.returnedAmount}
+              value={week.minutesReturned}
+            />
             <Body>
               {week.people > 0
                 ? localize(
@@ -431,74 +449,83 @@ export default function ImpactScreen() {
               )}
             />
           ) : (
-            week.candidates.map((candidate) => {
+            week.candidates.map((candidate, candidateIndex) => {
               const selected = selectedId === candidate.charity.id;
               const filled = Math.round(candidate.percentage / 10);
               return (
-                <Pressable
-                  accessibilityLabel={`${candidate.charity.name}, ${candidate.percentage}%`}
-                  accessibilityRole="radio"
-                  accessibilityState={{
-                    checked: selected,
-                    disabled: !votingOpen,
-                  }}
-                  disabled={!votingOpen}
+                <Reveal
+                  delay={160}
+                  index={candidateIndex}
                   key={candidate.charity.id}
-                  onPress={() => setSelectedId(candidate.charity.id)}
-                  style={({ pressed }) => [
-                    styles.candidate,
-                    selected && styles.selected,
-                    pressed && styles.pressed,
-                  ]}
                 >
-                  <View style={styles.candidateTop}>
-                    <View
-                      style={[styles.selection, selected && styles.selectionOn]}
-                    >
-                      <Mono style={styles.selectionLabel}>
-                        {selected ? "✓" : ""}
-                      </Mono>
-                    </View>
-                    <View style={styles.nameWrap}>
-                      <Heading style={styles.name}>
-                        {candidate.charity.name}
-                      </Heading>
-                      <Body style={styles.description}>
-                        {candidate.charity.shortDescription}
-                      </Body>
-                    </View>
-                    <Data style={styles.percent}>{candidate.percentage}%</Data>
-                  </View>
-                  <View accessible={false} style={styles.voteField}>
-                    {Array.from({ length: 10 }).map((_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.voteModule,
-                          index < filled && styles.voteModuleOn,
-                          selected &&
-                            index < filled &&
-                            styles.voteModuleSelected,
-                        ]}
+                  <PressableScale
+                    accessibilityLabel={`${candidate.charity.name}, ${candidate.percentage}%`}
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      checked: selected,
+                      disabled: !votingOpen,
+                    }}
+                    dimTo={0.62}
+                    disabled={!votingOpen}
+                    onPress={() => setSelectedId(candidate.charity.id)}
+                    scaleTo={0.99}
+                    style={[styles.candidate, selected && styles.selected]}
+                  >
+                    <View style={styles.candidateTop}>
+                      <View style={styles.selection}>
+                        <CheckFill checked={selected} color={colors.graphite}>
+                          <Mono style={styles.selectionLabel}>✓</Mono>
+                        </CheckFill>
+                      </View>
+                      <View style={styles.nameWrap}>
+                        <Heading style={styles.name}>
+                          {candidate.charity.name}
+                        </Heading>
+                        <Body style={styles.description}>
+                          {candidate.charity.shortDescription}
+                        </Body>
+                      </View>
+                      <AnimatedNumber
+                        format={(value) => `${Math.round(value)}%`}
+                        style={styles.percent}
+                        value={candidate.percentage}
                       />
-                    ))}
-                  </View>
-                  <View style={styles.candidateMeta}>
-                    <Mono>
-                      {candidate.charity.category.toUpperCase()} /{" "}
-                      {candidate.charity.country.toUpperCase()}
-                    </Mono>
-                    <Pressable
-                      accessibilityRole="link"
-                      hitSlop={12}
-                      onPress={() =>
-                        void openExternal(candidate.charity.website)
-                      }
+                    </View>
+                    <GrowIn
+                      axis="x"
+                      delay={260 + candidateIndex * 55}
+                      style={styles.voteField}
                     >
-                      <Text style={styles.website}>↗</Text>
-                    </Pressable>
-                  </View>
-                </Pressable>
+                      {Array.from({ length: 10 }).map((_, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.voteModule,
+                            index < filled && styles.voteModuleOn,
+                            selected &&
+                              index < filled &&
+                              styles.voteModuleSelected,
+                          ]}
+                        />
+                      ))}
+                    </GrowIn>
+                    <View style={styles.candidateMeta}>
+                      <Mono>
+                        {candidate.charity.category.toUpperCase()} /{" "}
+                        {candidate.charity.country.toUpperCase()}
+                      </Mono>
+                      <Pressable
+                        accessibilityRole="link"
+                        hitSlop={12}
+                        onPress={() =>
+                          void openExternal(candidate.charity.website)
+                        }
+                      >
+                        <Text style={styles.website}>↗</Text>
+                      </Pressable>
+                    </View>
+                  </PressableScale>
+                </Reveal>
               );
             })
           )}
@@ -668,7 +695,6 @@ const styles = StyleSheet.create({
     borderColor: colors.fog,
   },
   selected: { borderTopColor: colors.graphite },
-  pressed: { opacity: 0.62 },
   candidateTop: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -677,13 +703,11 @@ const styles = StyleSheet.create({
   selection: {
     width: 28,
     height: 28,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.graphite,
     borderRadius: radius.sm,
   },
-  selectionOn: { backgroundColor: colors.graphite },
   selectionLabel: { color: colors.chalk },
   nameWrap: { flex: 1 },
   name: { fontSize: 19, lineHeight: 22 },
