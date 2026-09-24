@@ -92,10 +92,12 @@ The workspace patches `decode-uri-component@0.2.2` because Expo Router's CommonJ
 
 ## Mobile release
 
-1. Add production mobile values to the EAS production environment. This repository is linked to `@goshops/still-screen-time` (`4d11d2ed-73c9-4442-aea8-1b4a6e8bd636`). Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true`; Apple identity is not part of the product.
+1. Add production mobile values to the EAS production environment. This repository is linked to `@pablo-carvalhos-team/still` (`0dffe42d-253f-40f4-9f70-5870276707ff`), owned by the personal Expo account; every store, signing and EAS credential belongs to the personal accounts (Apple team `JZ9HBXGNK9`, Play developer account "Still Screen Time"). Set `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true`. The iOS app is `app.still.ios` with App Group `group.app.still.ios`; Android stays `com.still.screentime`.
 2. Run `eas credentials:configure-build -p android -e production`. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
 3. Run `eas build --platform android --profile production`, then `eas submit --platform android --profile production` when the closed-beta gates pass.
 4. Enable Google Play App Signing and retain the upload credential according to the account recovery policy.
+
+On iOS, Sign in with Apple links natively: the app sends Apple's ID token to Supabase (`linkIdentity` with a hashed nonce), so the Supabase Apple provider only needs `app.still.ios` in its client IDs and no Services ID or secret key. Votes accept a linked Apple or Google identity.
 
 Google identity uses the web OAuth client callback `https://YOUR_PROJECT.supabase.co/auth/v1/callback`. Supabase must allow the mobile return URL `still://auth/callback`. The API requires a real linked Google identity before accepting an Impact vote.
 
