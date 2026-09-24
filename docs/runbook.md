@@ -96,6 +96,7 @@ The workspace patches `decode-uri-component@0.2.2` because Expo Router's CommonJ
 2. Run `eas credentials:configure-build -p android -e production`. The production profile explicitly uses remote credentials; EAS injects release signing into Gradle. Do not ship the committed debug keystore.
 3. Run `eas build --platform android --profile production`, then `eas submit --platform android --profile production` when the closed-beta gates pass.
 4. Enable Google Play App Signing and retain the upload credential according to the account recovery policy.
+5. `eas submit` reads its store keys from the releasing Mac, never from the repository: the App Store Connect API key at `~/.appstoreconnect/private_keys/AuthKey_A8PSU8WY52.p8`, and the Play service account JSON (`eas-submit@screentime-507114.iam.gserviceaccount.com`, Google Cloud project `screentime-507114`, invited in Play Console with "Release apps to testing tracks") at `~/.config/still/play-service-account.json`. Android submissions go to the internal testing track; iOS builds reach the internal TestFlight group on their own. Wrap both commands in `eas env:exec production "…"` because `app.config.ts` validates production values locally.
 
 On iOS, Sign in with Apple links natively: the app sends Apple's ID token to Supabase (`linkIdentity` with a hashed nonce), so the Supabase Apple provider only needs `app.still.ios` in its client IDs and no Services ID or secret key. Votes accept a linked Apple or Google identity.
 

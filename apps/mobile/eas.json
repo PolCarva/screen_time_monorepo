@@ -26,7 +26,18 @@
   },
   "submit": {
     "production": {
-      "ios": { "ascAppId": "6815465306", "appleTeamId": "JZ9HBXGNK9" }
+      "android": {
+        "serviceAccountKeyPath": "$HOME/.config/still/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "ascAppId": "6815465306",
+        "appleTeamId": "JZ9HBXGNK9",
+        "ascApiKeyPath": "$HOME/.appstoreconnect/private_keys/AuthKey_A8PSU8WY52.p8",
+        "ascApiKeyId": "A8PSU8WY52",
+        "ascApiKeyIssuerId": "4fc741c2-61ca-4720-92a4-8c783c44b528"
+      }
     }
   }
 }
