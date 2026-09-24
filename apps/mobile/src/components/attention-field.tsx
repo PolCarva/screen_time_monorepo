@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { GrowIn } from "@/components/motion";
 import { colors, motion, radius, spacing } from "@/theme/tokens";
 
 type AttentionFieldProps = {
@@ -17,6 +18,8 @@ type AttentionFieldProps = {
   passes?: number;
   dark?: boolean;
   animate?: boolean;
+  /** A shorter field for screens that must fit without scrolling. */
+  compact?: boolean;
   accessibilityLabel: string;
 };
 
@@ -34,7 +37,7 @@ function ProgressField({ values, passes = 0, dark = false }: Pick<AttentionField
       {normalized.map((value, dayIndex) => {
         const count = value === 0 ? 0 : Math.max(1, Math.round((value / maximum) * MODULES_PER_DAY));
         return (
-          <View key={dayIndex} style={styles.dayColumn}>
+          <GrowIn key={dayIndex} delay={dayIndex * 45} style={styles.dayColumn}>
             {Array.from({ length: MODULES_PER_DAY }).map((_, moduleIndex) => {
               const active = moduleIndex < count;
               const passModule = dayIndex === DAYS - 1 && passes > 0 && moduleIndex === Math.min(count, MODULES_PER_DAY - 1);
@@ -49,7 +52,7 @@ function ProgressField({ values, passes = 0, dark = false }: Pick<AttentionField
                 />
               );
             })}
-          </View>
+          </GrowIn>
         );
       })}
     </View>
@@ -80,7 +83,7 @@ function InterventionHalf({ side, dark }: { side: "left" | "right"; dark: boolea
   );
 }
 
-function InterventionField({ dark = true, animate = true }: Pick<AttentionFieldProps, "dark" | "animate">) {
+function InterventionField({ dark = true, animate = true, compact = false }: Pick<AttentionFieldProps, "dark" | "animate" | "compact">) {
   const reducedMotion = useReducedMotion();
   const opening = useSharedValue(reducedMotion || !animate ? 1 : 0);
 
@@ -103,9 +106,9 @@ function InterventionField({ dark = true, animate = true }: Pick<AttentionFieldP
   const rightStyle = useAnimatedStyle(() => ({ transform: [{ translateX: 18 * opening.value }] }));
 
   return (
-    <View style={styles.interventionField}>
+    <View style={[styles.interventionField, compact && styles.interventionFieldCompact]}>
       <Animated.View style={[styles.halfWrap, leftStyle]}><InterventionHalf side="left" dark={dark} /></Animated.View>
-      <View style={[styles.aperture, { backgroundColor: dark ? colors.chalk : colors.graphite }]} />
+      <View style={[styles.aperture, compact && styles.apertureCompact, { backgroundColor: dark ? colors.chalk : colors.graphite }]} />
       <Animated.View style={[styles.halfWrap, rightStyle]}><InterventionHalf side="right" dark={dark} /></Animated.View>
     </View>
   );
@@ -117,8 +120,9 @@ function ImpactField({ values, dark = false }: Pick<AttentionFieldProps, "values
   return (
     <View style={styles.impactField}>
       {source.map((value, index) => (
-        <View
+        <GrowIn
           key={index}
+          delay={index * 45}
           style={[
             styles.impactModule,
             {
@@ -133,11 +137,11 @@ function ImpactField({ values, dark = false }: Pick<AttentionFieldProps, "values
   );
 }
 
-export function AttentionField({ mode = "progress", values, passes, dark = false, animate = true, accessibilityLabel }: AttentionFieldProps) {
+export function AttentionField({ mode = "progress", values, passes, dark = false, animate = true, compact = false, accessibilityLabel }: AttentionFieldProps) {
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} style={styles.root}>
       {mode === "progress" ? <ProgressField values={values} passes={passes} dark={dark} /> : null}
-      {mode === "intervention" ? <InterventionField dark={dark} animate={animate} /> : null}
+      {mode === "intervention" ? <InterventionField dark={dark} animate={animate} compact={compact} /> : null}
       {mode === "impact" ? <ImpactField values={values} dark={dark} /> : null}
     </View>
   );
@@ -149,6 +153,7 @@ const styles = StyleSheet.create({
   dayColumn: { flex: 1, gap: spacing.xs, justifyContent: "flex-end" },
   progressModule: { width: "100%", height: 11, borderRadius: radius.xs },
   interventionField: { height: 152, flexDirection: "row", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  interventionFieldCompact: { height: 118 },
   halfWrap: { flex: 1 },
   interventionHalf: { gap: 7 },
   interventionRow: { flexDirection: "row", gap: 7 },
@@ -156,6 +161,7 @@ const styles = StyleSheet.create({
   alignRight: { alignItems: "flex-end" },
   alignLeft: { alignItems: "flex-start" },
   aperture: { width: 1, height: 136, opacity: 0.14 },
+  apertureCompact: { height: 104 },
   impactField: { height: 92, flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
   impactModule: { flex: 1, minWidth: 8, borderTopLeftRadius: radius.xs, borderTopRightRadius: radius.xs },
 });

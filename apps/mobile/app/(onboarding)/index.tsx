@@ -3,16 +3,26 @@ import { useState } from "react";
 import {
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AttentionField } from "@/components/attention-field";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
+import {
+  CheckFill,
+  GrowFill,
+  PressableScale,
+  Reveal,
+  rise,
+  slideIn,
+} from "@/components/motion";
 import { PrimaryButton } from "@/components/primary-button";
-import { Screen } from "@/components/screen";
 import {
   closeAction,
   retryAction,
@@ -23,7 +33,7 @@ import { localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
-import { colors, fonts, radius, spacing } from "@/theme/tokens";
+import { colors, fonts, motion, radius, spacing, type } from "@/theme/tokens";
 
 const steps = [
   {
@@ -80,13 +90,75 @@ const steps = [
   },
 ] as const;
 
+/**
+ * How much room the phone leaves between its system bars. The four steps must
+ * fit without scrolling, so smaller phones get a smaller title and field.
+ */
+type Density = "regular" | "compact" | "tight";
+
+function densityFor(room: number): Density {
+  if (room < 700) return "tight";
+  if (room < 820) return "compact";
+  return "regular";
+}
+
+const titleSizes = {
+  regular: type.display,
+  compact: { fontSize: 36, lineHeight: 38, letterSpacing: -1.4 },
+  tight: { fontSize: 31, lineHeight: 33, letterSpacing: -1.1 },
+} as const;
+
+/** Recursive SemiBold's average glyph width, as a share of the font size. */
+const GLYPH_WIDTH = 0.57;
+
+/**
+ * The titles break where they read best on a wide phone. On a narrower one a
+ * line that no longer fits would wrap and leave a word alone, so the breaks
+ * are kept only while every line still fits; otherwise the title flows.
+ */
+function fitBreaks(title: string, fontSize: number, width: number) {
+  const lines = title.split("\n");
+  const fits = lines.every(
+    (line) => line.length * fontSize * GLYPH_WIDTH <= width,
+  );
+  return fits ? title : lines.join(" ");
+}
+
+function StepProgress({ step, total }: { step: number; total: number }) {
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${step + 1} / ${total}`}
+      style={styles.progress}
+    >
+      {Array.from({ length: total }, (_, index) => (
+        <View key={index} style={styles.progressSegment}>
+          <GrowFill
+            color={index === step ? colors.mineral : colors.mineralLight}
+            duration={motion.reveal}
+            value={index <= step ? 1 : 0}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function OnboardingScreen() {
+  const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
+  const density = densityFor(height - insets.top - insets.bottom);
+  const textWidth = width - insets.left - insets.right - spacing.lg * 2;
   const [step, setStep] = useState(0);
+  // False until the first step change: the first step arrives with the rest of
+  // the screen, the next ones slide in on their own.
+  const [moved, setMoved] = useState(false);
   const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const { config, setOnboarded } = useAppState();
   const sheet = useStillSheet();
   const current = steps[step]!;
+  const lastStep = step === steps.length - 1;
   const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
   const currentTitle =
     step === steps.length - 1 && !restrictionsEnabled
@@ -121,9 +193,14 @@ export default function OnboardingScreen() {
         ? localize("Choose apps", "Elegir apps")
         : current.action;
 
+  function goTo(next: number) {
+    setMoved(true);
+    setStep(next);
+  }
+
   async function next() {
     if (step < steps.length - 1) {
-      setStep((value) => value + 1);
+      goTo(step + 1);
       return;
     }
     if (!adult) return;
@@ -153,100 +230,143 @@ export default function OnboardingScreen() {
     }
   }
 
+  const compact = density !== "regular";
+
   return (
-    <Screen contentContainerStyle={styles.screen}>
-      <View style={styles.top}>
-        <FieldApertureMark size={34} />
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={() => setStep(steps.length - 1)}
-        >
-          <Text style={styles.skip}>{localize("Skip", "Saltar")}</Text>
-        </Pressable>
-      </View>
+    <View
+      style={[
+        styles.root,
+        {
+          paddingTop: insets.top + (compact ? spacing.sm : spacing.lg),
+          paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.sm,
+          paddingLeft: insets.left + spacing.lg,
+          paddingRight: insets.right + spacing.lg,
+        },
+      ]}
+    >
+      <Reveal index={0} style={styles.top}>
+        <FieldApertureMark size={compact ? 30 : 34} />
+        {lastStep ? null : (
+          <Animated.View entering={FadeIn.duration(motion.standard)}>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() => goTo(steps.length - 1)}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Text style={styles.skip}>{localize("Skip", "Saltar")}</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+      </Reveal>
 
-      <Animated.View
-        key={`field-${step}`}
-        entering={FadeIn.duration(200)}
-        style={styles.field}
+      {/* Scrolls only on a very small screen or with very large text; on
+          every common phone the whole step fits between the bars. */}
+      <ScrollView
+        bounces={false}
+        contentContainerStyle={[
+          styles.bodyContent,
+          compact && styles.bodyContentCompact,
+        ]}
+        contentInsetAdjustmentBehavior="never"
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+        style={styles.scroll}
       >
-        <View style={styles.fieldTop}>
-          <Eyebrow>{current.label}</Eyebrow>
-          <Mono>{String(step + 1).padStart(2, "0")} / 04</Mono>
-        </View>
-        <AttentionField
-          accessibilityLabel={localize(
-            "A visual example of the attention field.",
-            "Un ejemplo visual del campo de atención.",
-          )}
-          mode={current.mode}
-          values={[]}
-          animate={step === 0}
-        />
-      </Animated.View>
-
-      <Animated.View
-        key={`copy-${step}`}
-        entering={FadeIn.duration(200)}
-        style={styles.copy}
-      >
-        <Display>{currentTitle}</Display>
-        <Body style={styles.body}>{currentBody}</Body>
-      </Animated.View>
-
-      {step === steps.length - 1 ? (
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: adult }}
-          onPress={() => setAdult((value) => !value)}
-          style={({ pressed }) => [styles.checkRow, pressed && styles.pressed]}
+        <Reveal
+          index={1}
+          style={[styles.field, compact && styles.fieldCompact]}
         >
-          <View style={[styles.check, adult && styles.checkOn]}>
-            {adult ? <Text style={styles.tick}>✓</Text> : null}
+          <View style={styles.fieldTop}>
+            <Animated.View
+              entering={moved ? slideIn(1) : undefined}
+              key={`label-${step}`}
+            >
+              <Eyebrow>{current.label}</Eyebrow>
+            </Animated.View>
+            <Animated.View
+              entering={moved ? rise(40, 8) : undefined}
+              key={`count-${step}`}
+            >
+              <Mono>{String(step + 1).padStart(2, "0")} / 04</Mono>
+            </Animated.View>
           </View>
-          <Body style={styles.checkLabel}>
-            {localize(
-              "I confirm that I am 18 or older.",
-              "Confirmo que tengo 18 años o más.",
-            )}
-          </Body>
-        </Pressable>
-      ) : null}
-
-      <View style={styles.footer}>
-        <View
-          accessible
-          accessibilityLabel={`${step + 1} / ${steps.length}`}
-          style={styles.progress}
-        >
-          {steps.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressSegment,
-                index <= step && styles.progressSegmentActive,
-                index === step && styles.progressSegmentCurrent,
-              ]}
+          <Animated.View
+            entering={moved ? FadeIn.duration(motion.reveal) : undefined}
+            key={`art-${current.mode}`}
+          >
+            <AttentionField
+              accessibilityLabel={localize(
+                "A visual example of the attention field.",
+                "Un ejemplo visual del campo de atención.",
+              )}
+              animate={step === 0}
+              compact={density === "tight"}
+              mode={current.mode}
+              values={[]}
             />
-          ))}
-        </View>
+          </Animated.View>
+        </Reveal>
+
+        <Reveal index={2} style={styles.copyGroup}>
+          <Animated.View
+            entering={moved ? slideIn(1, 40) : undefined}
+            key={`copy-${step}`}
+            style={[styles.copy, compact && styles.copyCompact]}
+          >
+            <Display style={titleSizes[density]} textBreakStrategy="balanced">
+              {fitBreaks(currentTitle, titleSizes[density].fontSize, textWidth)}
+            </Display>
+            <Body style={[styles.bodyText, density === "tight" && styles.bodyTight]}>
+              {currentBody}
+            </Body>
+          </Animated.View>
+
+          {lastStep ? (
+            <Animated.View entering={rise(140)}>
+              <PressableScale
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: adult }}
+                onPress={() => setAdult((value) => !value)}
+                scaleTo={0.985}
+                style={[styles.checkRow, compact && styles.checkRowCompact]}
+              >
+                <View style={[styles.check, adult && styles.checkOn]}>
+                  <CheckFill checked={adult} color={colors.mineral}>
+                    <Text style={styles.tick}>✓</Text>
+                  </CheckFill>
+                </View>
+                <Body style={styles.checkLabel}>
+                  {localize(
+                    "I confirm that I am 18 or older.",
+                    "Confirmo que tengo 18 años o más.",
+                  )}
+                </Body>
+              </PressableScale>
+            </Animated.View>
+          ) : null}
+        </Reveal>
+      </ScrollView>
+
+      <Reveal index={3} style={[styles.footer, compact && styles.footerCompact]}>
+        <StepProgress step={step} total={steps.length} />
         <PrimaryButton
           onPress={next}
-          disabled={busy || (step === steps.length - 1 && !adult)}
+          disabled={busy || (lastStep && !adult)}
         >
           {busy
             ? localize("Opening settings…", "Abriendo ajustes…")
             : currentAction}
         </PrimaryButton>
-      </View>
-    </Screen>
+      </Reveal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flexGrow: 1, minHeight: 760, justifyContent: "space-between" },
+  root: { flex: 1, backgroundColor: colors.paper },
   top: {
+    minHeight: 34,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -256,21 +376,33 @@ const styles = StyleSheet.create({
     fontFamily: fonts.brandMedium,
     fontSize: 13,
   },
-  field: {
-    minHeight: 210,
-    paddingVertical: spacing.lg,
+  pressed: { opacity: 0.5 },
+  scroll: { flex: 1 },
+  bodyContent: {
+    flexGrow: 1,
     justifyContent: "space-between",
+    gap: spacing.xl,
+    paddingVertical: spacing.xl,
+  },
+  bodyContentCompact: { gap: spacing.lg, paddingVertical: spacing.lg },
+  field: {
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
   },
+  fieldCompact: { paddingVertical: spacing.md, gap: spacing.sm },
   fieldTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  copyGroup: { gap: spacing.lg },
   copy: { gap: spacing.lg },
-  body: { maxWidth: 520, color: colors.graphiteSoft },
+  copyCompact: { gap: spacing.md },
+  bodyText: { maxWidth: 520, color: colors.graphiteSoft },
+  bodyTight: { fontSize: 15, lineHeight: 22 },
   checkRow: {
     minHeight: 68,
     padding: spacing.md,
@@ -281,26 +413,25 @@ const styles = StyleSheet.create({
     borderColor: colors.mineralLight,
     borderRadius: radius.control,
   },
+  checkRowCompact: { minHeight: 58, paddingVertical: spacing.sm },
   check: {
     width: 28,
     height: 28,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.graphite,
     borderRadius: radius.sm,
   },
-  checkOn: { backgroundColor: colors.mineral },
+  checkOn: { borderColor: colors.mineral },
   tick: { color: colors.chalk, fontFamily: fonts.brandBold },
   checkLabel: { flex: 1, fontSize: 14, lineHeight: 20 },
-  pressed: { opacity: 0.62 },
   footer: { gap: spacing.lg },
+  footerCompact: { gap: spacing.md },
   progress: { height: 5, flexDirection: "row", gap: spacing.xs },
   progressSegment: {
     flex: 1,
+    overflow: "hidden",
     borderRadius: radius.xs,
     backgroundColor: colors.fog,
   },
-  progressSegmentActive: { backgroundColor: colors.mineralLight },
-  progressSegmentCurrent: { backgroundColor: colors.mineral },
 });

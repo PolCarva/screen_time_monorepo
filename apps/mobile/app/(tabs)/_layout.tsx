@@ -1,11 +1,54 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  Animated as NavigationAnimated,
+  Easing as NavigationEasing,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { t } from "@/i18n";
 import { colors, fonts, spacing } from "@/theme/tokens";
+
+/** Room between the bar's edge and the tabs (the bar's padding). */
+const TAB_BAR_INSET = 4;
+
+/**
+ * Switching tabs: the old screen fades out in place while the new one fades
+ * in and settles a few points from the side it sits on, never a full slide.
+ */
+function forSettle({ current }: {
+  current: { progress: NavigationAnimated.Value };
+}) {
+  return {
+    sceneStyle: {
+      opacity: current.progress.interpolate({
+        inputRange: [-1, -0.4, 0, 0.4, 1],
+        outputRange: [0, 0, 1, 0, 0],
+      }),
+      transform: [
+        {
+          translateX: current.progress.interpolate({
+            inputRange: [-1, 0, 1],
+            outputRange: [-14, 0, 14],
+          }),
+        },
+      ],
+    },
+  };
+}
 
 const androidTabs = [
   { name: "(today)", label: () => t("today"), icon: "clock-outline" },
@@ -23,16 +66,37 @@ function AndroidFloatingTabBar({
   navigation,
 }: Parameters<NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>>[0]) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const [barWidth, setBarWidth] = useState(0);
+  const tabWidth =
+    barWidth > 0 ? (barWidth - TAB_BAR_INSET * 2) / state.routes.length : 0;
+  // The selected tab's wash glides to the tab that was tapped.
+  const position = useSharedValue(state.index);
+  useEffect(() => {
+    position.value = reduceMotion
+      ? state.index
+      : withSpring(state.index, { damping: 22, stiffness: 240, mass: 0.9 });
+  }, [position, reduceMotion, state.index]);
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: position.value * tabWidth }],
+  }));
 
   return (
     <View pointerEvents="box-none" style={styles.androidTabLayer}>
       <View
         accessibilityRole="tablist"
+        onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
         style={[
           styles.androidTabBar,
           { marginBottom: Math.max(insets.bottom, spacing.sm) },
         ]}
       >
+        {tabWidth > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.androidTabIndicator, { width: tabWidth }, indicatorStyle]}
+          />
+        ) : null}
         {state.routes.map((route, index) => {
           const definition = androidTabs[index];
           if (!definition) return null;
@@ -59,7 +123,7 @@ function AndroidFloatingTabBar({
               }}
               style={({ pressed }) => [
                 styles.androidTab,
-                selected && styles.androidTabSelected,
+                selected && tabWidth === 0 && styles.androidTabSelected,
                 pressed && styles.androidTabPressed,
               ]}
             >
@@ -92,6 +156,15 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           sceneStyle: { backgroundColor: colors.chalk },
+          animation: "shift",
+          sceneStyleInterpolator: forSettle,
+          transitionSpec: {
+            animation: "timing",
+            config: {
+              duration: 260,
+              easing: NavigationEasing.bezier(0.2, 0, 0, 1),
+            },
+          },
         }}
         tabBar={(props) => <AndroidFloatingTabBar {...props} />}
       >
@@ -148,7 +221,7 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     height: 64,
     marginHorizontal: spacing.lg,
-    padding: 4,
+    padding: TAB_BAR_INSET,
     flexDirection: "row",
     borderWidth: 1,
     borderColor: colors.white,
@@ -157,6 +230,14 @@ const styles = StyleSheet.create({
     boxShadow: "0 10px 28px rgba(36, 40, 38, 0.16)",
     elevation: 8,
     overflow: "hidden",
+  },
+  androidTabIndicator: {
+    position: "absolute",
+    top: TAB_BAR_INSET,
+    left: TAB_BAR_INSET,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "rgba(105, 127, 140, 0.14)",
   },
   androidTab: {
     flex: 1,

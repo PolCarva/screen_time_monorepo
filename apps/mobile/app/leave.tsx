@@ -24,7 +24,7 @@ export default function LeaveScreen() {
   }, []);
 
   return (
-    <Screen contentContainerStyle={styles.screen}>
+    <Screen fit contentContainerStyle={styles.screen}>
       <StatusBar style="dark" />
       <View style={styles.topline}>
         <FieldApertureMark size={34} />
@@ -52,7 +52,7 @@ export default function LeaveScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { minHeight: 640, gap: spacing.xl, justifyContent: "space-between" },
+  screen: { gap: spacing.xl, justifyContent: "space-between" },
   topline: {
     minHeight: 58,
     flexDirection: "row",

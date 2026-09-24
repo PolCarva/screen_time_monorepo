@@ -1,20 +1,21 @@
 import { AdsConsent } from "react-native-google-mobile-ads";
 import { type UpdateUserPreferencesRequest } from "@screen-time/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Platform,
-  Pressable,
   Share,
   StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
+import Animated from "react-native-reanimated";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { IdentityButtons } from "@/components/identity-buttons";
+import { Breathing, PressableScale, rise } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import {
   closeAction,
@@ -76,44 +77,54 @@ function Stepper({
   maximum: number;
   onChange(value: number): void;
 }) {
+  // The new number comes in from the side it moved towards: up when it grows.
+  const previous = useRef(value);
+  const moved = previous.current !== value;
+  const direction = value > previous.current ? 1 : -1;
+  useEffect(() => {
+    previous.current = value;
+  }, [value]);
   return (
     <View style={styles.stepperRow}>
       <Body style={styles.stepperLabel}>{label}</Body>
       <View style={styles.stepper}>
-        <Pressable
+        <PressableScale
           accessibilityLabel={localize(`Reduce ${label}`, `Reducir ${label}`)}
           accessibilityRole="button"
           accessibilityState={{ disabled: value <= minimum }}
+          dimTo={0.55}
           disabled={value <= minimum}
           onPress={() => onChange(Math.max(minimum, value - 1))}
-          style={({ pressed }) => [
-            styles.stepperButton,
-            pressed && styles.pressed,
-            value <= minimum && styles.disabled,
-          ]}
+          scaleTo={1}
+          style={[styles.stepperButton, value <= minimum && styles.disabled]}
         >
           <Text style={styles.stepperButtonLabel}>−</Text>
-        </Pressable>
-        <Text accessibilityLiveRegion="polite" style={styles.stepperValue}>
-          {value}
-        </Text>
-        <Pressable
+        </PressableScale>
+        <View style={styles.stepperValueBox}>
+          <Animated.Text
+            accessibilityLiveRegion="polite"
+            entering={moved ? rise(0, 8 * direction, 220) : undefined}
+            key={value}
+            style={styles.stepperValue}
+          >
+            {value}
+          </Animated.Text>
+        </View>
+        <PressableScale
           accessibilityLabel={localize(
             `Increase ${label}`,
             `Aumentar ${label}`,
           )}
           accessibilityRole="button"
           accessibilityState={{ disabled: value >= maximum }}
+          dimTo={0.55}
           disabled={value >= maximum}
           onPress={() => onChange(Math.min(maximum, value + 1))}
-          style={({ pressed }) => [
-            styles.stepperButton,
-            pressed && styles.pressed,
-            value >= maximum && styles.disabled,
-          ]}
+          scaleTo={1}
+          style={[styles.stepperButton, value >= maximum && styles.disabled]}
         >
           <Text style={styles.stepperButtonLabel}>+</Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );
@@ -438,7 +449,14 @@ export default function SettingsScreen() {
           </Mono>
         </View>
         <View style={styles.health}>
-          <View style={[styles.indicator, restrictionHealthy && styles.on]} />
+          {/* A pause that is on breathes, slowly; one that needs work holds still. */}
+          <Breathing
+            active={restrictionHealthy}
+            opacityTo={0.4}
+            period={1_600}
+            scaleTo={1}
+            style={[styles.indicator, restrictionHealthy && styles.on]}
+          />
           <View style={styles.healthCopy}>
             <Heading style={styles.sectionTitle}>
               {restrictionHealthy
@@ -632,18 +650,17 @@ export default function SettingsScreen() {
             thumbColor={colors.chalkRaised}
           />
         </View>
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.textAction,
-            pressed && styles.pressed,
-          ]}
+          dimTo={0.6}
+          scaleTo={1}
+          style={styles.textAction}
           onPress={() => void showAdvertisingPrivacyOptions()}
         >
           <Text style={styles.actionLabel}>
             {localize("Ad privacy", "Privacidad de los anuncios")}
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.section}>
@@ -660,30 +677,28 @@ export default function SettingsScreen() {
             "Descarga una copia o elimina tu cuenta.",
           )}
         </Body>
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.textAction,
-            pressed && styles.pressed,
-          ]}
+          dimTo={0.6}
+          scaleTo={1}
+          style={styles.textAction}
           onPress={exportData}
         >
           <Text style={styles.actionLabel}>
             {localize("Download my data", "Descargar mis datos")}
           </Text>
-        </Pressable>
-        <Pressable
+        </PressableScale>
+        <PressableScale
           accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.textAction,
-            pressed && styles.pressed,
-          ]}
+          dimTo={0.6}
+          scaleTo={1}
+          style={styles.textAction}
           onPress={confirmDeletion}
         >
           <Text style={styles.dangerLabel}>
             {localize("Delete account and data", "Eliminar cuenta y datos")}
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </Screen>
   );
@@ -730,7 +745,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
   },
-  pressed: { opacity: 0.65 },
   disabled: { opacity: 0.42 },
   between: {
     flexDirection: "row",
@@ -771,6 +785,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.brandMedium,
     fontSize: 22,
   },
+  stepperValueBox: { minWidth: 42, overflow: "hidden" },
   stepperValue: {
     minWidth: 42,
     color: colors.graphite,

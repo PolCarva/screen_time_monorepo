@@ -1,6 +1,5 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import {
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -8,6 +7,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { PressableScale } from "@/components/motion";
 import { localize } from "@/i18n";
 import {
   identityProviderName,
@@ -76,17 +76,13 @@ export function IdentityButtons({
         }
 
         return (
-          <Pressable
+          <PressableScale
             key={provider}
             accessibilityRole="button"
             accessibilityState={{ disabled: busy !== null || isLinked }}
             disabled={busy !== null || isLinked}
             onPress={() => onLink(provider)}
-            style={({ pressed }) => [
-              styles.identity,
-              isLinked && styles.identityLinked,
-              pressed && styles.pressed,
-            ]}
+            style={[styles.identity, isLinked && styles.identityLinked]}
           >
             <Text style={styles.identityText}>
               {isLinked
@@ -98,7 +94,7 @@ export function IdentityButtons({
                       `G  Continuar con ${name}`,
                     )}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
@@ -121,6 +117,5 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     backgroundColor: colors.chalkRaised,
   },
-  pressed: { opacity: 0.65 },
   disabled: { opacity: 0.42 },
 });

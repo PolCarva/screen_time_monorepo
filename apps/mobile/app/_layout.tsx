@@ -189,6 +189,9 @@ function Navigation() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.chalk },
+        // iOS keeps its native push; Android gets a short rise-and-fade,
+        // the same on every OEM skin, instead of each skin's own default.
+        animation: Platform.OS === "android" ? "fade_from_bottom" : "default",
       }}
     >
       <Stack.Screen name="index" />
@@ -200,8 +203,11 @@ function Navigation() {
       <Stack.Screen name="shortcut-repair" />
       <Stack.Screen name="android-setup" />
       <Stack.Screen name="android-repair" />
-      <Stack.Screen name="unlock-ready" />
-      <Stack.Screen name="leave" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="unlock-ready" options={{ animation: "fade" }} />
+      <Stack.Screen
+        name="leave"
+        options={{ animation: "fade", gestureEnabled: false }}
+      />
       <Stack.Screen
         name="intervention"
         options={{ presentation: "fullScreenModal", gestureEnabled: false }}
