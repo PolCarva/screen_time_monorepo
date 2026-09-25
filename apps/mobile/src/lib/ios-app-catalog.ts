@@ -14,6 +14,11 @@ export type CatalogApp = {
   readonly aliases: readonly string[];
   /** Scheme without the trailing `://`. */
   readonly scheme: string;
+  /**
+   * Apple's own apps. They are on every iPhone, so finding their scheme says
+   * nothing about what this person uses; the picker keeps them further down.
+   */
+  readonly system?: true;
 };
 
 export const IOS_APP_CATALOG: readonly CatalogApp[] = [
@@ -55,20 +60,21 @@ export const IOS_APP_CATALOG: readonly CatalogApp[] = [
     aliases: ["Mercado Livre"],
     scheme: "meli",
   },
-  { id: "apple-news", name: "News", aliases: ["Apple News"], scheme: "applenews" },
-  { id: "apple-photos", name: "Photos", aliases: ["Fotos"], scheme: "photos-redirect" },
-  { id: "apple-maps", name: "Maps", aliases: ["Mapas", "Apple Maps"], scheme: "maps" },
-  { id: "apple-fitness", name: "Fitness", aliases: [], scheme: "fitnessapp" },
-  { id: "apple-health", name: "Health", aliases: ["Salud"], scheme: "x-apple-health" },
-  { id: "apple-calendar", name: "Calendar", aliases: ["Calendario"], scheme: "calshow" },
+  { id: "apple-news", name: "News", aliases: ["Apple News"], scheme: "applenews", system: true },
+  { id: "apple-photos", name: "Photos", aliases: ["Fotos"], scheme: "photos-redirect", system: true },
+  { id: "apple-maps", name: "Maps", aliases: ["Mapas", "Apple Maps"], scheme: "maps", system: true },
+  { id: "apple-fitness", name: "Fitness", aliases: [], scheme: "fitnessapp", system: true },
+  { id: "apple-health", name: "Health", aliases: ["Salud"], scheme: "x-apple-health", system: true },
+  { id: "apple-calendar", name: "Calendar", aliases: ["Calendario"], scheme: "calshow", system: true },
   {
     id: "apple-reminders",
     name: "Reminders",
     aliases: ["Recordatorios"],
     scheme: "x-apple-reminderkit",
+    system: true,
   },
-  { id: "apple-files", name: "Files", aliases: ["Archivos"], scheme: "shareddocuments" },
-  { id: "apple-wallet", name: "Wallet", aliases: ["Cartera"], scheme: "shoebox" },
+  { id: "apple-files", name: "Files", aliases: ["Archivos"], scheme: "shareddocuments", system: true },
+  { id: "apple-wallet", name: "Wallet", aliases: ["Cartera"], scheme: "shoebox", system: true },
   { id: "google-maps", name: "Google Maps", aliases: [], scheme: "comgooglemaps" },
   { id: "waze", name: "Waze", aliases: [], scheme: "waze" },
   { id: "slack", name: "Slack", aliases: [], scheme: "slack" },
