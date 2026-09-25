@@ -1,5 +1,15 @@
 import type { ExpoConfig } from "expo/config";
 
+/**
+ * The store version, and the runtime over-the-air updates are made for: an
+ * update reaches only store builds of this same version. Bump it with every
+ * store build and only then; `pnpm update:apps` refuses to publish when native
+ * code changed since the store build (docs/ota-updates-plan.md).
+ */
+const VERSION = "0.3.5";
+/** Fixed, not from env, so every evaluation writes the same update URL. */
+const EAS_PROJECT_ID = "0dffe42d-253f-40f4-9f70-5870276707ff";
+
 const variant = process.env.APP_VARIANT ?? "development";
 const production = variant === "production";
 
@@ -18,10 +28,7 @@ const supabaseUrl = buildValue("EXPO_PUBLIC_SUPABASE_URL");
 const supabasePublishableKey = buildValue(
   "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
 );
-const easProjectId = buildValue(
-  "EXPO_PUBLIC_EAS_PROJECT_ID",
-  "0dffe42d-253f-40f4-9f70-5870276707ff",
-);
+const easProjectId = buildValue("EXPO_PUBLIC_EAS_PROJECT_ID", EAS_PROJECT_ID);
 const androidAppId = buildValue(
   "ADMOB_ANDROID_APP_ID",
   "ca-app-pub-3940256099942544~3347511713",
@@ -67,7 +74,16 @@ const config: ExpoConfig = {
   owner: "pablo-carvalhos-team",
   name: production ? "Still" : `Still ${variant}`,
   slug: "still",
-  version: "0.3.4",
+  version: VERSION,
+  // A plain string: the bare workflow rejects the appVersion policy, and a
+  // fingerprint runtime would depend on env and pnpm paths here.
+  runtimeVersion: VERSION,
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+    // The defaults, written out: check at launch, never wait for the network.
+    checkAutomatically: "ON_LOAD",
+    fallbackToCacheTimeout: 0,
+  },
   orientation: "portrait",
   scheme: "still",
   icon: "./assets/icon.png",
