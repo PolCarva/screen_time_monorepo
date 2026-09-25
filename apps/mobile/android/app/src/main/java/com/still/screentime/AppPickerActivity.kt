@@ -35,6 +35,10 @@ class AppPickerActivity : Activity() {
   private lateinit var selected: MutableSet<String>
   private var originalCount = 0
   private val appRows = mutableListOf<Pair<String, View>>()
+  /** Every row of a package (it can be both suggested and listed) redraws together. */
+  private val indicatorUpdaters = mutableMapOf<String, MutableList<(Boolean) -> Unit>>()
+  /** The suggestions block; hidden while searching, which covers every app. */
+  private val suggestionViews = mutableListOf<View>()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -85,18 +89,33 @@ class AppPickerActivity : Activity() {
       setMargins(dp(16), dp(12), dp(16), dp(10))
     })
 
-    root.addView(TextView(this).apply {
-      text = "APPS"
-      textSize = 11f
-      letterSpacing = 0.12f
-      typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-      setTextColor(graphiteSoft)
-      setPadding(dp(20), dp(8), dp(20), dp(8))
-    })
-
     val list = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       setBackgroundColor(chalkRaised)
+    }
+    // The onboarding passes the apps used most, with their daily minutes. They
+    // are offered first and never ticked for the user (onboarding v2, D11).
+    val suggestedPackages = intent.getStringArrayListExtra(EXTRA_SUGGESTED_PACKAGES).orEmpty()
+    val suggestedMinutes = intent.getIntegerArrayListExtra(EXTRA_SUGGESTED_MINUTES).orEmpty()
+    val launchablePackages = launchable.map { it.packageName }.toSet()
+    val suggestions = suggestedPackages
+      .mapIndexed { index, packageName -> packageName to (suggestedMinutes.getOrNull(index) ?: 0) }
+      .filter { (packageName, _) ->
+        packageName in launchablePackages &&
+          !StillSelfProtection.isOwnPackage(this.packageName, packageName)
+      }
+    if (suggestions.isNotEmpty()) {
+      suggestionViews += sectionLabel(if (spanish) "LAS QUE MÁS USAS" else "YOUR MOST USED")
+      suggestions.forEach { (packageName, minutes) ->
+        val label = runCatching {
+          packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+        }.getOrDefault(packageName)
+        suggestionViews += createAppRow(packageName, label, dailyLabel(minutes, spanish))
+      }
+      suggestionViews += sectionLabel(if (spanish) "TODAS LAS APPS" else "ALL APPS")
+      suggestionViews.forEach(list::addView)
+    } else {
+      list.addView(sectionLabel("APPS"))
     }
     launchable.forEach { app ->
       val label = packageManager.getApplicationLabel(app).toString()
@@ -159,7 +178,30 @@ class AppPickerActivity : Activity() {
     setOnClickListener { onClick() }
   }
 
-  private fun createAppRow(packageName: String, label: String): View {
+  private fun sectionLabel(value: String) = TextView(this).apply {
+    text = value
+    textSize = 11f
+    letterSpacing = 0.12f
+    typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+    setTextColor(graphiteSoft)
+    setPadding(dp(20), dp(12), dp(20), dp(8))
+  }
+
+  /** "1 h 12 min al día" / "1 hr 12 min a day", like the onboarding's bars. */
+  private fun dailyLabel(minutes: Int, spanish: Boolean): String? {
+    if (minutes <= 0) return null
+    val hours = minutes / 60
+    val rest = minutes % 60
+    val hourUnit = if (spanish) "h" else "hr"
+    val amount = when {
+      hours == 0 -> "$rest min"
+      rest == 0 -> "$hours $hourUnit"
+      else -> "$hours $hourUnit $rest min"
+    }
+    return if (spanish) "$amount al día" else "$amount a day"
+  }
+
+  private fun createAppRow(packageName: String, label: String, detail: String? = null): View {
     lateinit var indicator: TextView
     fun updateIndicator(animate: Boolean = false) {
       val active = packageName in selected
@@ -211,6 +253,16 @@ class AppPickerActivity : Activity() {
         setPadding(dp(14), 0, dp(12), 0)
       }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
 
+      if (detail != null) {
+        addView(TextView(this@AppPickerActivity).apply {
+          text = detail
+          textSize = 13f
+          typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+          setTextColor(graphiteSoft)
+          setPadding(0, 0, dp(12), 0)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+      }
+
       indicator = TextView(this@AppPickerActivity).apply {
         gravity = Gravity.CENTER
         textSize = 14f
@@ -218,15 +270,18 @@ class AppPickerActivity : Activity() {
       }
       addView(indicator, LinearLayout.LayoutParams(dp(24), dp(24)))
       updateIndicator()
+      val row = this
+      indicatorUpdaters.getOrPut(packageName) { mutableListOf() } += { animate ->
+        updateIndicator(animate)
+        row.contentDescription = "$label, ${if (packageName in selected) "selected" else "not selected"}"
+      }
       setOnClickListener {
         if (StillSelfProtection.isOwnPackage(this@AppPickerActivity.packageName, packageName)) {
           selected.remove(packageName)
-          updateIndicator(animate = true)
-          return@setOnClickListener
+        } else if (!selected.add(packageName)) {
+          selected.remove(packageName)
         }
-        if (!selected.add(packageName)) selected.remove(packageName)
-        updateIndicator(animate = true)
-        contentDescription = "$label, ${if (packageName in selected) "selected" else "not selected"}"
+        indicatorUpdaters[packageName]?.forEach { it(true) }
       }
     }.also { row ->
       row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(60))
@@ -235,6 +290,7 @@ class AppPickerActivity : Activity() {
 
   private fun filterRows(query: String) {
     val normalized = query.trim().lowercase(Locale.getDefault())
+    suggestionViews.forEach { it.visibility = if (normalized.isEmpty()) View.VISIBLE else View.GONE }
     appRows.forEach { (label, row) ->
       row.visibility = if (normalized.isEmpty() || label.contains(normalized)) View.VISIBLE else View.GONE
     }
@@ -261,5 +317,9 @@ class AppPickerActivity : Activity() {
 
   private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-  companion object { const val RESULT_COUNT = "selection_count" }
+  companion object {
+    const val RESULT_COUNT = "selection_count"
+    const val EXTRA_SUGGESTED_PACKAGES = "suggested_packages"
+    const val EXTRA_SUGGESTED_MINUTES = "suggested_minutes"
+  }
 }

@@ -85,6 +85,10 @@ class InterventionActivity : Activity() {
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
 
+  /** A setup test: the shield proves it shows, then hands back to Still. */
+  private val setupProbe: Boolean
+    get() = intent?.getBooleanExtra(EXTRA_SETUP_PROBE, false) == true
+
   private val preferences by lazy {
     getSharedPreferences(StillRestrictionModule.PREFERENCES, MODE_PRIVATE)
   }
@@ -110,6 +114,11 @@ class InterventionActivity : Activity() {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(it, 0)).toString()
       }.getOrNull()
     } ?: if (spanish) "App seleccionada" else "Selected app"
+
+    if (setupProbe) {
+      renderSetupProbe()
+      return
+    }
 
     val day = StillDay.today()
     attempts = intent.getIntExtra(EXTRA_TARGET_ATTEMPTS, 0).takeIf { it > 0 }
@@ -564,7 +573,39 @@ class InterventionActivity : Activity() {
     super.onDestroy()
   }
 
-  override fun onBackPressed() = goHome()
+  override fun onBackPressed() {
+    if (setupProbe) backToStill() else goHome()
+  }
+
+  /**
+   * The setup test's screen: the shield's look, what it means, and one way on.
+   * Nothing is counted and no ad loads. Showing it is the proof the whole
+   * chain works on this phone (§6.4), so it is recorded as soon as it is up.
+   */
+  private fun renderSetupProbe() {
+    StillSetup.markProbeShown(preferences)
+    val root = column()
+    root.addView(spacer(1.2f))
+    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
+    root.addView(headline(if (spanish) "Así aparece la pausa." else "This is the pause."))
+    root.addView(
+      subtext(
+        if (spanish) {
+          "Todo funciona. Cuando abras $appLabel, vas a ver esto."
+        } else {
+          "Everything works. When you open $appLabel, you'll see this."
+        },
+      ),
+    )
+    root.addView(spacer(1f))
+    root.addView(filledButton(if (spanish) "Volver a Still" else "Back to Still") { backToStill() })
+    present(root)
+  }
+
+  private fun backToStill() {
+    StillSetup.bringStillToFront(this)
+    finish()
+  }
 
   private fun goHome(recordAvoidedOpen: Boolean = true) {
     stopPause()
@@ -891,6 +932,7 @@ class InterventionActivity : Activity() {
   companion object {
     const val EXTRA_TARGET_PACKAGE = "target_package"
     const val EXTRA_TARGET_ATTEMPTS = "target_attempts"
+    const val EXTRA_SETUP_PROBE = "setup_probe"
 
     // Mirror of intervention-flow.ts: 15 s breathing pause, 5 min access after it.
     private const val PAUSE_SECONDS = 15

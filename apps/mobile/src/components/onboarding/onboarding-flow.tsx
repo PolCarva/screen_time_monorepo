@@ -14,6 +14,14 @@ import {
   AdultStep,
   PausesOffStep,
 } from "@/components/onboarding/basic-setup-steps";
+import {
+  AccessibilityStep,
+  AndroidAppsStep,
+  DoneStep,
+  KeepAliveStep,
+  LiveTestStep,
+  type SummaryLine,
+} from "@/components/onboarding/android-setup-steps";
 import { EXAMPLE_DEMO_APP, type DemoApp } from "@/components/onboarding/phone";
 import {
   OnboardingChrome,
@@ -33,22 +41,31 @@ import {
   UsagePermissionStep,
   type UsagePermissionState,
 } from "@/components/onboarding/usage-steps";
+import { useAndroidSetup } from "@/components/onboarding/use-android-setup";
 import {
   closeAction,
   retryAction,
   useStillSheet,
 } from "@/components/still-sheet";
 import { localize } from "@/i18n";
+import { accessibilityPathTip, isAggressiveOem } from "@/lib/android-oem";
 import {
+  canContinue,
   firstSetupStep,
+  firstUnverifiedSetupStep,
+  isSetupStep,
   isStoryStep,
   nextStep,
   previousStep,
   resolveStep,
+  setupSteps,
+  setupSummary,
   stepProgress,
   type FlowContext,
   type OnboardingProgress,
   type OnboardingStepId,
+  type SetupSignals,
+  type SetupStepId,
 } from "@/lib/onboarding-flow";
 import {
   usageInsights,
@@ -70,7 +87,7 @@ import { colors } from "@/theme/tokens";
  * draws the current one and remembers where the user is.
  */
 export function OnboardingFlow() {
-  const { config, hydrated, setOnboarded } = useAppState();
+  const { config, hydrated, nativeSynced, setOnboarded } = useAppState();
   const sheet = useStillSheet();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const progressRef = useRef<OnboardingProgress | null>(null);
@@ -91,11 +108,29 @@ export function OnboardingFlow() {
     });
   }, []);
 
+  const update = useCallback((patch: Partial<OnboardingProgress>) => {
+    const current = progressRef.current;
+    if (!current) return;
+    const next = { ...current, ...patch };
+    progressRef.current = next;
+    setProgress(next);
+    void saveOnboardingProgress(next);
+  }, []);
+
   const platform = Platform.OS === "ios" ? "ios" : "android";
   const usageSource =
     Platform.OS === "android" && restrictionEngine.getUsageSummary
       ? "android-usage"
       : "none";
+  const inSetup = Boolean(progress && isSetupStep(progress.step));
+  const android = useAndroidSetup({
+    active: inSetup,
+    progress,
+    update,
+    insights,
+    sheet,
+  });
+  const manufacturer = android.environment?.manufacturer ?? "";
   const context = useMemo<FlowContext | null>(
     () =>
       progress && {
@@ -104,9 +139,9 @@ export function OnboardingFlow() {
         usageSource,
         usageGranted: progress.usage === "granted",
         adsConsent: "not-required",
-        aggressiveOem: false,
+        aggressiveOem: platform === "android" && isAggressiveOem(manufacturer),
       },
-    [config, platform, progress, usageSource],
+    [config, manufacturer, platform, progress, usageSource],
   );
 
   // Once usage access is granted, read the week (again after a restart: it
@@ -146,15 +181,6 @@ export function OnboardingFlow() {
       cancelled = true;
     };
   }, [insights]);
-
-  const update = useCallback((patch: Partial<OnboardingProgress>) => {
-    const current = progressRef.current;
-    if (!current) return;
-    const next = { ...current, ...patch };
-    progressRef.current = next;
-    setProgress(next);
-    void saveOnboardingProgress(next);
-  }, []);
 
   const step: OnboardingStepId | null =
     context && progress ? resolveStep(context, progress.step) : null;
@@ -231,6 +257,41 @@ export function OnboardingFlow() {
     setUsagePermission(opened ? "waiting" : "denied");
   }
 
+  // A step that already passed can lose its signal (Accessibility switched off
+  // in Settings, apps unticked, or a restart after the system killed Still):
+  // the flow goes back to it instead of moving on without it (D7, D9).
+  const accessibilityOk =
+    android.health?.authorization === "authorized" &&
+    Boolean(android.health?.serviceRunning);
+  const appsChosen = android.health?.selectedCount ?? 0;
+  const healthKnown = android.health !== null;
+  useEffect(() => {
+    if (Platform.OS !== "android" || !healthKnown || !context || !progress) return;
+    const current = resolveStep(context, progress.step);
+    if (!isSetupStep(current)) return;
+    const missing = firstUnverifiedSetupStep(context, {
+      adultConfirmed: Boolean(progress.adultConfirmedAt),
+      adsConsentResolved: true,
+      accessibilityEnabled: accessibilityOk,
+      accessibilityRunning: accessibilityOk,
+      selectedApps: appsChosen,
+      batteryUnrestricted: true,
+      keepAliveConfirmed: true,
+      liveTestVerified: Boolean(progress.androidTestVerifiedAt),
+      appTests: { total: 0, verified: 0 },
+      noticesDecided: true,
+    });
+    if (!missing) return;
+    const order = setupSteps(context);
+    if (order.indexOf(missing) < order.indexOf(current)) goTo(missing, -1);
+  }, [accessibilityOk, appsChosen, context, goTo, healthKnown, progress]);
+
+  // Every setup step shows what the phone says now, not what it said earlier.
+  const refreshAndroid = android.refresh;
+  useEffect(() => {
+    if (step && isSetupStep(step) && Platform.OS === "android") void refreshAndroid();
+  }, [refreshAndroid, step]);
+
   // Android's back button walks the steps back instead of leaving the app.
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -260,16 +321,10 @@ export function OnboardingFlow() {
     return <View style={styles.blank} />;
   }
 
-  // Until the verified setup steps land (plan F4/F5), the platform setup hands
-  // over to the existing screens the way the previous onboarding did.
   async function startLegacySetup() {
     try {
-      if (Platform.OS === "ios") {
-        await restrictionEngine.enableShortcutMode();
-        await finish({ pathname: "/ios-apps", params: { onboarding: "1" } });
-        return;
-      }
-      await finish("/android-setup");
+      await restrictionEngine.enableShortcutMode();
+      await finish({ pathname: "/ios-apps", params: { onboarding: "1" } });
     } catch {
       void sheet.show({
         title: localize("We couldn't continue", "No pudimos continuar"),
@@ -278,6 +333,61 @@ export function OnboardingFlow() {
       });
     }
   }
+
+  const signals: SetupSignals = {
+    adultConfirmed: Boolean(progress.adultConfirmedAt),
+    adsConsentResolved: true,
+    accessibilityEnabled: android.health?.authorization === "authorized",
+    accessibilityRunning: Boolean(android.health?.serviceRunning),
+    selectedApps: android.health?.selectedCount ?? 0,
+    batteryUnrestricted: android.battery,
+    keepAliveConfirmed: Boolean(progress.keepAliveConfirmedAt),
+    liveTestVerified: Boolean(progress.androidTestVerifiedAt),
+    appTests: { total: 0, verified: 0 },
+    noticesDecided: false,
+  };
+  const finishLater = () => void finish("/(tabs)/(today)");
+  /** A setup step moves on only with its signal (D7). */
+  const goNextVerified = () => {
+    if (step && canContinue(step, signals)) goNext();
+  };
+
+  function summaryLabel(item: SetupStepId): string {
+    switch (item) {
+      case "adult":
+        return localize("18 or older", "Mayor de 18");
+      case "ads-consent":
+        return localize("Ad preferences", "Preferencias de anuncios");
+      case "accessibility":
+        return localize("Still is on", "Still activado");
+      case "apps":
+        return localize(
+          `${signals.selectedApps} ${signals.selectedApps === 1 ? "app" : "apps"} with a pause`,
+          `${signals.selectedApps} ${signals.selectedApps === 1 ? "app" : "apps"} con pausa`,
+        );
+      case "keep-alive":
+        return localize(
+          "Still stays on in the background",
+          "Still sigue activo en segundo plano",
+        );
+      case "live-test":
+        return localize(
+          `Pause tested with ${android.testApp?.label ?? "your app"}`,
+          `Pausa probada con ${android.testApp?.label ?? "tu app"}`,
+        );
+      case "app-tests":
+        return localize("Every app tested", "Cada app probada");
+      case "notices":
+        return localize("Notices", "Avisos");
+      default:
+        return item;
+    }
+  }
+  const summary: SummaryLine[] = setupSummary(context, signals).map((item) => ({
+    label: summaryLabel(item.step),
+    verified: item.verified,
+    recommended: item.requirement === "recommended",
+  }));
 
   const topApp = insights?.topApps[0];
   const demoApp: DemoApp =
@@ -358,38 +468,99 @@ export function OnboardingFlow() {
             onFinish={() => void finish("/(tabs)/(today)")}
           />
         );
-      default:
+      case "accessibility":
         return (
-          <StoryLayout
-            body={
-              Platform.OS === "ios"
-                ? localize(
-                    "Pick the apps here, then connect Apple's Shortcuts so it tells Still when you open them. Everything stays on this iPhone.",
-                    "Elige las apps aquí y luego conecta Atajos de Apple para que avise a Still cuando las abras. Todo se queda en este iPhone.",
-                  )
-                : localize(
-                    "Turn on Still and choose the apps you open without thinking. You can change them anytime.",
-                    "Activa Still y elige las apps que abres sin pensar. Puedes cambiarlas cuando quieras.",
-                  )
-            }
-            footer={
-              <StoryFooter
-                primary={{
-                  label: busy
-                    ? localize("One moment…", "Un momento…")
-                    : localize("Choose apps", "Elegir apps"),
-                  onPress: () => void startLegacySetup(),
-                  disabled: busy,
-                }}
-              />
-            }
-            title={localize(
-              "Choose where the pause should appear.",
-              "Elige dónde debería aparecer la pausa.",
-            )}
+          <AccessibilityStep
+            enabled={signals.accessibilityEnabled}
+            onFinishLater={finishLater}
+            onNext={goNextVerified}
+            onOpen={() => void android.openAccessibility()}
+            onOpenAppInfo={android.openAppInfo}
+            pathTip={accessibilityPathTip(manufacturer)}
+            restricted={Boolean(android.environment?.likelyRestricted)}
+            running={signals.accessibilityRunning}
           />
         );
+      case "keep-alive":
+        return (
+          <KeepAliveStep
+            batteryOk={signals.batteryUnrestricted}
+            confirmed={signals.keepAliveConfirmed}
+            makerName={android.oem.name}
+            onFinishLater={finishLater}
+            onNext={goNext}
+            onOpenAppInfo={android.openAppInfo}
+            onOpenBattery={android.openBattery}
+            onToggleConfirmed={() =>
+              update({
+                keepAliveConfirmedAt: progress!.keepAliveConfirmedAt
+                  ? undefined
+                  : new Date().toISOString(),
+              })
+            }
+            tips={android.oem.tips}
+          />
+        );
+      case "live-test":
+        return (
+          <LiveTestStep
+            app={android.testApp}
+            checks={android.failureChecks}
+            onFinishLater={finishLater}
+            onNext={goNextVerified}
+            onTest={() => void android.test()}
+            ready={nativeSynced}
+            state={android.testState}
+          />
+        );
+      case "done":
+        return (
+          <DoneStep
+            busy={busy}
+            lines={summary}
+            onFinish={() => void finish("/(tabs)/(today)")}
+          />
+        );
+      case "apps":
+        if (Platform.OS === "android") {
+          return (
+            <AndroidAppsStep
+              apps={android.apps}
+              onChoose={() => void android.chooseApps().catch(() => undefined)}
+              onFinishLater={finishLater}
+              onNext={goNextVerified}
+            />
+          );
+        }
+        return renderLegacySetup();
+      default:
+        return renderLegacySetup();
     }
+  }
+
+  // iOS only, until its verified setup steps land (plan F5): hands over to the
+  // existing screens the way the previous onboarding did.
+  function renderLegacySetup() {
+    return (
+      <StoryLayout
+        body={localize(
+          "Pick the apps here, then connect Apple's Shortcuts so it tells Still when you open them. Everything stays on this iPhone.",
+          "Elige las apps aquí y luego conecta Atajos de Apple para que avise a Still cuando las abras. Todo se queda en este iPhone.",
+        )}
+        footer={
+          <StoryFooter
+            primary={{
+              label: busy
+                ? localize("One moment…", "Un momento…")
+                : localize("Choose apps", "Elegir apps"),
+              onPress: () => void startLegacySetup(),
+              disabled: busy,
+            }}
+          />
+        }
+        title={localize("Choose your apps.", "Elige tus apps.")}
+      />
+    );
   }
 
   return (

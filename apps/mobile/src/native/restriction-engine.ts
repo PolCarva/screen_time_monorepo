@@ -69,6 +69,8 @@ export type ShortcutTargetHealth = NativeShortcutTarget & {
 };
 export type RestrictionHealth = {
   authorization: PermissionStatus;
+  /** Android: the Accessibility service is bound and running, not just listed. */
+  serviceRunning?: boolean;
   engineActive: boolean;
   selectedCount: number;
   /** Shortcut mode only: chosen apps whose automation has fired at least once. */
@@ -174,6 +176,22 @@ export interface RestrictionEngine {
   getUsageSummary?(): Promise<NativeUsageSummary>;
   /** Android only. An installed app's icon as a PNG `data:` URI. */
   getAppIcon?(packageName: string, sizeDp: number): Promise<string | null>;
+  /** Android only. The picker with the most used apps offered first, unticked. */
+  presentAppPickerSuggesting?(
+    suggested: { packageName: string; dailyMinutes: number }[],
+  ): Promise<RestrictedSelection>;
+  /** Android only. Settings was opened for this step; Still comes back once it holds. */
+  setSetupAwaiting?(step: "accessibility" | null): Promise<void>;
+  /** Android only. Arms a two-minute setup test; returns when it began (epoch ms). */
+  beginSetupProbe?(packageName: string): Promise<number>;
+  /** Android only. When the pause last showed in test mode. */
+  getSetupProbeResult?(): Promise<{ verifiedAt?: number; waitingFor?: string }>;
+  /** Android only. Opens an installed app like the launcher does. */
+  openApp?(packageName: string): Promise<boolean>;
+  /** Android only. Still is exempt from battery optimization. */
+  isIgnoringBatteryOptimizations?(): Promise<boolean>;
+  /** Android only. Opens the battery optimization list (or Still's App info). */
+  openBatterySettings?(): Promise<boolean>;
   /**
    * Windows still running. The deadline is owned natively, so this is the
    * truth about when each app is paused again — not a countdown JavaScript

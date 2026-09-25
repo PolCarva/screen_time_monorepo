@@ -17,6 +17,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import java.util.UUID
 
@@ -93,16 +94,67 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(opened)
   }
 
-  /** Opens the Accessibility settings without waiting for a result (repair screen). */
+  /**
+   * Opens Accessibility without waiting for a result, as close to Still's
+   * switch as the phone allows (onboarding, repair screen).
+   */
   @ReactMethod
   fun openAccessibilitySettings(promise: Promise) {
-    val opened = runCatching {
-      context.currentActivity?.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        ?: context.startActivity(
-          Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }.isSuccess
-    promise.resolve(opened)
+    promise.resolve(StillSetup.openAccessibilitySettings(context, ::startFromStill))
+  }
+
+  /** Remembers that Settings was opened for [step] so the service can bring Still back. */
+  @ReactMethod
+  fun setSetupAwaiting(step: String?, promise: Promise) {
+    StillSetup.setAwaiting(preferences, step)
+    promise.resolve(null)
+  }
+
+  /** Arms a two-minute setup test for [packageName]; returns when it began (epoch ms). */
+  @ReactMethod
+  fun beginSetupProbe(packageName: String, promise: Promise) {
+    if (StillSelfProtection.isOwnPackage(context.packageName, packageName)) {
+      promise.reject("invalid_target", "Still cannot test itself")
+      return
+    }
+    promise.resolve(StillSetup.beginProbe(preferences, packageName).toDouble())
+  }
+
+  /** When the pause last showed in test mode (epoch ms), or null. */
+  @ReactMethod
+  fun getSetupProbeResult(promise: Promise) {
+    val verifiedAt = preferences.getLong(StillSetup.KEY_PROBE_VERIFIED_AT, 0)
+    promise.resolve(Arguments.createMap().apply {
+      if (verifiedAt > 0) putDouble("verifiedAt", verifiedAt.toDouble())
+      StillSetup.probePackage(preferences)?.let { putString("waitingFor", it) }
+    })
+  }
+
+  /** Opens a chosen app the way the launcher does, for the setup test. */
+  @ReactMethod
+  fun openApp(packageName: String, promise: Promise) {
+    val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+    if (intent == null) {
+      promise.resolve(false)
+      return
+    }
+    promise.resolve(runCatching { startFromStill(intent) }.isSuccess)
+  }
+
+  @ReactMethod
+  fun isIgnoringBatteryOptimizations(promise: Promise) {
+    promise.resolve(StillSetup.isIgnoringBatteryOptimizations(context))
+  }
+
+  @ReactMethod
+  fun openBatterySettings(promise: Promise) {
+    promise.resolve(StillSetup.openBatterySettings(context, ::startFromStill))
+  }
+
+  private fun startFromStill(intent: Intent) {
+    val activity = context.currentActivity
+    if (activity != null) activity.startActivity(intent)
+    else context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
   /** Usage access, for the onboarding story only (docs/onboarding-v2-plan.md §6.1). */
@@ -175,6 +227,32 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
 
   @ReactMethod
   fun presentAppPicker(promise: Promise) {
+    openPicker(Intent(), promise)
+  }
+
+  /**
+   * The same picker with the most used apps offered first, none of them
+   * ticked (onboarding v2, D11). [suggested] holds `{packageName, dailyMinutes}`.
+   */
+  @ReactMethod
+  fun presentAppPickerSuggesting(suggested: ReadableArray, promise: Promise) {
+    val packages = ArrayList<String>()
+    val minutes = ArrayList<Int>()
+    for (index in 0 until suggested.size()) {
+      val item = suggested.getMap(index) ?: continue
+      val packageName = item.getString("packageName") ?: continue
+      packages += packageName
+      minutes += if (item.hasKey("dailyMinutes")) item.getDouble("dailyMinutes").toInt() else 0
+    }
+    openPicker(
+      Intent()
+        .putStringArrayListExtra(AppPickerActivity.EXTRA_SUGGESTED_PACKAGES, packages)
+        .putIntegerArrayListExtra(AppPickerActivity.EXTRA_SUGGESTED_MINUTES, minutes),
+      promise,
+    )
+  }
+
+  private fun openPicker(extras: Intent, promise: Promise) {
     StillSelfProtection.sanitizePreferences(preferences, context.packageName)
     val activity = context.currentActivity
     if (activity == null) {
@@ -183,7 +261,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     }
     pickerPromise?.reject("picker_replaced", "A newer picker request replaced this one")
     pickerPromise = promise
-    activity.startActivityForResult(Intent(activity, AppPickerActivity::class.java), PICKER_REQUEST)
+    activity.startActivityForResult(
+      Intent(activity, AppPickerActivity::class.java).putExtras(extras),
+      PICKER_REQUEST,
+    )
   }
 
   @ReactMethod
@@ -321,6 +402,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     val restrictionsEnabled = preferences.getBoolean(KEY_RESTRICTIONS_ENABLED, false)
     promise.resolve(Arguments.createMap().apply {
       putString("authorization", if (accessibilityEnabled) "authorized" else "denied")
+      // Enabled in Settings and actually bound: the onboarding needs both (§4.3).
+      putBoolean("serviceRunning", accessibilityEnabled && StillAccessibilityService.isRunning)
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }

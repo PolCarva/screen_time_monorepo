@@ -85,9 +85,13 @@ object StillUsageInsights {
     }
     val launchable = launchablePackages(context)
     val home = homePackages(context)
+    // Settings is where the onboarding itself sends the user (usage access,
+    // Accessibility): its time says nothing about habits and it is never an
+    // app to pause.
     val excluded: (String) -> Boolean = { packageName ->
       packageName == context.packageName ||
         packageName == "com.android.systemui" ||
+        packageName == "com.android.settings" ||
         packageName in home ||
         packageName !in launchable
     }

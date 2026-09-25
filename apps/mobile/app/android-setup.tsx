@@ -4,23 +4,26 @@ import { Platform, StyleSheet, View } from "react-native";
 
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { EXAMPLE_APP } from "@/components/guide/app-icons";
-import {
-  ANDROID_SCREENS,
-  type AndroidScreenId,
-} from "@/components/guide/android-settings-screens";
+import { ANDROID_SCREENS } from "@/components/guide/android-settings-screens";
 import { GuideCard } from "@/components/guide/guide-card";
+import {
+  DISCLOSURE_ACCEPTED_KEY,
+  confirmAccessibilityDisclosure,
+  permissionGuide,
+  q,
+} from "@/components/setup/android-accessibility";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import {
   closeAction,
   notNowAction,
   retryAction,
-  type SheetApi,
   useStillSheet,
 } from "@/components/still-sheet";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { androidSys, localize } from "@/i18n";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
+import { setJson } from "@/lib/storage";
 import {
   restrictionEngine,
   type InstallEnvironment,
@@ -29,11 +32,6 @@ import {
 } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { colors, spacing } from "@/theme/tokens";
-
-/** A Settings label quoted the way each language quotes: “Allow”, «Permitir». */
-function q(label: string) {
-  return localize(`“${label}”`, `«${label}»`);
-}
 
 // One step = one action, quoting Android's own labels (docs/ui-clarity-plan.md §4.5).
 const steps = [
@@ -60,41 +58,6 @@ const steps = [
   },
 ] as const;
 
-// Android's Accessibility screens, drawn in code with the control to tap
-// ringed. Tapping one runs the same disclosure-then-open flow as the button.
-const permissionGuide: { id: AndroidScreenId; caption: string; label: string }[] = [
-  {
-    id: "accessibility-find-still",
-    caption: localize("1. Tap Still", "1. Toca Still"),
-    label: localize(
-      "Accessibility settings with Still marked in Downloaded apps.",
-      "Ajustes de Accesibilidad con Still marcada en las apps descargadas.",
-    ),
-  },
-  {
-    id: "accessibility-turn-on",
-    caption: localize(
-      `2. Turn on ${q(androidSys("useService", { app: "Still" }))}`,
-      `2. Activa ${q(androidSys("useService", { app: "Still" }))}`,
-    ),
-    label: localize(
-      `Still's page in Accessibility with the ${androidSys("useService", { app: "Still" })} switch marked.`,
-      `La página de Still en Accesibilidad con el interruptor ${androidSys("useService", { app: "Still" })} marcado.`,
-    ),
-  },
-  {
-    id: "accessibility-allow",
-    caption: localize(
-      `3. Tap ${q(androidSys("allow"))}`,
-      `3. Toca ${q(androidSys("allow"))}`,
-    ),
-    label: localize(
-      `Android's confirmation for Still with ${androidSys("allow")} marked.`,
-      `La confirmación de Android para Still con ${androidSys("allow")} marcado.`,
-    ),
-  },
-];
-
 function formatLastPause(iso: string | undefined, locale: "en" | "es"): string {
   if (!iso) return locale === "es" ? "sin pausa aún" : "no pause yet";
   const then = Date.parse(iso);
@@ -110,56 +73,6 @@ function formatLastPause(iso: string | undefined, locale: "en" | "es"): string {
   return locale === "es"
     ? `última pausa: hace ${hours} h`
     : `last pause: ${hours} h ago`;
-}
-
-/**
- * Google Play's prominent disclosure: what the permission detects, what it is
- * for, what it never collects and how to turn it off. The content is required;
- * only its presentation is Still's. It cannot be swiped away as consent.
- */
-async function confirmAccessibilityDisclosure(sheet: SheetApi): Promise<boolean> {
-  const choice = await sheet.show({
-    title: localize("Still uses Accessibility", "Still usa Accesibilidad"),
-    message: localize(
-      "To show you the pause, Still needs to know which app you open.",
-      "Para mostrarte la pausa, Still necesita saber qué app abres.",
-    ),
-    bullets: [
-      localize(
-        "It detects when you open one of your chosen apps.",
-        "Detecta cuándo abres una de tus apps elegidas.",
-      ),
-      localize(
-        "It shows the pause on top of that app.",
-        "Muestra la pausa encima de esa app.",
-      ),
-      localize(
-        "It closes a floating video that would cover the pause.",
-        "Cierra el video flotante que taparía la pausa.",
-      ),
-      localize(
-        "It does not type for you or read your messages, and it does not store or share what is on your screen.",
-        "No escribe por ti ni lee tus mensajes, y no guarda ni comparte lo que hay en tu pantalla.",
-      ),
-      localize(
-        "Your apps and your counts stay on this phone.",
-        "Tus apps y tus conteos se quedan en este teléfono.",
-      ),
-      localize(
-        "You can remove the permission at any time in Settings.",
-        "Puedes quitar el permiso cuando quieras en Ajustes.",
-      ),
-    ],
-    actions: [
-      {
-        label: localize("I agree and continue", "Aceptar y continuar"),
-        variant: "signal",
-      },
-      notNowAction(),
-    ],
-    dismissible: false,
-  });
-  return choice === 0;
 }
 
 export default function AndroidSetupScreen() {
@@ -277,6 +190,7 @@ export default function AndroidSetupScreen() {
     if (authorization !== "authorized") {
       const consented = await confirmAccessibilityDisclosure(sheet);
       if (!consented) return;
+      await setJson(DISCLOSURE_ACCEPTED_KEY, new Date().toISOString());
       setSetupBusy(true);
       try {
         authorization = await restrictionEngine.requestAuthorization();

@@ -31,6 +31,11 @@ class StillAccessibilityService : AccessibilityService() {
     // Windows granted before this service (re)started are honoured from here:
     // anything already past its deadline is closed on the spot.
     armAccessWindows()
+    // The user just switched Still on from the onboarding: take them back to
+    // it, where the step checks the switch itself (docs/onboarding-v2-plan §6.2).
+    if (StillSetup.consumeAwaiting(preferences, StillSetup.AWAITING_ACCESSIBILITY)) {
+      StillSetup.bringStillToFront(this)
+    }
   }
 
   override fun onUnbind(intent: Intent?): Boolean {
@@ -94,6 +99,13 @@ class StillAccessibilityService : AccessibilityService() {
     lastInterventionPackage = target
     lastInterventionAt = now
 
+    // A setup test: the same shield, in test mode, counting nothing
+    // (docs/onboarding-v2-plan.md §6.4).
+    if (StillSetup.probePackage(preferences) == target) {
+      launchShield(target, attempts = 1, setupProbe = true)
+      return
+    }
+
     val day = StillDay.today()
     val attemptsKey = "open_attempts:$day"
     val appAttemptsKey = StillRestrictionModule.appMetricKey(
@@ -119,12 +131,13 @@ class StillAccessibilityService : AccessibilityService() {
     launchShield(target, nextAttempts)
   }
 
-  private fun launchShield(target: String, attempts: Int) {
+  private fun launchShield(target: String, attempts: Int, setupProbe: Boolean = false) {
     runCatching {
       startActivity(Intent(this, InterventionActivity::class.java).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
         putExtra(InterventionActivity.EXTRA_TARGET_PACKAGE, target)
         putExtra(InterventionActivity.EXTRA_TARGET_ATTEMPTS, attempts)
+        putExtra(InterventionActivity.EXTRA_SETUP_PROBE, setupProbe)
       })
     }
   }
@@ -363,6 +376,12 @@ class StillAccessibilityService : AccessibilityService() {
      */
     @Volatile
     private var active: StillAccessibilityService? = null
+
+    /**
+     * The service is bound and running, not just listed as enabled: some makers
+     * keep it switched on in Settings after killing it (§4.3, 11A).
+     */
+    val isRunning: Boolean get() = active != null
 
     /** Called whenever an access window is granted, from any path. */
     fun watchAccessWindows() {

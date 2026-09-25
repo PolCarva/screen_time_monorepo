@@ -319,6 +319,8 @@ const progressSchema = z.object({
   usageRequestedAt: z.string().optional(),
   adsConsent: z.enum(["required", "not-required", "unknown"]),
   adultConfirmedAt: z.string().optional(),
+  /** Android: the Accessibility prominent disclosure was accepted. */
+  accessibilityDisclosureAt: z.string().optional(),
   keepAliveConfirmedAt: z.string().optional(),
   probe: probeSchema.optional(),
   /** iOS: target id → when its automation fired during this setup. */

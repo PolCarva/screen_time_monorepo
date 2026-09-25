@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isAggressiveOem, oemGuidance } from "./android-oem";
+import { accessibilityPathTip, isAggressiveOem, oemGuidance } from "./android-oem";
 
 describe("oemGuidance", () => {
   it("maps Xiaomi sub-brands to Xiaomi guidance", () => {
@@ -25,5 +25,13 @@ describe("oemGuidance", () => {
     expect(guidance.tips).toHaveLength(1);
     expect(isAggressiveOem("Google")).toBe(false);
     expect(isAggressiveOem("Xiaomi")).toBe(true);
+  });
+});
+
+describe("where each maker keeps the Accessibility switch", () => {
+  it("names the usual path for known makers and nothing for others", () => {
+    expect(accessibilityPathTip("Xiaomi")?.es).toContain("Ajustes adicionales");
+    expect(accessibilityPathTip("samsung")?.en).toContain("Installed apps");
+    expect(accessibilityPathTip("Google")).toBeNull();
   });
 });

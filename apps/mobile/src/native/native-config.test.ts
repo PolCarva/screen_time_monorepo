@@ -94,6 +94,29 @@ describe("committed native production configuration", () => {
     for (const source of [intervention, accessibilityService, appPicker, selfProtection]) {
       expect(source).not.toContain("UsageStatsManager");
     }
+    // Onboarding v2 §6.4: the setup test shows the shield in test mode before
+    // any counter moves, and the shield's test screen loads no ad.
+    const probeBranch = accessibilityService.indexOf(
+      "StillSetup.probePackage(preferences) == target",
+    );
+    expect(probeBranch).toBeGreaterThan(0);
+    expect(probeBranch).toBeLessThan(
+      accessibilityService.indexOf("val appAttemptsKey"),
+    );
+    expect(intervention).toContain("if (setupProbe) {\n      renderSetupProbe()\n      return\n    }");
+    const probeScreen = intervention.slice(
+      intervention.indexOf("private fun renderSetupProbe()"),
+      intervention.indexOf("private fun backToStill()"),
+    );
+    expect(probeScreen).toContain("StillSetup.markProbeShown(preferences)");
+    expect(probeScreen).not.toContain("StillRewardedAdManager");
+    expect(probeScreen).not.toContain("METRIC_");
+    // Accessibility counts as on only when the service is really bound (§4.3).
+    expect(restrictionModule).toContain('putBoolean("serviceRunning"');
+    // Back to Still once the switch is on (HA5).
+    expect(accessibilityService).toContain(
+      "StillSetup.consumeAwaiting(preferences, StillSetup.AWAITING_ACCESSIBILITY)",
+    );
     expect(restrictionModule).toContain('putArray("history"');
     for (const source of [restrictionModule, intervention, accessibilityService]) {
       expect(source).toContain("StillDay.today()");

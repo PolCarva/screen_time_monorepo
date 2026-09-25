@@ -24,7 +24,11 @@ import { colors, fonts } from "@/theme/tokens";
  */
 export type DemoApp = {
   label: string;
-  icon: { kind: "example"; name: GuideAppIcon } | { kind: "image"; uri: string };
+  icon:
+    | { kind: "example"; name: GuideAppIcon }
+    | { kind: "image"; uri: string }
+    /** A plain tile while the real icon loads. */
+    | { kind: "blank" };
 };
 
 export const EXAMPLE_DEMO_APP: DemoApp = {
@@ -38,6 +42,18 @@ const SCREEN_BACKGROUND =
   "linear-gradient(180deg, #3B454A 0%, #2C3336 45%, #242826 100%)";
 
 export function DemoAppIcon({ app, size }: { app: DemoApp; size: number }) {
+  if (app.icon.kind === "blank") {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size * 0.225,
+          backgroundColor: colors.fog,
+        }}
+      />
+    );
+  }
   if (app.icon.kind === "image") {
     return (
       <Image
