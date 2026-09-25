@@ -5,6 +5,7 @@ import {
   databaseHttpError,
   HttpError,
   parseJson,
+  parseOptionalJson,
   requireIdempotencyKey,
   routeError,
 } from "./http";
@@ -31,6 +32,31 @@ describe("HTTP boundary", () => {
       status: 400,
       code: "validation_error",
     });
+  });
+
+  it("validates an empty body as an empty object for clients that send none", async () => {
+    const schema = z.object({ code: z.string().optional() });
+    await expect(
+      parseOptionalJson(
+        new Request("https://still.test/api", { method: "POST" }),
+        schema,
+      ),
+    ).resolves.toEqual({});
+    await expect(
+      parseOptionalJson(
+        new Request("https://still.test/api", {
+          method: "POST",
+          body: JSON.stringify({ code: "abc" }),
+        }),
+        schema,
+      ),
+    ).resolves.toEqual({ code: "abc" });
+    await expect(
+      parseOptionalJson(
+        new Request("https://still.test/api", { method: "POST", body: "{" }),
+        schema,
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "invalid_json" });
   });
 
   it("requires bounded idempotency keys", () => {

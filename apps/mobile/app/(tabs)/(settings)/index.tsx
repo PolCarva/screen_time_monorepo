@@ -1,3 +1,4 @@
+import { deleteAccountResponseSchema } from "@screen-time/contracts";
 import { AdsConsent } from "react-native-google-mobile-ads";
 import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +28,7 @@ import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import { openExternalBrowser } from "@/lib/external-browser";
 import {
+  appleAuthorizationForDeletion,
   getLinkedIdentityProviders,
   identityProviderName,
   identityProviders,
@@ -227,7 +229,21 @@ export default function SettingsScreen() {
 
   async function deleteAccount() {
     try {
-      await apiRequest("/api/v1/privacy/delete", { method: "POST" });
+      // With an Apple ID linked, Apple confirms first so the server can revoke
+      // Still's access to it before deleting the account.
+      const appleAuthorizationCode = await appleAuthorizationForDeletion();
+      const response = await apiRequest("/api/v1/privacy/delete", {
+        method: "POST",
+        body: JSON.stringify(
+          appleAuthorizationCode ? { appleAuthorizationCode } : {},
+        ),
+      });
+      const result = deleteAccountResponseSchema.safeParse(
+        await response.json().catch(() => null),
+      );
+      const appleStillLinked =
+        linkedIdentities.includes("apple") &&
+        result.data?.appleRevocation !== "revoked";
       const signOutResult = await supabase?.auth.signOut({
         scope: "local",
       });
@@ -238,13 +254,24 @@ export default function SettingsScreen() {
         cleanupIncomplete = true;
       }
       router.replace("/(onboarding)" as never);
-      if (cleanupIncomplete) {
+      if (cleanupIncomplete || appleStillLinked) {
+        const steps = [
+          cleanupIncomplete
+            ? localize(
+                "To also erase what is saved on this phone, uninstall Still.",
+                "Para borrar también lo guardado en este teléfono, desinstala Still.",
+              )
+            : null,
+          appleStillLinked
+            ? localize(
+                "To remove Still from your Apple Account, open Sign in with Apple in its settings (on iPhone: Settings, then your name).",
+                "Para quitar Still de tu cuenta de Apple, abre «Iniciar sesión con Apple» en su configuración (en el iPhone: Ajustes y luego tu nombre).",
+              )
+            : null,
+        ];
         void sheet.show({
           title: localize("Account deleted", "Cuenta eliminada"),
-          message: localize(
-            "To also erase what is saved on this phone, uninstall Still.",
-            "Para borrar también lo guardado en este teléfono, desinstala Still.",
-          ),
+          message: steps.filter(Boolean).join("\n\n"),
           actions: [gotItAction()],
         });
       }
@@ -266,10 +293,20 @@ export default function SettingsScreen() {
   function confirmDeletion() {
     void sheet.show({
       title: localize("Delete your account?", "¿Eliminar tu cuenta?"),
-      message: localize(
-        "Your account and your history are erased. The donation record is kept without anything that identifies you. This is permanent.",
-        "Se borran tu cuenta y tu historial. El registro de donaciones se conserva sin datos que te identifiquen. Es definitivo.",
-      ),
+      message: [
+        localize(
+          "Your account and your history are erased. The donation record is kept without anything that identifies you. This is permanent.",
+          "Se borran tu cuenta y tu historial. El registro de donaciones se conserva sin datos que te identifiquen. Es definitivo.",
+        ),
+        linkedIdentities.includes("apple") && Platform.OS === "ios"
+          ? localize(
+              "Apple will ask you to confirm, so Still also loses access to your Apple ID.",
+              "Apple te pedirá confirmar para que Still también deje de tener acceso a tu Apple ID.",
+            )
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       actions: [
         {
           label: localize("Delete permanently", "Eliminar definitivamente"),

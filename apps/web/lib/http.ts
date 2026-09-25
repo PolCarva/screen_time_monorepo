@@ -22,6 +22,29 @@ export async function parseJson<T>(
   } catch {
     throw new HttpError(400, "invalid_json", "Request body must be valid JSON");
   }
+  return parseBody(body, schema);
+}
+
+/**
+ * Like `parseJson`, for routes whose older clients send no body at all: an
+ * empty body is validated as `{}`.
+ */
+export async function parseOptionalJson<T>(
+  request: Request,
+  schema: ZodType<T>,
+): Promise<T> {
+  const text = await request.text();
+  if (text.trim() === "") return parseBody({}, schema);
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new HttpError(400, "invalid_json", "Request body must be valid JSON");
+  }
+  return parseBody(body, schema);
+}
+
+function parseBody<T>(body: unknown, schema: ZodType<T>): T {
   const result = schema.safeParse(body);
   if (!result.success) {
     throw new HttpError(

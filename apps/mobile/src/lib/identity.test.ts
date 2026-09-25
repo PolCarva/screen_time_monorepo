@@ -299,3 +299,48 @@ describe("Apple identity linking", () => {
     });
   });
 });
+
+describe("Apple authorization for account deletion", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mocks.platform.OS = "ios";
+    mocks.getUserIdentities.mockResolvedValue({
+      data: { identities: [{ provider: "anonymous" }, { provider: "apple" }] },
+      error: null,
+    });
+    mocks.appleSignInAsync.mockResolvedValue({ authorizationCode: "code-1" });
+  });
+
+  afterEach(() => {
+    mocks.platform.OS = "android";
+  });
+
+  it("asks Apple for a fresh code, with no personal data, when an Apple ID is linked", async () => {
+    const { appleAuthorizationForDeletion } = await import("./identity");
+    await expect(appleAuthorizationForDeletion()).resolves.toBe("code-1");
+    expect(mocks.appleSignInAsync).toHaveBeenCalledWith({ requestedScopes: [] });
+  });
+
+  it("never shows Apple's sheet to accounts without an Apple ID or off iOS", async () => {
+    mocks.getUserIdentities.mockResolvedValue({
+      data: { identities: [{ provider: "google" }] },
+      error: null,
+    });
+    const { appleAuthorizationForDeletion } = await import("./identity");
+    await expect(appleAuthorizationForDeletion()).resolves.toBeNull();
+    mocks.platform.OS = "android";
+    await expect(appleAuthorizationForDeletion()).resolves.toBeNull();
+    expect(mocks.appleSignInAsync).not.toHaveBeenCalled();
+  });
+
+  it("lets deletion go on when the person closes the sheet or it fails", async () => {
+    mocks.appleSignInAsync.mockRejectedValueOnce(
+      Object.assign(new Error("canceled"), { code: "ERR_REQUEST_CANCELED" }),
+    );
+    mocks.appleSignInAsync.mockRejectedValueOnce(new Error("unknown"));
+    const { appleAuthorizationForDeletion } = await import("./identity");
+    await expect(appleAuthorizationForDeletion()).resolves.toBeNull();
+    await expect(appleAuthorizationForDeletion()).resolves.toBeNull();
+  });
+});

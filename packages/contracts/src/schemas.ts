@@ -21,9 +21,10 @@ export const remoteConfigSchema = z
     votingEnabled: z.boolean(),
     iosRestrictionEnabled: z.boolean(),
     androidRestrictionEnabled: z.boolean(),
-    // Sends the user to the iOS Home Screen when they decline to open an app.
-    // iOS has no public API for that, so it ships off and stays remotely
-    // switchable. Configurations published before the flag existed read as off.
+    // iOS builds up to 0.3.0 only: sent the user to the Home Screen through a
+    // private API when they declined to open an app. 0.3.1 removed that call
+    // (App Review 2.5.1); older builds still read the flag, so keep it off.
+    // Configurations published before the flag existed read as off.
     iosHomeOnCancelEnabled: z.boolean().default(false),
     publishedAt: isoDateTimeSchema,
   })
@@ -266,6 +267,29 @@ export const castVoteRequestSchema = z.object({
   charityId: uuidSchema,
 });
 
+/**
+ * Builds before 0.3.1 send no body. On iOS the app adds a fresh Sign in with
+ * Apple authorization code so the server can revoke Still's access to the
+ * Apple ID before the account is deleted (App Review account deletion rules).
+ */
+export const deleteAccountRequestSchema = z.object({
+  appleAuthorizationCode: z.string().min(1).max(4096).optional(),
+});
+
+/** What happened to the Apple ID's access; the account is deleted either way. */
+export const appleRevocationSchema = z.enum([
+  "revoked",
+  "no_apple_identity",
+  "no_code",
+  "not_configured",
+  "account_mismatch",
+  "failed",
+]);
+
+export const deleteAccountResponseSchema = z.object({
+  appleRevocation: appleRevocationSchema,
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -287,6 +311,9 @@ export type CreateRewardIntentRequest = z.infer<
 >;
 export type AdValue = z.infer<typeof adValueSchema>;
 export type ClaimRewardRequest = z.infer<typeof claimRewardRequestSchema>;
+export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
+export type AppleRevocation = z.infer<typeof appleRevocationSchema>;
+export type DeleteAccountResponse = z.infer<typeof deleteAccountResponseSchema>;
 export type UnlockSource = z.infer<typeof unlockSourceSchema>;
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 export type UpdateUserPreferencesRequest = z.infer<

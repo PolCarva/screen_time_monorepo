@@ -176,6 +176,28 @@ export async function linkIdentity(provider: IdentityProvider) {
   }
 }
 
+/**
+ * A fresh Sign in with Apple authorization code for account deletion: the
+ * server exchanges it and revokes Still's access to the Apple ID, as Apple
+ * asks of apps that offer both. Null off iOS, when no Apple ID is linked, and
+ * when the person closes Apple's sheet or it fails; deletion never waits on it.
+ */
+export async function appleAuthorizationForDeletion(): Promise<string | null> {
+  if (Platform.OS !== "ios") return null;
+  const linked = await getLinkedIdentityProviders().catch(
+    (): IdentityProvider[] => [],
+  );
+  if (!linked.includes("apple")) return null;
+  try {
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [],
+    });
+    return credential.authorizationCode ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Native Sign in with Apple: the system sheet returns an ID token that Supabase
 // verifies against the hashed nonce, so no browser session is involved.
 async function linkAppleIdentity() {

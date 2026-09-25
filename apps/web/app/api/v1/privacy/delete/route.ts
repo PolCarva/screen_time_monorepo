@@ -1,11 +1,35 @@
+import {
+  type AppleRevocation,
+  deleteAccountRequestSchema,
+} from "@screen-time/contracts";
+
+import { appleSubject, revokeAppleAuthorization } from "@/lib/apple-sign-in";
 import { requireApiUser } from "@/lib/auth";
-import { HttpError, routeError } from "@/lib/http";
+import { HttpError, json, parseOptionalJson, routeError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
     const user = await requireApiUser(request);
+    const input = await parseOptionalJson(request, deleteAccountRequestSchema);
     const client = createAdminClient()!;
+
+    // Before anything is deleted, while the account still says which Apple ID
+    // it is linked to. Best effort: the account is deleted whatever happens.
+    let appleRevocation: AppleRevocation = "no_apple_identity";
+    if (input.appleAuthorizationCode) {
+      appleRevocation = await revokeAppleAuthorization({
+        code: input.appleAuthorizationCode,
+        user,
+      });
+    } else if (appleSubject(user)) {
+      appleRevocation = "no_code";
+    }
+    if (appleRevocation !== "revoked" && appleRevocation !== "no_apple_identity")
+      console.warn("Sign in with Apple was not revoked before deletion", {
+        appleRevocation,
+      });
+
     const pseudonym = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(user.id),
@@ -50,7 +74,7 @@ export async function POST(request: Request) {
           : "Account could not be deleted",
       );
     }
-    return new Response(null, { status: 204 });
+    return json({ appleRevocation });
   } catch (error) {
     return routeError(error);
   }
