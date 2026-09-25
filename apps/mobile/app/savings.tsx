@@ -72,33 +72,39 @@ function sourceLabel(source: SavedTimeSource) {
   return localize("estimated", "estimado");
 }
 
-/** "~10 min each (last 7 days) · 1 doesn't count: you went back in right away". */
+/** "~10 min each (last 7 days)". */
 function worthLine(app: AppSavings) {
   const each = new Intl.NumberFormat(locale, {
     maximumFractionDigits: app.minutesEach < 10 ? 1 : 0,
   }).format(app.minutesEach);
-  const parts = [
-    localize(
-      `~${each} min each (${sourceLabel(app.source)})`,
-      `~${each} min cada una (${sourceLabel(app.source)})`,
-    ),
-  ];
-  if (app.reentries > 0) {
-    parts.push(
-      localize(
-        `${app.reentries} ${app.reentries === 1 ? "doesn't" : "don't"} count: you went back in right away`,
-        `${app.reentries} no ${app.reentries === 1 ? "suma" : "suman"}: volviste a entrar enseguida`,
-      ),
-    );
-  }
-  if (!app.chosen) parts.push(localize("no longer paused", "ya no la pausas"));
-  return parts.join(" · ");
+  return localize(
+    `~${each} min each (${sourceLabel(app.source)})`,
+    `~${each} min cada una (${sourceLabel(app.source)})`,
+  );
 }
 
 /** "Didn't go in 6 times · ~10 min each (last 7 days)", for a row of the list. */
 function appDetail(app: AppSavings) {
   const notEntered = app.pauses - app.entered;
   return `${localize(`Didn't go in ${times(notEntered)}`, `No entraste ${times(notEntered)}`)} · ${worthLine(app)}`;
+}
+
+/**
+ * What else is true of the app, on its own line so no "·" is left hanging
+ * when it wraps: skips that give nothing back, and apps no longer paused.
+ */
+function appNotes(app: AppSavings): string | null {
+  const notes: string[] = [];
+  if (app.reentries > 0) {
+    notes.push(
+      localize(
+        `${app.reentries} ${app.reentries === 1 ? "doesn't" : "don't"} count (you went back in right away)`,
+        `${app.reentries} no ${app.reentries === 1 ? "suma" : "suman"} (volviste a entrar enseguida)`,
+      ),
+    );
+  }
+  if (!app.chosen) notes.push(localize("No longer paused", "Ya no la pausas"));
+  return notes.length ? notes.join(". ") + "." : null;
 }
 
 function Chip({
@@ -336,6 +342,9 @@ export default function SavingsScreen() {
           {periodApp && periodApp.pauses > periodApp.entered ? (
             <Body style={styles.muted}>{worthLine(periodApp)}</Body>
           ) : null}
+          {periodApp && appNotes(periodApp) ? (
+            <Body style={styles.muted}>{appNotes(periodApp)}</Body>
+          ) : null}
         </Animated.View>
       )}
 
@@ -362,12 +371,15 @@ export default function SavingsScreen() {
               </View>
               <View style={styles.track}>
                 <GrowFill
-                  color={entry.chosen ? colors.mineral : colors.mineralLight}
+                  color={colors.mineral}
                   delay={index * 60}
                   value={Math.max(entry.minutes > 0 ? 0.02 : 0, entry.minutes / widest)}
                 />
               </View>
               <Body style={styles.appDetail}>{appDetail(entry)}</Body>
+              {appNotes(entry) ? (
+                <Body style={styles.appDetail}>{appNotes(entry)}</Body>
+              ) : null}
             </Pressable>
           ))}
         </View>
