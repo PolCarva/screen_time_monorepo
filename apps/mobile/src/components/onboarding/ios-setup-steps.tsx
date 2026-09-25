@@ -29,8 +29,8 @@ export function NoticesStep({
   return (
     <StoryLayout
       body={localize(
-        "When the time you chose is up, a notice tells you the pause is back, even with Focus on.",
-        "Cuando termina el tiempo que elegiste, un aviso te dice que volvió la pausa, incluso con Concentración activada.",
+        "When the time you chose is up, a notice tells you the pause is back.",
+        "Cuando termina el tiempo que elegiste, un aviso te dice que volvió la pausa.",
       )}
       centerVisual={false}
       footer={

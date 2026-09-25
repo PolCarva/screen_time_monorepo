@@ -640,7 +640,7 @@ ni mergear sin pedido explícito.
 | HA6 | ⏳ | El emulador solo tenía datos del día tras un arranque en frío; el texto usa el N real de días. Falta Xiaomi. |
 | HI1 | ⏳ dispositivo | La extensión lee la estimación del App Group; si no puede, la pantalla la muestra arriba ("creías 3 h"). |
 | HI2 | ⏳ dispositivo | El permiso llega al diálogo de Apple en el simulador; el informe con datos requiere el iPhone (no se ingresó el código del simulador). |
-| HI3 | 🟡 | El entitlement de avisos urgentes queda en el build de simulador (`.xcent`); falta que EAS lo sincronice en el App ID. Salida si falla: quitar la línea. |
+| HI3 | ❌ EAS (2026-09-25) | El primer build de producción falló: el perfil de App Store de EAS no incluye la capacidad «Time Sensitive Notifications». Salida aplicada: se quitó el entitlement (`Still.entitlements` y `app.config.ts`) y la frase "incluso con Concentración" del paso de avisos; el aviso sigue saliendo con nivel activo. Para volver a tenerlo: activar la capacidad en el App ID `app.still.ios`, regenerar el perfil (`eas credentials`) y reponer las dos líneas. |
 | HI4 | ⏳ dispositivo | "Probar volver" existe para apps sin scheme; que abrir con `Still - <App>` dispare la automatización solo se ve en un iPhone. |
 | HI5 | — sin objeto | La rama paralela eliminó el nivel "una automatización": el nombre llega exacto desde la AppEntity. No se implementó el alias. |
 
@@ -751,9 +751,11 @@ partir los recorridos.
    (developer.apple.com/contact/request/family-controls-distribution). Cuando aprueben:
    `eas credentials` del target nuevo, mergear la rama apilada, publicar con
    `iosScreenTimeInsightsEnabled` encendido en `/admin` y la ficha/notas ya actualizadas en esa rama.
-6. Confirmar que el primer build de EAS sincroniza el entitlement de avisos urgentes (HI3); si falla,
-   quitar `com.apple.developer.usernotifications.time-sensitive` de `Still.entitlements` y
-   `app.config.ts`.
+6. Avisos urgentes (HI3): el primer build de EAS falló porque el perfil no trae la capacidad, así
+   que se publicó sin el entitlement. Si se quiere que el aviso atraviese Concentración: en
+   developer.apple.com activar «Time Sensitive Notifications» en el App ID `app.still.ios`,
+   regenerar el perfil con `eas credentials` y volver a añadir
+   `com.apple.developer.usernotifications.time-sensitive` en `Still.entitlements` y `app.config.ts`.
 
 **Xiaomi (Android 16/MIUI)**
 7. Build nuevo (cambió Kotlin): HA1 (página de Acceso de uso de Still), HA5 (Still vuelve solo al

@@ -80,8 +80,6 @@ const config: ExpoConfig = {
     config: { usesNonExemptEncryption: false },
     entitlements: {
       "com.apple.security.application-groups": ["group.app.still.ios"],
-      // The "your time is up" notice breaks through Focus (onboarding v2, HI3).
-      "com.apple.developer.usernotifications.time-sensitive": true,
     },
     infoPlist: {
       CFBundleDevelopmentRegion: "en",
