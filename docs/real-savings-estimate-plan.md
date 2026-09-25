@@ -1,7 +1,7 @@
 # Tiempo devuelto con tu uso real
 
-Fecha: 2026-09-25 · Rama: `feat/real-savings-estimate` (desde `main` 6f57895) · Estado: plan,
-sin implementar.
+Fecha: 2026-09-25 · Rama: `feat/real-savings-estimate` (desde `main` 6f57895) · Estado:
+S1–S6 implementadas (§12); S7 en la rama apilada.
 
 **Pedido del usuario:** "una vez con acceso a screentime en android y ios, ¿no podemos estimar
 mejor las horas que se ahorran en vez de setearlas a 2 min default? realmente hacer un promedio
@@ -399,20 +399,121 @@ puede hacer el usuario. No pushear ni mergear sin pedido explícito.
 
 ## 12. Resultados de la implementación
 
-_(Se completa al implementar: commits, hipótesis, desvíos, bugs, verificación, capturas.)_
+Implementado el 2026-09-25 en `feat/real-savings-estimate` (S1–S6). S7 va en
+`feat/onboarding-ios-screen-time` (§12.7).
+
+### 12.1 Commits
+
+| Fase | Commit | Qué |
+|---|---|---|
+| S1 | `b82ea99` | `UsageSessions.intervals/sessions/appStats/median`, `StillUsageInsights.readStats`, `getUsageStats`, tipos, `native-config.test.ts` |
+| S2 | `1971eb6` | Re-entradas en Android (`ReentryTrail.kt`) e iOS (`PauseTrailStore`, `DailyProductMetrics.reentries`), Hoy y la pausa las restan, una apertura se cuenta una vez, fase de re-entrada en `acceptance:shield` |
+| S3 | `abf3832` | `lib/saved-time.ts` (+ tests), `state/saved-time.ts`, `onboardedAt` y captura de la base al terminar el onboarding, `SessionMinutes.kt` + `syncSessionMinutes`, la pausa lee los minutos por app |
+| S4 | `bd7e05b` | Hoy: número por app, explicación según la fuente, «Cómo lo calculamos», «Calcular con mi uso» → `/usage-access`; texto nuevo de la divulgación |
+| S5 | `db87c23` | Tarjeta «Antes y ahora» (`components/before-now-card.tsx`) |
+| S6 | este commit | `store-compliance.md`, nota en D4 del onboarding v2, §12–§13 |
+
+### 12.2 Hipótesis
+
+| # | Resultado | Evidencia / salida aplicada |
+|---|---|---|
+| HA-S1 | ✅ AVD | `dumpsys usagestats`: Contactos `RESUMED 11:31:22 → PAUSED 11:31:22` con la pausa encima; Reloj `11:31:16 → 11:31:17`. El `ACTIVITY_STOPPED` llega 2 s después y se ignora (la actividad ya estaba cerrada). Todo < 5 s. |
+| HA-S2 | ⏳ Xiaomi | El AVD solo guarda desde el 24/9 (1 día con uso): la base quedó con 1 día y no se usa, como pide D7. |
+| HA-S3 | ✅ AVD, ⏳ Xiaomi | Captura de la base (8 días) ≤ 0,25 s: `onboardedAt 15:09:13.870` → `capturedAt 15:09:14.121`. |
+| HA-S4 | ⏳ Xiaomi | En el AVD las apps son de prueba (mediana de Reloj 11,5 s): no dice nada de apps sociales. |
+| HI-S1…S4 | ⏳ S7 / iPhone | §12.7. |
+
+Verificación de S1 contra `dumpsys` (24/9, Reloj): tramos de ≤ 1 s y uno de ~13 s → 1 sesión,
+mediana 13,0 s y 14,7 s en el día (`dumpsys` da ~15 s con resolución de segundos). ✅
+
+### 12.3 Desvíos
+
+1. **Días disponibles = días completos con algún uso** (§3.2 decía "≥ `firstEventAt`"). Un
+   primer evento a mitad de día no prueba que el día esté cortado, y AOSP poda por archivos
+   diarios enteros. `getUsageStats` igual devuelve `firstEventAt`.
+2. **Tope del reparto por app:** `returnedToday` nunca suma más no entradas que el total
+   efectivo del día; el exceso se recorta desde las apps de sesión más corta. Motivo: los
+   contadores por app y los totales se leen en momentos distintos (bug 12.4.2).
+3. **El número de Hoy cambió en S4, no en S3:** S3 dejó listos datos y pausa nativa; el número
+   y su explicación cambian juntos.
+4. **Arreglo no previsto en el servicio de Android (S2):** una apertura sin respuesta en la
+   pausa, de la misma app, dentro de 15 s, es la misma apertura (bug 12.4.1).
+5. **`acceptance:shield`:** la fase de re-entrada apaga `ads_eligible` con Still detenido y lo
+   restaura (con anuncio listo no hay forma de entrar sin verlo). En Android 16, `force-stop`
+   saca a Still de `enabled_accessibility_services`: el script lee la lista antes y repone
+   `enabled_accessibility_services` y `accessibility_enabled=1`.
+6. **Barras de la tarjeta con `GrowFill`** (la barra con valor que ya existía): con `GrowIn` y
+   ancho 100 % la barra de «antes» no se dibujaba.
+7. **`/usage-access`** reutiliza `UsagePermissionStep` con los márgenes del marco del
+   onboarding, sin su barra de progreso.
+8. **iOS en tiempo de ejecución:** el simulador no dispara automatizaciones; la re-entrada de
+   iOS se verificó con el build y `acceptance:ios-shortcuts`. La prueba real queda en §13.
+
+### 12.4 Bugs encontrados
+
+1. **Android contaba 3–4 aperturas por una** cuando el proceso de Still estaba frío: la pausa
+   tardaba 2–6 s en salir y el servicio la relanzaba (+1,4 / +4,7 / +8,7 s en logcat), sumando
+   un intento cada vez. Inflaba "no entraste" y los minutos (propios y del servidor). Arreglo en
+   `StillAccessibilityService.kt` (`lastCountedPackage`, `outcomesAtLastOpen`,
+   `SHIELD_START_GRACE_MS = 15 s`). Tras el arreglo, 13 eventos de Reloj en 10 s tras un
+   arranque en frío → +1. Queda intermitente en el AVD recién instalado (1 de 4 corridas en
+   frío falló); en caliente, siempre pasa. **Revisar en el Xiaomi.**
+2. **Hoy mostró 252 min con 0 pausas** al abrir (los contadores por app llegaron antes que los
+   totales). Arreglado con el tope del desvío 2 (test en `saved-time.test.ts`).
+3. **La barra de «antes» no se veía** (desvío 6).
+
+### 12.5 Verificación
+
+- `pnpm check` en cada fase: 262 → 276 tests en mobile (`saved-time.test.ts` 14,
+  `today-summary.test.ts` ampliado).
+- JUnit: `UsageSessionsTest` 15 (8 + 7), `ReentryTrailTest` 7.
+- `acceptance:shield` (AVD `Still_QA_API_36`, Reloj y Contactos) en S1, S2 y S3, con la fase
+  de re-entrada: `PASS Contacts: Go back, then going in within 10 min counted one re-entry`.
+- iOS: build del simulador "Still QA" (`DEVELOPMENT_TEAM=JZ9HBXGNK9`) y
+  `acceptance:ios-shortcuts` PASS en S2.
+- AVD, S3: tras el onboarding con acceso, el kv-store tenía `onboardedAt`, `usageBaseline` y
+  `recentUsage`, y `no_backup/session-minutes.json = {"com.google.android.deskclock":0.2}`. La
+  pausa dijo "Today you skipped Clock 31 times: about 6.2 min back." (31 × 0,2).
+- AVD, S4 (cuentas a mano): fuente reciente, 28 min = 32 × 0,2 + 11 × 2; base sembrada,
+  252 min = 32 × 7 + 11 × 2,5; sin acceso ni base, 86 min = 43 × 2. «Calcular con mi uso» →
+  Ajustes → vuelta con el aviso y el número medido.
+
+### 12.6 Capturas (`docs/real-savings/`)
+
+| Qué | Archivos |
+|---|---|
+| Pausa con minutos medidos | `s3-and-pause-measured.png` |
+| Hoy y detalle, fuente reciente | `s4-and-today-recent-en.png`, `s4-and-detail-recent-en.png` |
+| Hoy y detalle, antes de Still (base sembrada) | `s4-and-today-before-en.png`, `s4-and-detail-before-en.png`, `s4-and-today-before-es.png`, `s4-and-detail-before-es.png` |
+| Hoy y detalle, estimado sin acceso | `s4-and-today-default-en.png`, `s4-and-today-default-es.png`, `s4-and-detail-default-es.png` |
+| Divulgación desde Hoy y vuelta | `s4-and-usage-access-en.png`, `s4-and-usage-access-es.png`, `s4-and-today-after-grant-en.png` |
+| Antes y ahora (base sembrada) | `s5-and-before-now-down-en.png`, `s5-and-before-now-up-es.png` |
+
+### 12.7 S7 (rama apilada)
+
+_(Se completa en `feat/onboarding-ios-screen-time`.)_
 
 ---
 
 ## 13. Lo que solo puede hacer el usuario
 
+0. **Revisar y decidir el merge** de `feat/real-savings-estimate` y publicar (Play; iOS
+   `main` solo cambia la re-entrada). Nada se pusheó.
 1. **Xiaomi (Android 16/MIUI):**
    - build nuevo;
    - onboarding completo con acceso de uso;
    - revisar HA-S2 (cuántos días de base quedaron) y HA-S4 (comparar la sesión típica de tus
      apps con lo que sientes y con Bienestar digital);
-   - a los 3 días, ver la tarjeta "Antes y ahora".
+   - a los 3 días, ver la tarjeta "Antes y ahora";
+   - bug 12.4.1: con Still recién instalado o tras reiniciar el teléfono, abrir una app
+     pausada y ver que "se abrió N veces" sube de a 1;
+   - re-entrada: "Volver" y entrar a la misma app antes de 10 min → Hoy dice "Si volviste a
+     entrar enseguida, esa vez no suma." y los minutos bajan una sesión.
 2. **Apple:** pedir Family Controls (Distribution) para `app.still.ios` y
    `app.still.ios.ScreenTimeReport` (onboarding v2 §15.5), si no está pedido.
-3. **iPhone:** build de desarrollo de la rama apilada con `EXPO_PUBLIC_DEV_IOS_SCREEN_TIME=1` para
+3. **iPhone:** re-entrada real con la automatización (el simulador no la dispara): "Volver"
+   en la pausa y abrir la misma app antes de 10 min pasando por «Entrar» → Hoy la descuenta.
+   Y un build de desarrollo de la rama apilada con `EXPO_PUBLIC_DEV_IOS_SCREEN_TIME=1` para
    HI-S1 a HI-S4.
-4. **Publicar:** es decisión tuya (build de Play; iOS `main` solo cambia la re-entrada).
+4. **Play:** Data safety no cambia (nada sale del teléfono). Si la revisión pregunta por
+   el acceso de uso, la divulgación está en `s4-and-usage-access-*.png`.
