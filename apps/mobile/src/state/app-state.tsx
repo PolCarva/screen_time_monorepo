@@ -112,7 +112,6 @@ function withDevOverrides(config: RemoteConfig): RemoteConfig {
   return applyDevConfigOverrides(config, {
     dev: __DEV__,
     forceIosPauses: process.env.EXPO_PUBLIC_DEV_IOS_PAUSES,
-    forceIosHomeOnCancel: process.env.EXPO_PUBLIC_DEV_IOS_HOME_ON_CANCEL,
   });
 }
 

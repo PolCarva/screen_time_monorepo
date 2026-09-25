@@ -280,11 +280,14 @@ describe("committed native production configuration", () => {
       "getShortcutTargetsHealth",
       "beginShortcutSetupProbe",
       "finishShortcutSetupTest",
-      "suspendToHome",
     ]) {
       expect(restrictionEngine).toContain(`@objc func ${method}(`);
       expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);
     }
+    // App Review 2.5.1 allows public API only: the private `suspend` call that
+    // sent Still to the Home Screen is gone, and nothing resolves selectors by name.
+    expect(restrictionEngine).not.toContain("NSSelectorFromString");
+    expect(restrictionBridge).not.toContain("suspendToHome");
     // Swift and JavaScript must derive the same return shortcut name, and it
     // must be typeable: the user creates that shortcut by hand.
     expect(shortcutIntent).toContain('returnShortcutPrefix = "Still - "');

@@ -290,7 +290,7 @@ function OperationalSetup({
               <Toggle name="votingEnabled" label="Votación habilitada" checked={config?.votingEnabled ?? false} />
               <Toggle name="androidRestrictionEnabled" label="Restricciones Android habilitadas" checked={config?.androidRestrictionEnabled ?? false} />
               <Toggle name="iosRestrictionEnabled" label="Pausas iOS (Atajos) habilitadas" checked={config?.iosRestrictionEnabled ?? false} />
-              <Toggle name="iosHomeOnCancelEnabled" label="iOS: salir al inicio al elegir «Ya no quiero entrar»" checked={config?.iosHomeOnCancelEnabled ?? false} />
+              <Toggle name="iosHomeOnCancelEnabled" label="iOS hasta 0.3.0: salir al inicio con «Ya no quiero entrar» (usa una API privada; dejar apagado, sin efecto desde 0.3.1)" checked={config?.iosHomeOnCancelEnabled ?? false} />
             </fieldset>
           </AdminActionForm>
         </div>

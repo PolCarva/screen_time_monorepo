@@ -9,27 +9,19 @@
 - `ITSAppUsesNonExemptEncryption` is `false` (HTTPS only), so builds skip the export-compliance question.
 - Verify the App Group and Sign in with Apple entitlements in Release archives, not only Debug builds.
 
-### App Review notes (draft)
+### App Review notes
 
-Paste into App Store Connect → App Review Information → Notes, and attach a screen recording of the flow:
+The notes, the reply to App Review and the screen-recording script live in `docs/app-store-review-plan.md` (§6 and §11); `docs/store-listing.md` keeps the copy pasted into App Store Connect. The first submission (0.2.0) came back with guideline 2.1 "Information Needed" because the developer account is new, so every submission from this account carries the recording and the six answers.
 
-> Still adds an intentional pause before apps the user chooses. iOS gives apps no way to observe other apps, so the user creates a personal automation in Apple's Shortcuts app ("When [app] is opened → Pause Before Opening", an App Intent provided by Still). Still never creates, edits or reads automations; the in-app guide only explains the steps and opens the Shortcuts app.
->
-> To review: 1) open Still and finish onboarding; 2) choose YouTube under "Apps with a pause"; 3) follow the four steps shown to create the automation in Shortcuts; 4) open YouTube. Still comes to the foreground and offers "Watch ad" or "I don't want to go in anymore". The ad is a rewarded ad and only starts after the user taps "Watch ad". After it completes, the user chooses "I want to go in" (Still reopens YouTube through its public URL scheme) or "I don't want to go in anymore".
->
-> The target app is visible for a moment before Still appears. That is how iOS orders app launch and automations, not something Still controls.
->
-> Still does not block, hide or restrict any app, and it does not use Screen Time shields in this mode. The user can remove the automation in Shortcuts at any time and Still stops appearing.
->
-> The names of the chosen apps stay on the device: they are stored in the App Group and are never sent to our servers or to analytics.
+- Account deletion revokes Sign in with Apple (`apps/web/lib/apple-sign-in.ts`): the app asks Apple for a fresh authorization code and the server exchanges and revokes it before deleting the account.
+- The privacy policy is linked inside the app (Settings → Your data), as 5.1.1(i) requires.
 
 ### Leaving to the Home Screen
 
-When the user declines, the intended ending is the iOS Home Screen. iOS has no public API for that. Still can do it by sending `suspend` to `UIApplication`, the same effect as a Home press, but that selector is undocumented and App Review may object to it.
+When the user declines, the intended ending is the iOS Home Screen. iOS has no public API for that.
 
-- It ships **disabled**, behind the remote `iosHomeOnCancelEnabled` flag, and no review build should have it on unless the decision to defend it has been made.
-- With the flag off Still uses public API only: an optional user-created shortcut (`Still - Inicio`, one "Go to Home Screen" action) or a screen that asks the user to swipe up.
-- If a submission is rejected for it, switch the flag off in `/admin`; no new build is needed. Remove `suspendToHome` from `StillRestrictionEngine.swift` before resubmitting if the reviewer asks for the code to go.
+- Still uses public API only: an optional user-created shortcut (`Still - Inicio`, one "Go to Home Screen" action) or a screen that asks the user to swipe up.
+- Builds up to 0.3.0 also carried `suspendToHome`, which sent the undocumented `suspend` selector to `UIApplication` behind the remote `iosHomeOnCancelEnabled` flag. 0.3.1 removed it before the App Store resubmission (guideline 2.5.1: public APIs only). The flag stays in the config contract only because those older builds read it: keep it off.
 
 ## Google Play
 

@@ -130,8 +130,6 @@ export interface RestrictionEngine {
   setShortcutTargets(targets: NativeShortcutTarget[]): Promise<void>;
   getShortcutTargetsHealth(): Promise<ShortcutTargetHealth[]>;
   beginShortcutSetupProbe(appName: string): Promise<void>;
-  /** iOS only. Backgrounds Still so the user lands on the Home Screen. */
-  suspendToHome(): Promise<void>;
   cancelCurrentIntervention(): Promise<void>;
   startUnlock(
     target: LocalAppHandle,
@@ -226,9 +224,6 @@ const unavailable: RestrictionEngine = {
   setShortcutTargets: async () => undefined,
   getShortcutTargetsHealth: async () => [],
   beginShortcutSetupProbe: async () => undefined,
-  suspendToHome: async () => {
-    throw new Error("Leaving to the Home Screen is unavailable in this build");
-  },
   cancelCurrentIntervention: async () => undefined,
   startUnlock: async () => {
     throw new Error("Restriction engine is unavailable in this build");

@@ -15,7 +15,6 @@ RCT_EXTERN_METHOD(finishShortcutSetupTest:(NSString *)contextId resolver:(RCTPro
 RCT_EXTERN_METHOD(setShortcutTargets:(NSArray *)targets resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(getShortcutTargetsHealth:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(beginShortcutSetupProbe:(NSString *)appName resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-RCT_EXTERN_METHOD(suspendToHome:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(startUnlock:(NSDictionary *)target durationSeconds:(nonnull NSNumber *)durationSeconds resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(restoreRestriction:(NSString *)sessionId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(getHealth:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)

@@ -28,7 +28,6 @@ import {
   getHomeShortcutInstalled,
   setHomeShortcutInstalled,
 } from "@/native/use-leave-to-home";
-import { useAppState } from "@/state/app-state";
 import { colors, spacing } from "@/theme/tokens";
 
 type CauseCopy = {
@@ -133,7 +132,6 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
 }
 
 export default function ShortcutRepairScreen() {
-  const { config } = useAppState();
   const sheet = useStillSheet();
   const tier = resolveSetupTier({ iosVersion: Platform.Version });
   const [homeShortcut, setHomeShortcut] = useState(false);
@@ -208,47 +206,45 @@ export default function ShortcutRepairScreen() {
         })}
       </View>
 
-      {config.iosHomeOnCancelEnabled ? null : (
-        <View style={styles.note}>
-          <Eyebrow>
-            {localize("OPTIONAL · GO HOME", "OPCIONAL · IR AL INICIO")}
-          </Eyebrow>
-          <Body style={styles.stepBody}>
-            {localize(
-              `When you choose not to open an app, Still can send you to your Home Screen with a one-action shortcut. Create a shortcut named exactly “${HOME_SHORTCUT_NAME}” with the action “Go to Home Screen”, then turn this on.`,
-              `Cuando eliges no abrir una app, Still puede llevarte a tu pantalla de inicio con un atajo de una sola acción. Crea un atajo llamado exactamente «${HOME_SHORTCUT_NAME}» con la acción «Ir a la pantalla de inicio» y activa esto.`,
-            )}
+      <View style={styles.note}>
+        <Eyebrow>
+          {localize("OPTIONAL · GO HOME", "OPCIONAL · IR AL INICIO")}
+        </Eyebrow>
+        <Body style={styles.stepBody}>
+          {localize(
+            `When you choose not to open an app, Still can send you to your Home Screen with a one-action shortcut. Create a shortcut named exactly “${HOME_SHORTCUT_NAME}” with the action “Go to Home Screen”, then turn this on.`,
+            `Cuando eliges no abrir una app, Still puede llevarte a tu pantalla de inicio con un atajo de una sola acción. Crea un atajo llamado exactamente «${HOME_SHORTCUT_NAME}» con la acción «Ir a la pantalla de inicio» y activa esto.`,
+          )}
+        </Body>
+        <PrimaryButton
+          onPress={() =>
+            void open(
+              isTrustedImportUrl(IOS_HOME_SHORTCUT_IMPORT_URL)
+                ? IOS_HOME_SHORTCUT_IMPORT_URL
+                : SHORTCUTS_CREATE_URL,
+            )
+          }
+          variant="secondary"
+        >
+          {localize("Create the shortcut", "Crear el atajo")}
+        </PrimaryButton>
+        <View style={styles.switchRow}>
+          <Body style={styles.switchLabel}>
+            {localize("I created it", "Ya lo creé")}
           </Body>
-          <PrimaryButton
-            onPress={() =>
-              void open(
-                isTrustedImportUrl(IOS_HOME_SHORTCUT_IMPORT_URL)
-                  ? IOS_HOME_SHORTCUT_IMPORT_URL
-                  : SHORTCUTS_CREATE_URL,
-              )
-            }
-            variant="secondary"
-          >
-            {localize("Create the shortcut", "Crear el atajo")}
-          </PrimaryButton>
-          <View style={styles.switchRow}>
-            <Body style={styles.switchLabel}>
-              {localize("I created it", "Ya lo creé")}
-            </Body>
-            <Switch
-              accessibilityLabel={localize(
-                "I created the Go Home shortcut",
-                "Ya creé el atajo para ir al inicio",
-              )}
-              onValueChange={(value) => {
-                setHomeShortcut(value);
-                void setHomeShortcutInstalled(value);
-              }}
-              value={homeShortcut}
-            />
-          </View>
+          <Switch
+            accessibilityLabel={localize(
+              "I created the Go Home shortcut",
+              "Ya creé el atajo para ir al inicio",
+            )}
+            onValueChange={(value) => {
+              setHomeShortcut(value);
+              void setHomeShortcutInstalled(value);
+            }}
+            value={homeShortcut}
+          />
         </View>
-      )}
+      </View>
 
       <View style={styles.actions}>
         <PrimaryButton
