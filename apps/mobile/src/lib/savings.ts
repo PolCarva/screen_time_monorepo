@@ -56,6 +56,8 @@ export type AppSavings = {
   skipped: number;
   pauses: number;
   entered: number;
+  /** Skips undone by going into the app right after: they give nothing back. */
+  reentries: number;
   /** What one skipped pause of this app is worth, and where that comes from. */
   minutesEach: number;
   source: SavedTimeSource;
@@ -153,11 +155,13 @@ export function summarizeSavings(input: {
         skipped: 0,
         pauses: 0,
         entered: 0,
+        reentries: 0,
       };
       sum.minutes += entry.minutes;
       sum.skipped += entry.skipped;
       sum.pauses += appOutcome.pauses;
       sum.entered += appOutcome.entered;
+      sum.reentries += Math.min(Math.max(0, entry.reentries), appOutcome.notEntered);
       perApp.set(app.key, sum);
       if (input.app === app.key) days.push({ date, minutes: entry.minutes });
     }

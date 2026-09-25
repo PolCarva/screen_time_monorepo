@@ -71,9 +71,9 @@ describe("savings per app and in total", () => {
     expect(week.skipped).toBe(2 + 3 + 3);
     expect(week.days).toHaveLength(7);
     expect(week.days.map((entry) => entry.minutes)).toEqual([0, 20, 0, 0, 0, 22, 22]);
-    expect(week.apps.map((app) => [app.label, app.minutes, app.skipped])).toEqual([
-      ["Instagram", 60, 6],
-      ["Calendario", 4, 2],
+    expect(week.apps.map((app) => [app.label, app.minutes, app.skipped, app.reentries])).toEqual([
+      ["Instagram", 60, 6, 1],
+      ["Calendario", 4, 2, 0],
     ]);
     // The rows add up to the total.
     expect(week.apps.reduce((sum, app) => sum + app.minutes, 0)).toBe(week.minutes);

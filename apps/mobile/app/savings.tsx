@@ -72,20 +72,33 @@ function sourceLabel(source: SavedTimeSource) {
   return localize("estimated", "estimado");
 }
 
-/** "Didn't go in 6 times · ~10 min each (last 7 days)". */
-function appDetail(app: AppSavings) {
+/** "~10 min each (last 7 days) · 1 doesn't count: you went back in right away". */
+function worthLine(app: AppSavings) {
   const each = new Intl.NumberFormat(locale, {
     maximumFractionDigits: app.minutesEach < 10 ? 1 : 0,
   }).format(app.minutesEach);
   const parts = [
-    localize(`Didn't go in ${times(app.skipped)}`, `No entraste ${times(app.skipped)}`),
     localize(
       `~${each} min each (${sourceLabel(app.source)})`,
       `~${each} min cada una (${sourceLabel(app.source)})`,
     ),
   ];
+  if (app.reentries > 0) {
+    parts.push(
+      localize(
+        `${app.reentries} ${app.reentries === 1 ? "doesn't" : "don't"} count: you went back in right away`,
+        `${app.reentries} no ${app.reentries === 1 ? "suma" : "suman"}: volviste a entrar enseguida`,
+      ),
+    );
+  }
   if (!app.chosen) parts.push(localize("no longer paused", "ya no la pausas"));
   return parts.join(" · ");
+}
+
+/** "Didn't go in 6 times · ~10 min each (last 7 days)", for a row of the list. */
+function appDetail(app: AppSavings) {
+  const notEntered = app.pauses - app.entered;
+  return `${localize(`Didn't go in ${times(notEntered)}`, `No entraste ${times(notEntered)}`)} · ${worthLine(app)}`;
 }
 
 function Chip({
@@ -128,9 +141,10 @@ function DayBars({
     format: (date: Date) => shortWeekday.format(date),
   };
   const first = new Date(`${days[0]?.date}T12:00:00`);
+  const dense = period === "month";
   return (
     <View style={styles.chartBlock}>
-      <View style={[styles.chart, period === "month" && styles.chartDense]}>
+      <View style={[styles.chart, styles.chartBars, dense && styles.chartDense]}>
         {days.map((day, index) => {
           const height =
             day.minutes > 0 ? Math.max(3, Math.round((day.minutes / highest) * CHART_HEIGHT)) : 0;
@@ -141,27 +155,31 @@ function DayBars({
               key={day.date}
               style={styles.chartColumn}
             >
-              <View style={styles.chartTrack}>
-                {height > 0 ? (
-                  <GrowIn delay={80 + index * (period === "month" ? 12 : 40)} style={[styles.chartBar, { height }]} />
-                ) : null}
-              </View>
-              {period === "week" ? (
-                <Text style={styles.chartLabel}>
-                  {weekdayLabel(day.date, index === days.length - 1, labels)}
-                </Text>
+              {height > 0 ? (
+                <GrowIn
+                  delay={80 + index * (dense ? 12 : 40)}
+                  style={[styles.chartBar, { height }]}
+                />
               ) : null}
             </View>
           );
         })}
       </View>
       <View style={styles.chartBaseline} />
-      {period === "month" ? (
+      {dense ? (
         <View style={styles.chartEnds}>
           <Mono style={styles.chartEnd}>{dayMonth.format(first).replace(/\.$/, "")}</Mono>
           <Mono style={styles.chartEnd}>{localize("Today", "Hoy")}</Mono>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.chart}>
+          {days.map((day, index) => (
+            <Text key={day.date} numberOfLines={1} style={[styles.chartColumn, styles.chartLabel]}>
+              {weekdayLabel(day.date, index === days.length - 1, labels)}
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -210,7 +228,9 @@ export default function SavingsScreen() {
   );
   const selectedApp = app ? everyApp.find((entry) => entry.key === app) : undefined;
   const periodApp = app ? summary?.apps.find((entry) => entry.key === app) : undefined;
-  const widest = Math.max(1, ...(summary?.apps.map((entry) => entry.minutes) ?? []));
+  // Apps that gave time back; one entered every time has nothing to show here.
+  const rows = summary?.apps.filter((entry) => entry.minutes > 0) ?? [];
+  const widest = Math.max(1, ...rows.map((entry) => entry.minutes));
   const measured = summary?.apps.some((entry) => entry.source !== "default") ?? false;
   const offerUsage =
     Platform.OS === "android" &&
@@ -261,6 +281,7 @@ export default function SavingsScreen() {
             contentContainerStyle={styles.chips}
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.chipScroller}
           >
             <Chip
               label={localize("All apps", "Todas las apps")}
@@ -283,6 +304,11 @@ export default function SavingsScreen() {
         <Skeleton style={styles.skeleton} />
       ) : (
         <Animated.View entering={FadeIn.duration(220)} key={`${period}:${app ?? "all"}`} style={styles.hero}>
+          {selectedApp ? (
+            <Heading numberOfLines={1} style={styles.heroApp}>
+              {selectedApp.label}
+            </Heading>
+          ) : null}
           <AnimatedNumber
             accessibilityLabel={minutesLabel(summary.minutes)}
             adjustsFontSizeToFit
@@ -291,11 +317,7 @@ export default function SavingsScreen() {
             style={styles.heroNumber}
             value={Math.round(summary.minutes)}
           />
-          <Body style={styles.heroCaption}>
-            {selectedApp
-              ? `${periodCaption(period)} · ${selectedApp.label}`
-              : periodCaption(period)}
-          </Body>
+          <Body style={styles.heroCaption}>{periodCaption(period)}</Body>
           {summary.pauses > 0 ? (
             <Mono style={styles.heroFacts}>
               {localize(
@@ -311,7 +333,9 @@ export default function SavingsScreen() {
               )}
             </Body>
           )}
-          {periodApp ? <Body style={styles.muted}>{appDetail(periodApp)}</Body> : null}
+          {periodApp && periodApp.pauses > periodApp.entered ? (
+            <Body style={styles.muted}>{worthLine(periodApp)}</Body>
+          ) : null}
         </Animated.View>
       )}
 
@@ -319,10 +343,10 @@ export default function SavingsScreen() {
         <DayBars days={summary.days} key={`${period}:${app ?? "all"}:bars`} period={period} />
       ) : null}
 
-      {summary && app === null && summary.apps.length > 0 ? (
+      {summary && app === null && rows.length > 0 ? (
         <View style={styles.section}>
           <Eyebrow>{localize("BY APP", "POR APP")}</Eyebrow>
-          {summary.apps.map((entry, index) => (
+          {rows.map((entry, index) => (
             <Pressable
               accessibilityHint={localize("Shows only this app", "Muestra solo esta app")}
               accessibilityRole="button"
@@ -420,7 +444,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   segmentLabelSelected: { color: colors.chalk, fontFamily: fonts.brandSemiBold },
-  chips: { gap: spacing.xs, paddingRight: spacing.lg },
+  // The chips run to the screen's edges instead of stopping at the margin.
+  chipScroller: { marginHorizontal: -spacing.lg },
+  chips: { gap: spacing.xs, paddingHorizontal: spacing.lg },
   chip: {
     maxWidth: 200,
     minHeight: 34,
@@ -430,7 +456,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.mineralLight,
   },
-  chipSelected: { backgroundColor: colors.mineral, borderColor: colors.mineral },
+  chipSelected: { backgroundColor: colors.graphite, borderColor: colors.graphite },
   chipLabel: { color: colors.graphite, fontFamily: fonts.brandMedium, fontSize: 14 },
   chipLabelSelected: { color: colors.chalk },
   skeleton: { height: 120, borderRadius: radius.sm, backgroundColor: colors.fog, opacity: 0.5 },
@@ -440,15 +466,16 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fog,
   },
+  heroApp: { fontSize: 19, lineHeight: 23 },
   heroNumber: { fontSize: 56, lineHeight: 60, letterSpacing: -2.5 },
   heroCaption: { color: colors.graphiteSoft },
   heroFacts: { color: colors.graphiteSoft },
   muted: { color: colors.graphiteSoft, fontSize: 14, lineHeight: 20 },
   chartBlock: { gap: 6 },
   chart: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
+  chartBars: { height: CHART_HEIGHT },
   chartDense: { gap: 2 },
-  chartColumn: { flex: 1, gap: 6 },
-  chartTrack: { height: CHART_HEIGHT, justifyContent: "flex-end" },
+  chartColumn: { flex: 1 },
   chartBar: {
     backgroundColor: colors.mineral,
     borderTopLeftRadius: radius.xs,
@@ -478,11 +505,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   appName: { flexShrink: 1, fontSize: 18, lineHeight: 23 },
-  appMinutes: { color: colors.graphite, fontFamily: fonts.monoMedium },
+  appMinutes: { flexShrink: 0, color: colors.graphite, fontFamily: fonts.monoMedium },
   track: {
     height: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.chalkRaised,
+    backgroundColor: colors.fog,
     overflow: "hidden",
   },
   appDetail: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 18 },

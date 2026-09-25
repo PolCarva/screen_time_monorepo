@@ -66,13 +66,13 @@ function formatLastPause(iso: string | undefined, locale: "en" | "es"): string {
   if (minutes < 1) return locale === "es" ? "última pausa: ahora" : "last pause: just now";
   if (minutes < 60) {
     return locale === "es"
-      ? `última pausa: hace ${minutes} min`
-      : `last pause: ${minutes} min ago`;
+      ? `última pausa: hace ${minutes}\u00A0min`
+      : `last pause: ${minutes}\u00A0min ago`;
   }
   const hours = Math.round(minutes / 60);
   return locale === "es"
-    ? `última pausa: hace ${hours} h`
-    : `last pause: ${hours} h ago`;
+    ? `última pausa: hace ${hours}\u00A0h`
+    : `last pause: ${hours}\u00A0h ago`;
 }
 
 export default function AndroidSetupScreen() {
@@ -386,8 +386,8 @@ const styles = StyleSheet.create({
   appStateRow: { gap: 2 },
   restricted: { gap: spacing.sm },
   restrictedNote: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 19 },
-  appStateName: { fontSize: 15, flexShrink: 1 },
-  appStateDetail: { color: colors.graphiteSoft, fontSize: 13, flexShrink: 1 },
+  appStateName: { fontSize: 15, lineHeight: 21, flexShrink: 1 },
+  appStateDetail: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 18, flexShrink: 1 },
   step: {
     paddingVertical: spacing.lg,
     flexDirection: "row",
