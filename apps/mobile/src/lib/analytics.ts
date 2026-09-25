@@ -42,11 +42,19 @@ export async function setAnalyticsCollectionEnabled(enabled: boolean) {
 const blockedKeys = new Set([
   "app",
   "appName",
+  "appLabel",
+  "label",
   "package",
   "packageName",
   "bundleId",
   "bundleIdentifier",
   "localAppHandle",
+  // The onboarding's usage figures stay on the phone (onboarding-v2 D14).
+  "guessMinutes",
+  "dailyMinutes",
+  "usageMinutes",
+  "unlocks",
+  "topApps",
 ]);
 export function capture(
   event: string,

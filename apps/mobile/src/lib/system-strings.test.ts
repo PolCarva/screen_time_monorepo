@@ -11,6 +11,7 @@ import {
   fillSystemString,
   shortcutsString,
   systemVariantFor,
+  usageAccessKeys,
 } from "./system-strings";
 
 describe("system strings", () => {
@@ -66,11 +67,13 @@ describe("system strings", () => {
     ) as { strings: Record<string, { localizations?: { es?: { stringUnit?: { value?: string } } } }> };
     const spanish = (key: string) => catalog.strings[key]?.localizations?.es?.stringUnit?.value;
     for (const variant of ["es", "es-419"] as const) {
-      expect(spanish("Pause Before Opening")).toBe(shortcutsString(variant, "stillAction"));
-      expect(spanish("Pause before opening ${appName}")).toBe(
-        `${shortcutsString(variant, "stillSummaryPrefix")} \${appName}`,
+      expect(spanish("Pause App")).toBe(shortcutsString(variant, "stillAction"));
+      expect(spanish("Pause ${app}")).toBe(
+        `${shortcutsString(variant, "stillSummaryPrefix")} \${app}`,
       );
-      expect(spanish("App name")).toBe(shortcutsString(variant, "appNameParam"));
+      expect(spanish("Pause Before Opening")).toBe(
+        shortcutsString(variant, "legacyStillAction"),
+      );
     }
   });
 
@@ -82,5 +85,16 @@ describe("system strings", () => {
         expect(entry["es-419"].length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("usage access labels by Android release", () => {
+  it("follows the page's renames (android14/15/16-release)", () => {
+    expect(usageAccessKeys(34)).toEqual({ title: "usageAccess", toggle: "permitUsageAccess" });
+    expect(usageAccessKeys(35)).toEqual({ title: "usageAccess", toggle: "permitUsageAccess15" });
+    expect(usageAccessKeys(36)).toEqual({ title: "usageAccess16", toggle: "permitUsageAccess16" });
+    expect(androidSettingsString("es-419", "permitUsageAccess16")).toBe(
+      "Permitir el acceso a los datos de uso de la app",
+    );
   });
 });

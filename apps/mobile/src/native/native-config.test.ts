@@ -31,9 +31,11 @@ describe("committed native production configuration", () => {
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
     expect(manifest).toContain('android:scheme="still"');
-    // Today counts Still's own pauses on both platforms; screen time is no
-    // longer read, so Usage Access is not requested (ui-clarity-plan D4).
-    expect(manifest).not.toContain("android.permission.PACKAGE_USAGE_STATS");
+    // Today counts Still's own pauses on both platforms (ui-clarity-plan D4);
+    // Usage access is back only for the onboarding story (onboarding-v2 D4).
+    expect(manifest).toContain(
+      '<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>',
+    );
     expect(manifest).toContain(
       'android:name="android.permission.POST_NOTIFICATIONS"',
     );
@@ -80,7 +82,41 @@ describe("committed native production configuration", () => {
     // Screen time is gone (D4); Today reads seven local days of Still's own
     // counters, keyed by the phone's day (D6).
     expect(restrictionModule).not.toContain("wellbeingAuthorization");
+    // Usage is read in one file, for the onboarding only, and never sent.
     expect(restrictionModule).not.toContain("UsageStatsManager");
+    const usageInsights = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillUsageInsights.kt",
+    );
+    expect(usageInsights).toContain("UsageStatsManager");
+    for (const networkWord of ["HttpURLConnection", "OkHttp", "java.net.URL", "SharedPreferences"]) {
+      expect(usageInsights).not.toContain(networkWord);
+    }
+    for (const source of [intervention, accessibilityService, appPicker, selfProtection]) {
+      expect(source).not.toContain("UsageStatsManager");
+    }
+    // Onboarding v2 §6.4: the setup test shows the shield in test mode before
+    // any counter moves, and the shield's test screen loads no ad.
+    const probeBranch = accessibilityService.indexOf(
+      "StillSetup.probePackage(preferences) == target",
+    );
+    expect(probeBranch).toBeGreaterThan(0);
+    expect(probeBranch).toBeLessThan(
+      accessibilityService.indexOf("val appAttemptsKey"),
+    );
+    expect(intervention).toContain("if (setupProbe) {\n      renderSetupProbe()\n      return\n    }");
+    const probeScreen = intervention.slice(
+      intervention.indexOf("private fun renderSetupProbe()"),
+      intervention.indexOf("private fun backToStill()"),
+    );
+    expect(probeScreen).toContain("StillSetup.markProbeShown(preferences)");
+    expect(probeScreen).not.toContain("StillRewardedAdManager");
+    expect(probeScreen).not.toContain("METRIC_");
+    // Accessibility counts as on only when the service is really bound (§4.3).
+    expect(restrictionModule).toContain('putBoolean("serviceRunning"');
+    // Back to Still once the switch is on (HA5).
+    expect(accessibilityService).toContain(
+      "StillSetup.consumeAwaiting(preferences, StillSetup.AWAITING_ACCESSIBILITY)",
+    );
     expect(restrictionModule).toContain('putArray("history"');
     for (const source of [restrictionModule, intervention, accessibilityService]) {
       expect(source).toContain("StillDay.today()");
@@ -191,6 +227,22 @@ describe("committed native production configuration", () => {
     // the action while the app still builds.
     expect(nativeFile("scripts/configure-ios-targets.rb")).toContain(
       "StillShortcutIntent.swift",
+    );
+
+    // Still's action one sec style: "Pause <App>" ready made for each chosen
+    // app (an App Shortcut per app), refreshed whenever the choice changes.
+    const pauseAppIntent = nativeFile("ios/StillNative/StillPauseAppIntent.swift");
+    expect(pauseAppIntent).toContain("struct PauseAppIntent: AppIntent");
+    expect(pauseAppIntent).toContain("var app: StillAppEntity");
+    expect(pauseAppIntent).toContain("struct StillAppShortcuts: AppShortcutsProvider");
+    expect(pauseAppIntent).toContain('phrases: ["Pause \\(\\.$app) with \\(.applicationName)"]');
+    expect(shortcutIntent).toContain("StillAppShortcuts.updateAppShortcutParameters()");
+    // The first action stays for automations made with it, out of the library.
+    expect(shortcutIntent).toContain("static let isDiscoverable = false");
+    expect(project).toContain("StillPauseAppIntent.swift in Sources");
+    expect(project).toContain("AppShortcuts.strings in Resources");
+    expect(nativeFile("scripts/configure-ios-targets.rb")).toContain(
+      "StillPauseAppIntent.swift",
     );
 
     // Pausa vía Atajos v2: targets chosen in Still, direct return, real health.

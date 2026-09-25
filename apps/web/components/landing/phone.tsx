@@ -124,7 +124,7 @@ const SETUP = {
     steps: [
       "Atajos → Automatización → Automatización personal",
       "App → Instagram → «Se abra» → Ejecutar de inmediato",
-      "Acción: «Pausar antes de abrir»",
+      "Acción: «Pausar Instagram»",
     ],
     note: "Still te guía paso a paso y nunca crea ni lee tus automatizaciones.",
     action: "Abrir Atajos",

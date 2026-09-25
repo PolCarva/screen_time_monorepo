@@ -99,3 +99,37 @@ export function oemGuidance(manufacturer: string): OemGuidance {
 export function isAggressiveOem(manufacturer: string): boolean {
   return oemGuidance(manufacturer).key !== "generic";
 }
+
+/**
+ * Where a maker's Settings usually keeps Still's Accessibility switch. Worded as
+ * "usually": skins move it between versions, so the onboarding shows this next
+ * to the way that always works (Settings' search) and moves on only when the
+ * switch is really on (docs/onboarding-v2-plan.md §5.2).
+ */
+const ACCESSIBILITY_PATHS: Record<Exclude<OemKey, "generic">, LocalizedTip> = {
+  xiaomi: {
+    en: "On Xiaomi it's usually in Additional settings › Accessibility › Downloaded apps.",
+    es: "En Xiaomi suele estar en Ajustes adicionales › Accesibilidad › Apps descargadas.",
+  },
+  samsung: {
+    en: "On Samsung it's usually in Accessibility › Installed apps.",
+    es: "En Samsung suele estar en Accesibilidad › Aplicaciones instaladas.",
+  },
+  huawei: {
+    en: "On Huawei and Honor it's usually in Accessibility features › Accessibility.",
+    es: "En Huawei y Honor suele estar en Funciones de accesibilidad › Accesibilidad.",
+  },
+  oppo: {
+    en: "On OPPO, OnePlus and realme it's usually in Additional settings › Accessibility › Downloaded apps.",
+    es: "En OPPO, OnePlus y realme suele estar en Ajustes adicionales › Accesibilidad › Apps descargadas.",
+  },
+  vivo: {
+    en: "On vivo it's usually in Shortcuts & accessibility › Accessibility.",
+    es: "En vivo suele estar en Accesos directos y accesibilidad › Accesibilidad.",
+  },
+};
+
+export function accessibilityPathTip(manufacturer: string): LocalizedTip | null {
+  const key = oemGuidance(manufacturer).key;
+  return key === "generic" ? null : ACCESSIBILITY_PATHS[key];
+}

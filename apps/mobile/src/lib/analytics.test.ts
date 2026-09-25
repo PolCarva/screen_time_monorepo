@@ -63,4 +63,25 @@ describe("analytics privacy preference", () => {
     expect(mocks.optOut).toHaveBeenCalledOnce();
     expect(mocks.setJson).toHaveBeenCalledWith("analyticsEnabled", false);
   });
+
+  it("never sends the onboarding's app names or usage figures (onboarding-v2 D14)", async () => {
+    mocks.getJson.mockResolvedValue(true);
+    const analytics = await import("./analytics");
+
+    await analytics.initializeObservability();
+    analytics.capture("onboarding_step_viewed", {
+      step: "reveal",
+      label: "Instagram",
+      appLabel: "Instagram",
+      packageName: "com.instagram.android",
+      guessMinutes: 180,
+      dailyMinutes: 183,
+      usageMinutes: 183,
+      unlocks: 82,
+    });
+
+    expect(mocks.capture).toHaveBeenCalledWith("onboarding_step_viewed", {
+      step: "reveal",
+    });
+  });
 });

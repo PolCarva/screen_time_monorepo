@@ -18,7 +18,7 @@ export default function LeaveScreen() {
   useEffect(() => {
     // Once the user has left, the next launch should start from Today.
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "background") router.replace("/(tabs)/(today)");
+      if (state === "background") router.replace("/");
     });
     return () => subscription.remove();
   }, []);
@@ -42,7 +42,7 @@ export default function LeaveScreen() {
         </Body>
       </View>
       <PrimaryButton
-        onPress={() => router.replace("/(tabs)/(today)")}
+        onPress={() => router.replace("/")}
         variant="quiet"
       >
         {localize("See today in Still", "Ver el día en Still")}

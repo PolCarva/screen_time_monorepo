@@ -36,11 +36,17 @@ When the user declines, the intended ending is the iOS Home Screen. iOS has no p
 - Accessibility is a core intervention feature, but the app is not an accessibility tool.
 - Submit the in-app prominent disclosure, affirmative consent evidence, declaration form, and a video showing detection, intervention, cancellation, unlock, and Settings recovery.
 - Declare package visibility only through the launcher `<queries>` intent. Do not add `QUERY_ALL_PACKAGES` without a new policy review.
-- Still does not request Usage Access (`PACKAGE_USAGE_STATS`); Today uses Still's own pause counters. Adding it back needs a new policy review.
+- Usage Access (`PACKAGE_USAGE_STATS`) is requested **only by the onboarding story** (docs/onboarding-v2-plan.md, D4), is optional ("Continue without my data") and is read in one file, `StillUsageInsights.kt`. The screen that asks for it is the prominent disclosure: what is read (how much each app is used), what for (showing the user their own time) and that it is worked out on the phone and never leaves it. Nothing is stored or sent: Data safety does not declare it as collected. Today keeps using Still's own pause counters.
+- The Accessibility disclosure's acceptance time is stored on the device (`accessibilityDisclosureAcceptedAt`) as evidence of affirmative consent.
 
 Suggested disclosure: “Still uses Accessibility to detect when you open only the apps you selected, show an intentional pause, and close a floating video window that would cover that pause. It does not type for you and does not collect, store, or share your screen content, messages, or the names of your selected apps. Processing stays on this device. You can disable access at any time in Android Settings.”
 
 > Note: closing a floating (Picture-in-Picture) video requires `canRetrieveWindowContent="true"` plus `flagRetrieveInteractiveWindows`. Still uses this only to locate and dismiss the offending PiP window; it never reads, stores, or transmits screen content. Reflect this in the Play Console declaration and the demo video.
+
+### Ads consent (UMP)
+
+- The onboarding asks Google's consent form (UMP) as its own setup step, only where Google requires it (EEA, UK, Switzerland), so it no longer appears in the middle of the first pause. It also covers Android's native shield: UMP writes the IAB TCF strings (`IABTCF_*`) to the app's default SharedPreferences, which the ads SDK reads in the same process (verified on the emulator with UMP's EEA debug geography).
+- Users can change it later from Settings (`AdsConsent.showPrivacyOptionsForm`). `reward-provider.ts` still gathers consent before the first ad as a fallback (offline during onboarding, or users onboarded before this).
 
 ## Ads and impact
 

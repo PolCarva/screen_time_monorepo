@@ -80,6 +80,8 @@ const config: ExpoConfig = {
     config: { usesNonExemptEncryption: false },
     entitlements: {
       "com.apple.security.application-groups": ["group.app.still.ios"],
+      // The "your time is up" notice breaks through Focus (onboarding v2, HI3).
+      "com.apple.developer.usernotifications.time-sensitive": true,
     },
     infoPlist: {
       CFBundleDevelopmentRegion: "en",
@@ -92,7 +94,11 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#F1EFE8",
     },
-    permissions: ["android.permission.POST_NOTIFICATIONS"],
+    permissions: [
+      "android.permission.POST_NOTIFICATIONS",
+      // Onboarding story only; read on the phone, never stored or sent.
+      "android.permission.PACKAGE_USAGE_STATS",
+    ],
   },
   plugins: [
     "@sentry/react-native",

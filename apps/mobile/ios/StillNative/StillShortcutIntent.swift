@@ -98,6 +98,8 @@ enum ShortcutTargetStore {
     }
     save(merged + survivors)
     SharedRestrictionState.flush()
+    // Shortcuts lists a ready-made "Pause <App>" action for each chosen app.
+    if #available(iOS 17.0, *) { StillAppShortcuts.updateAppShortcutParameters() }
   }
 
   static func find(appName: String) -> ShortcutTarget? {
@@ -431,6 +433,9 @@ struct ShortcutTargetOptionsProvider: DynamicOptionsProvider {
   }
 }
 
+/// The first version of Still's action, where the app was picked or passed as
+/// a variable. `PauseAppIntent` replaces it; this one stays so automations
+/// made with it keep working, hidden from the action list so nobody adds it.
 @available(iOS 16.4, *)
 struct PauseBeforeOpeningIntent: AppIntent {
   static let title: LocalizedStringResource = "Pause Before Opening"
@@ -438,6 +443,7 @@ struct PauseBeforeOpeningIntent: AppIntent {
     "Shows a Still pause when an app-opening personal automation runs."
   )
   static let openAppWhenRun = false
+  static let isDiscoverable = false
 
   @Parameter(
     title: "App name",
@@ -456,12 +462,20 @@ struct PauseBeforeOpeningIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult {
-    guard
-      try ShortcutInterventionState.prepare(appName: appName) != nil
-    else {
-      return .result()
-    }
+    try await pauseBeforeOpening(appName: appName)
+    return .result()
+  }
+}
 
+@available(iOS 16.4, *)
+extension PauseBeforeOpeningIntent: ForegroundContinuableIntent {}
+
+@available(iOS 16.4, *)
+extension ForegroundContinuableIntent {
+  /// What every Still pause action does: decide in the background and bring
+  /// Still to the front only when the app should really be paused.
+  func pauseBeforeOpening(appName: String) async throws {
+    guard try ShortcutInterventionState.prepare(appName: appName) != nil else { return }
     if #available(iOS 26.0, *) {
       try await continueInForeground(alwaysConfirm: false)
     } else {
@@ -469,9 +483,5 @@ struct PauseBeforeOpeningIntent: AppIntent {
         IntentDialog("Continue in Still to decide whether to open the app.")
       )
     }
-    return .result()
   }
 }
-
-@available(iOS 16.4, *)
-extension PauseBeforeOpeningIntent: ForegroundContinuableIntent {}

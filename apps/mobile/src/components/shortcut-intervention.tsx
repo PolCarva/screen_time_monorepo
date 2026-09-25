@@ -19,6 +19,11 @@ import { Breathing, PressableScale, rise } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
+import {
+  PAUSE_COPY,
+  openedTodayHeadline,
+  pauseDeclineLabel,
+} from "@/lib/pause-copy";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import {
@@ -36,6 +41,7 @@ import {
   getInterventionOptions,
   rewardStatusForGate,
 } from "@/lib/shortcut-intervention";
+import { setupTestReturnHref } from "@/lib/setup-test-return";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -271,7 +277,7 @@ export function ShortcutIntervention({
       dispatch({ type: "FINISHED" });
       // Still is already behind the target app; do not leave this screen
       // waiting for the next time the user opens Still.
-      router.replace("/(tabs)/(today)");
+      router.replace("/");
     } catch {
       dispatch({ type: "ENTER_FAILED", stage: stage.current });
     } finally {
@@ -319,10 +325,8 @@ export function ShortcutIntervention({
       .finishShortcutSetupTest(shortcutId)
       .catch(() => undefined);
     dispatch({ type: "TEST_ACKNOWLEDGED" });
-    router.replace({
-      pathname: "/shortcut-setup",
-      params: { tested: appLabel },
-    });
+    // Back to whatever started the test: the setup screen or an onboarding step.
+    router.replace(await setupTestReturnHref(appLabel));
   }, [appLabel, shortcutId]);
 
   if (flow.phase === "setup_test" || flow.outcome === "tested") {
@@ -399,13 +403,10 @@ export function ShortcutIntervention({
     question = localize("This takes a moment.", "Tarda un momento.");
   } else {
     headline = localize(
-      `${appLabel} opened\n${attempts} ${attempts === 1 ? "time" : "times"} today.`,
-      `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`,
+      openedTodayHeadline(appLabel, attempts, "ios", "en"),
+      openedTodayHeadline(appLabel, attempts, "ios", "es"),
     );
-    question = localize(
-      "If you go in, you choose for how long.",
-      "Si entras, eliges por cuánto tiempo.",
-    );
+    question = localize(PAUSE_COPY.question.en, PAUSE_COPY.question.es);
   }
 
   // Every way forward on this screen. At the gate the ad is the only way in;
@@ -452,7 +453,7 @@ export function ShortcutIntervention({
     if (flow.gate.ad === "ready")
       options.push({
         key: "ad",
-        label: localize("Watch ad", "Ver anuncio"),
+        label: localize(PAUSE_COPY.watchAd.en, PAUSE_COPY.watchAd.es),
         action: () => void watchAd(),
       });
     else if (flow.gate.ad === "preparing")
@@ -548,8 +549,8 @@ export function ShortcutIntervention({
             <FilledButton
               disabled={busy}
               label={localize(
-                "I don't want to go in anymore",
-                "Ya no quiero entrar",
+                pauseDeclineLabel("ios", "en"),
+                pauseDeclineLabel("ios", "es"),
               )}
               onPress={() => void decline()}
             />

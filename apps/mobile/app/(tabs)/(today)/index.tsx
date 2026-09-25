@@ -194,8 +194,30 @@ export default function TodayScreen() {
           platform: "android",
           pausesEnabled,
           authorized: health.authorization === "authorized",
+          running: health.serviceRunning,
           selected: health.selectedCount,
         });
+  // Anything required still missing: one card that resumes the verified setup
+  // at its first missing step (docs/onboarding-v2-plan.md, D8, §4.6).
+  const setupPending =
+    status.kind === "activate" || status.kind === "choose" || status.kind === "connect";
+  const setupPendingDetail =
+    status.kind === "activate"
+      ? localize(
+          "Still isn't on, so the pause can't show up yet.",
+          "Still no está activado, así que la pausa todavía no puede aparecer.",
+        )
+      : status.kind === "choose"
+        ? localize(
+            "Choose the apps where you want a pause.",
+            "Elige las apps donde quieres una pausa.",
+          )
+        : status.kind === "connect"
+          ? localize(
+              `${status.connected} of ${status.chosen} apps connected. Test the rest.`,
+              `${status.connected} de ${status.chosen} apps conectadas. Prueba las demás.`,
+            )
+          : "";
   const appsRoute = Platform.OS === "ios" ? "/ios-apps" : "/android-setup";
   const appsRow =
     status.kind === "paused"
@@ -275,19 +297,18 @@ export default function TodayScreen() {
         </View>
       ) : null}
 
-      {status.kind === "choose" ? (
+      {setupPending ? (
         <View style={styles.section}>
           <Heading style={styles.setupTitle}>
-            {localize(
-              "Choose the apps where you want a pause",
-              "Elige las apps donde quieres una pausa",
-            )}
+            {localize("Finish setting up Still", "Termina de configurar Still")}
           </Heading>
-          <PrimaryButton onPress={() => router.push(appsRoute)} variant="signal">
-            {localize("Choose apps", "Elegir apps")}
+          <Body style={styles.muted}>{setupPendingDetail}</Body>
+          <PrimaryButton onPress={() => router.push("/setup")} variant="signal">
+            {localize("Continue setup", "Continuar la configuración")}
           </PrimaryButton>
         </View>
-      ) : (
+      ) : null}
+      {status.kind === "choose" ? null : (
         <View style={styles.hero}>
           <View style={styles.heroLine}>
             <AnimatedNumber style={styles.heroNumber} value={minutes} />
@@ -389,7 +410,7 @@ export default function TodayScreen() {
         )}
       </View>
 
-      {appsRow && status.kind !== "choose" ? (
+      {appsRow && !setupPending ? (
         <PressableScale
           accessibilityRole={appsRow.route ? "button" : undefined}
           dimTo={0.58}

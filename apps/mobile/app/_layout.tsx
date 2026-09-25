@@ -153,6 +153,7 @@ function Navigation() {
       <Stack.Screen name="ios-apps" />
       <Stack.Screen name="shortcut-setup" />
       <Stack.Screen name="shortcut-repair" />
+      <Stack.Screen name="setup" />
       <Stack.Screen name="android-setup" />
       <Stack.Screen name="android-repair" />
       <Stack.Screen
