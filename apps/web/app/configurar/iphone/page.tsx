@@ -80,7 +80,9 @@ export default function IphoneSetupPage() {
           borraste, se descarga gratis desde la App Store.
         </li>
         <li>
-          Still instalada. Ella pone la acción {q(L.stillAction)} en Atajos.
+          Still instalada, con las apps que quieres pausar elegidas en ella.
+          Por cada una, Still pone en Atajos su acción lista:{" "}
+          {q(`${L.stillSummaryPrefix} Instagram`)}.
         </li>
       </ul>
 
@@ -112,12 +114,11 @@ export default function IphoneSetupPage() {
         </li>
         <li>Toca {q(L.createNewShortcut)}.</li>
         <li>
-          En {q(L.searchActions)} escribe <strong>Still</strong> y toca{" "}
-          {q(L.stillAction)}.
-        </li>
-        <li>
-          Toca {q(L.appNameParam)} y elige <strong>Instagram</strong>, la misma
-          app del paso 3.
+          En {q(L.searchActions)} escribe <strong>Still</strong>. Debajo de{" "}
+          {q(L.stillAction)} hay una ficha por cada app que elegiste: toca{" "}
+          <strong>Instagram</strong>. La acción queda{" "}
+          {q(`${L.stillSummaryPrefix} Instagram`)}, sin nada que elegir ni
+          escribir.
         </li>
         <li>
           Guarda con el <strong>✓</strong> azul. Abre Instagram: primero
@@ -134,10 +135,11 @@ export default function IphoneSetupPage() {
 
       <h2 id="varias-apps">Varias apps</h2>
       <p>
-        Lo más simple es una automatización por app: repite los pasos para
-        TikTok, YouTube o la que quieras. Si prefieres una sola automatización
-        para varias apps, la guía dentro de Still te muestra cómo hacerlo con
-        la variable «App actual», así la pausa sabe qué app se abrió.
+        Una automatización por app, como en one sec: repite los pasos para
+        TikTok, YouTube o la que quieras. Cada app que eliges en Still tiene
+        su propia ficha {q(`${L.stillSummaryPrefix} TikTok`)} en Atajos, así
+        que no hace falta elegir la app ni usar variables dentro de la
+        acción.
       </p>
 
       <h2 id="por-que-se-ve">Por qué la app se ve un instante antes de la pausa</h2>
@@ -158,12 +160,13 @@ export default function IphoneSetupPage() {
           confirmar».
         </li>
         <li>
-          Comprueba que la app de {q(L.appNameParam)} sea la misma que la del
-          disparador {q("Cuando se abra")}.
+          Comprueba que la acción nombre la misma app que el disparador{" "}
+          {q("Cuando se abra")}: {q(`${L.stillSummaryPrefix} Instagram`)} para
+          Instagram.
         </li>
         <li>
-          Si no encuentras {q(L.stillAction)} al buscar Still, abre Still una
-          vez y vuelve a buscar.
+          Si no ves la ficha de tu app al buscar Still, elígela en Still, abre
+          Still una vez y vuelve a buscar.
         </li>
       </ul>
 

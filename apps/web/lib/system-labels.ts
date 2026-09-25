@@ -14,8 +14,8 @@ export const SHORTCUTS_LABELS = {
   next: "Siguiente",
   createNewShortcut: "Crear nuevo atajo",
   searchActions: "Buscar acciones",
-  stillAction: "Pausar antes de abrir",
-  appNameParam: "Nombre de la app",
+  stillAction: "Pausar app",
+  stillSummaryPrefix: "Pausar",
 } as const;
 
 export const ANDROID_LABELS = {
