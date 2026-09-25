@@ -69,24 +69,32 @@ export function SteppedSlider({
   const touching = useSharedValue(0);
   const placed = useRef(false);
   // The gesture reads these instead of closing over them, so the responder can
-  // stay the same object while the value changes under an active drag.
-  const gesture = useRef({ width, disabled, startX: 0, sent: value, steps });
+  // stay the same object while the value changes under an active drag. A new
+  // responder mid-drag starts counting the drag from zero again, which threw
+  // the knob back to where the finger first landed. `onChange` is read here
+  // too: callers pass a fresh arrow on every render.
+  const gesture = useRef({
+    width,
+    disabled,
+    startX: 0,
+    sent: value,
+    steps,
+    onChange,
+  });
   gesture.current.width = width;
   gesture.current.disabled = disabled;
   gesture.current.sent = value;
   gesture.current.steps = steps;
+  gesture.current.onChange = onChange;
 
-  const commit = useCallback(
-    (next: number) => {
-      const stops = gesture.current.steps;
-      const stop = stops[Math.max(0, Math.min(stops.length - 1, next))]!;
-      if (stop === gesture.current.sent) return;
-      gesture.current.sent = stop;
-      void Haptics.selectionAsync().catch(() => undefined);
-      onChange(stop);
-    },
-    [onChange],
-  );
+  const commit = useCallback((next: number) => {
+    const stops = gesture.current.steps;
+    const stop = stops[Math.max(0, Math.min(stops.length - 1, next))]!;
+    if (stop === gesture.current.sent) return;
+    gesture.current.sent = stop;
+    void Haptics.selectionAsync().catch(() => undefined);
+    gesture.current.onChange(stop);
+  }, []);
 
   const indexFromX = useCallback((x: number) => {
     const usable = Math.max(1, gesture.current.width - KNOB);
