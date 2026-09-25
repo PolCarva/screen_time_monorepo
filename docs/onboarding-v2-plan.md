@@ -1,7 +1,8 @@
 # Still · Onboarding v2: historia con tus datos + configuración verificada — investigación y plan
 
 Fecha: 2026-09-24 · Rama: `feat/onboarding-story` (base `main` `c69400b`) ·
-Estado: **plan listo, sin implementar**. El prompt de `/goal` está en §12.
+Estado: **implementado (F1–F8, 2026-09-24/25)**, sin pushear ni mergear. Resultados en §14;
+lo que falta hacer fuera del código, en §15.
 
 Pedido del usuario (2026-09-24), con capturas de AppBlock como referencia:
 
@@ -613,18 +614,152 @@ ni mergear sin pedido explícito.
 
 ## 14. Resultados de la implementación
 
-_(se completa en F8)_
+### 14.1 Commits
+
+| Fase | Commit | Qué entró |
+|---|---|---|
+| F1 | `f748ffd` | `onboarding-flow.ts` (pasos, avance, reanudación, señales, `probeOutcome`), `onboarding-insights.ts`, progreso persistido, `nativeSynced`. |
+| F2 | `8f911f2` | La historia en pantalla (estimación, lo que suma, estudio, demo del teléfono y de la pausa, cómo funciona, 18+), `SteppedSlider`, `pause-copy.ts`. |
+| F3 | `36d7f36` | Acceso de uso en Android: `StillUsageInsights.kt` + `UsageSessions.kt` (JUnit), permiso, revelación, apps más usadas con íconos reales. |
+| F4 | `7f493c0` | Configuración verificada en Android: Accesibilidad (corriendo), vuelta automática, selector con sugerencias, batería, prueba real en modo prueba, señal perdida. |
+| F6 | `b640f01` | UMP en el onboarding, tarjeta "Termina de configurar Still" en Hoy, `/setup`, analítica sin datos, docs. (Antes que F5, ver 14.3.) |
+| — | `c302f50` | Merge de `feat/ios-still-action` (sesión paralela: acción «Pausar <app>», selector y lista conectar/probar nuevos). |
+| F5 | `b75aa6c` | Configuración verificada en iOS con los componentes de esa rama, avisos + entitlement de avisos urgentes, salidas de la pausa por "/". |
+| F7 | `8b9e6d5` en **`feat/onboarding-ios-screen-time`** (apilada, **no mergear**) | Extensión de informe de Tiempo en pantalla, Family Controls, flag `iosScreenTimeInsightsEnabled`, ficha y notas de revisión. |
+| F8 | este commit | §14/§15, capturas finales, memoria. |
+
+### 14.2 Hipótesis
+
+| # | Resultado | Evidencia / salida aplicada |
+|---|---|---|
+| HA1 | ✅ emulador API 36 | `ACTION_USAGE_ACCESS_SETTINGS` + `package:` abre la página de Still ("App usage data"). Falta Xiaomi. |
+| HA2 | ⚪ no observable | Still ya aparece primera en "Downloaded apps"; el extra queda, no molesta. |
+| HA3 | ❌ emulador API 36 | La página de detalle no se abre para una app descargada: Android muestra la lista. Salida: la lista (es lo que dibuja la réplica 1). |
+| HA4 | ✅ emulador | UMP con geografía EEE de depuración: formulario en el paso 10 y claves `IABTCF_*` en las SharedPreferences por defecto, las que lee el SDK de anuncios del mismo proceso. |
+| HA5 | ✅ emulador API 36 | Al tocar "Allow", `onServiceConnected` trae Still al frente y el paso queda verificado. Falta MIUI. |
+| HA6 | ⏳ | El emulador solo tenía datos del día tras un arranque en frío; el texto usa el N real de días. Falta Xiaomi. |
+| HI1 | ⏳ dispositivo | La extensión lee la estimación del App Group; si no puede, la pantalla la muestra arriba ("creías 3 h"). |
+| HI2 | ⏳ dispositivo | El permiso llega al diálogo de Apple en el simulador; el informe con datos requiere el iPhone (no se ingresó el código del simulador). |
+| HI3 | 🟡 | El entitlement de avisos urgentes queda en el build de simulador (`.xcent`); falta que EAS lo sincronice en el App ID. Salida si falla: quitar la línea. |
+| HI4 | ⏳ dispositivo | "Probar volver" existe para apps sin scheme; que abrir con `Still - <App>` dispare la automatización solo se ve en un iPhone. |
+| HI5 | — sin objeto | La rama paralela eliminó el nivel "una automatización": el nombre llega exacto desde la AppEntity. No se implementó el alias. |
+
+### 14.3 Desvíos respecto al plan
+
+- **Orden F6 → F5.** La sesión «iOS shortcut y selección de apps» estaba rehaciendo `ios-apps`,
+  `shortcut-setup` y `StillShortcutIntent` en `feat/ios-still-action`. Se acordó mergear su rama
+  antes de F5 y embeber sus componentes (`IosAppPicker`, `ShortcutGuide`, `ShortcutConnectList`
+  con `probe`/`onProbeStart`/`returnTo` externos) en vez de reescribirlos.
+- **iOS sin nivel "una automatización".** Consecuencia de esa rama: la guía de 12I es la de "una
+  automatización por app con «Pausar <app>» ya lista"; HI5 queda sin objeto.
+- **F2 no cerraba D9.** `onboarded` al final llegó con F4 (Android) y F5 (iOS); mientras tanto el
+  paso de plataforma entraba a las pantallas viejas.
+- **"Conectada" en iOS** = la automatización disparó durante esta configuración (`firedSince`),
+  sea por la prueba con sonda o por una pausa real si la persona abrió la app antes de probar.
+- **Espera de la prueba en iOS**: 8 s (antes 6 s), 20 s en iOS < 26.
+- **Rótulos de Acceso de uso por versión de Android.** Android 15 y 16 renombraron la página
+  ("App usage data" / "Permitir el acceso a los datos de uso de la app"); la guía elige por
+  `Platform.Version` con las tablas de AOSP android14/15/16-release (`usageAccessKeys`).
+- **Ajustes fuera del cálculo de uso** (es adonde el propio onboarding manda) y del selector.
+- **UsageSessions** también devuelve encendidos de pantalla: sin pantalla de bloqueo, los
+  "desbloqueos" son encendidos (TS decide).
+- **Sin migración de Supabase para el flag nuevo**: la función de publicar no rechaza claves nuevas
+  y el esquema lee la ausente como `false`.
+
+### 14.4 Bugs encontrados en QA (todos corregidos)
+
+1. Réplica de la pausa: sus botones quedaban bajo el fundido del teléfono → `PhoneFrame fit`.
+2. Si el sistema mataba Still en Ajustes (o volvía por Fast Refresh), el paso de Acceso de uso no
+   re-verificaba → `usageRequestedAt` en el progreso.
+3. Íconos de apps que nunca llegaban: el efecto que guardaba el resumen se cancelaba solo.
+4. "Más de la mitad es de 3 apps" con 2 apps → la cuenta real.
+5. El resumen final podía mostrar un dato de salud viejo → cada paso de configuración vuelve a
+   leer el teléfono al mostrarse.
+6. Una pausa real durante el onboarding de iOS terminaba en Hoy sin haber terminado → las cinco
+   salidas de la pausa van a "/", que decide Hoy u onboarding.
+7. Build F7: ciclo al embeber la extensión después del script de AdMob; `Label(token)` sin
+   `import FamilyControls`.
+
+### 14.5 Verificación
+
+- `pnpm check` en cada fase (final: mobile 262, contracts 30 (31 en F7), web 68).
+- `./gradlew :app:testDebugUnitTest`: 8 tests de `UsageSessions`.
+- `acceptance:shield` verde en F3 y F4 con `com.google.android.deskclock=Clock
+  com.google.android.contacts=Contacts`. Con Gmail/YouTube/Calendar el gate no es fiable en este
+  AVD (tour de Gmail, actualización forzada de YouTube, alta de cuenta de Calendar sobre el
+  escudo) y falla igual con el nativo de `main`: no es regresión.
+- Build de simulador firmado (sin tocar `project.pbxproj`; `DEVELOPMENT_TEAM` por línea de
+  comandos) y `acceptance:ios-shortcuts` PASS (`PauseAppIntent`) en F5; build con la extensión en F7.
+- Recorridos con Maestro en el AVD `Still_QA_API_36` (es-419 y en-US) y en el simulador
+  "Still QA" (es-419): historia, permiso de uso (rechazo y reintento), revelación con datos que
+  coinciden con `dumpsys usagestats`, Accesibilidad con vuelta automática, selector con
+  sugerencias, prueba real, señal perdida, "Terminar después" → tarjeta de Hoy → `/setup`, UMP,
+  y en iOS apps → guía → prueba por app (pausa real y sonda) → avisos → resumen → Hoy.
+
+**Receta de QA** (para repetirla): en Android, resetear solo los datos de Still (kv store +
+`still_restrictions.xml`) en vez de `pm clear`, que reactiva el menú del dev client, y mover su botón
+flotante (tapa "Saltar"); apagar Accesibilidad antes de sembrar preferencias para `acceptance:shield`
+y quitar el idioma por app (busca rótulos en inglés). En iOS, las automatizaciones no disparan en el
+simulador: crear en Atajos un atajo con «Pausar app» → la app y ejecutarlo con
+`shortcuts://run-shortcut?name=…`. Maestro no refresca la jerarquía tras volver de otra actividad:
+partir los recorridos.
+
+### 14.6 Capturas (`docs/onboarding-v2/`)
+
+| Paso | iOS | Android |
+|---|---|---|
+| 1 Estimación | `f2-ios-01b-guess-moved` | — (igual) |
+| 2 Permiso de uso | F7 (rama apilada) | `f3-and-02-usage-permission`, `f3-and-02b-settings-opened`, `f3-and-02d-denied` |
+| 3 Tu tiempo real | F7 | `f3-and-03-reveal` |
+| 4 Lo que suma | `f2-ios-04-life`, `f2-ios-reduce-motion-life` | `f3-and-04-life-real` |
+| 5 Dónde se va + estudio | `f2-ios-05-where` | `f3-and-05-where-real` |
+| 6 El gesto | `f2-ios-06-habit` | `f2-and-06-habit`, `f3-and-06-habit-real` |
+| 7 La pausa | `f2-ios-07-pause-demo`, `f2-ios-07b-went-back`, `f2-ios-07c-ad` | `f2-and-07-pause-demo` |
+| 8 Cómo funciona | `f2-ios-08-how` | — (igual) |
+| 9 18+ | `f8-ios-09-adult` | — (igual) |
+| 10 Anuncios (EEE) | — | `f6-and-10-ads-consent`, `f6-and-10b-ump-form`, `f6-and-10c-consent-answered` |
+| 11 Accesibilidad / Apps | `f5-ios-11-apps`, `f5-ios-11d-news-chosen` | `f4-and-11-accessibility`, `f4-and-11d-still-page`, `f4-and-11e-allow` |
+| 12 Apps / Atajos | `f5-ios-12-shortcuts`, `f5-ios-12b-shortcuts-maps` | `f4-and-12-apps`, `f4-and-12b-picker`, `f4-and-12c-apps-chosen`, `f4-and-12d-picker-suggested` |
+| 13/14 Pruebas | `f5-ios-13-tests`, `f5-ios-13c-two-apps`, `f5-ios-13d-back-in-onboarding` | `f4-and-14-live-test`, `f4-and-14b-probe-shield`, `f4-and-14c-verified` |
+| 14I Avisos | `f5-ios-14-notices`, `f5-ios-14b-system-prompt`, `f5-ios-14c-notices-on` | — |
+| 15 Listo / Hoy | `f5-ios-15-done`, `f5-ios-16-today` | `f4-and-15-done`, `f4-and-16-today` |
+| Señal perdida · Hoy · /setup | — | `f4-and-lost-signal-back`, `f6-and-18-today-card`, `f6-and-19-setup-route` |
 
 ---
 
 ## 15. Lo que solo puede hacer el usuario
 
-1. **Apple (para D1):** pedir Family Controls (Distribution) para `app.still.ios` y
-   `app.still.ios.ScreenTimeReport`; cuando aprueben, `eas credentials` del target nuevo,
-   mergear `feat/onboarding-ios-screen-time`, encender `iosScreenTimeInsightsEnabled` en `/admin`.
-2. **iPhone (iOS 27):** checklist de §14 — prueba por app, alias en "una automatización",
-   retorno por atajo (HI4), avisos urgentes (HI3) y, con la rama de F7, HI1/HI2.
-3. **Xiaomi (Android 16/MIUI):** HA1, HA3, HA5, HA6 y la prueba real con MIUI (ventanas
-   emergentes, autoarranque).
-4. **Play Console:** revisar Data safety (uso procesado solo en el dispositivo) cuando salga
-   el build con `PACKAGE_USAGE_STATS`.
+**Integración**
+1. Revisar y decidir el merge de `feat/onboarding-story` (incluye `feat/ios-still-action`). La
+   sesión «iOS shortcut y selección de apps» espera este aviso para verificar, unir y publicar;
+   publicar es decisión del usuario.
+2. **No mergear `feat/onboarding-ios-screen-time`** hasta que Apple apruebe Family Controls
+   (punto 5).
+
+**iPhone (iOS 27)**
+3. Build de desarrollo de `feat/onboarding-story`: recorrer el onboarding completo con
+   automatizaciones reales — prueba por app (la automatización real, no un atajo de biblioteca),
+   aviso «¿Continuar en Still?» si se prueba en un iPhone con iOS < 26, "Probar volver" con
+   `Still - <App>` para una app sin scheme (HI4), avisos urgentes con Concentración (HI3).
+4. Build de desarrollo de `feat/onboarding-ios-screen-time` con `EXPO_PUBLIC_DEV_IOS_SCREEN_TIME=1`:
+   permiso de Tiempo en pantalla (código del iPhone), que el informe muestre datos (HI2) y compare
+   con la estimación (HI1), apps más usadas con sus íconos.
+
+**Apple**
+5. Registrar el App ID `app.still.ios.ScreenTimeReport` (App Group + Family Controls) y pedir
+   **Family Controls (Distribution)** para `app.still.ios` y `app.still.ios.ScreenTimeReport`
+   (developer.apple.com/contact/request/family-controls-distribution). Cuando aprueben:
+   `eas credentials` del target nuevo, mergear la rama apilada, publicar con
+   `iosScreenTimeInsightsEnabled` encendido en `/admin` y la ficha/notas ya actualizadas en esa rama.
+6. Confirmar que el primer build de EAS sincroniza el entitlement de avisos urgentes (HI3); si falla,
+   quitar `com.apple.developer.usernotifications.time-sensitive` de `Still.entitlements` y
+   `app.config.ts`.
+
+**Xiaomi (Android 16/MIUI)**
+7. Build nuevo (cambió Kotlin): HA1 (página de Acceso de uso de Still), HA5 (Still vuelve solo al
+   activar Accesibilidad), HA6 (7 días de datos), el paso "Que Still siga activo" (batería leída;
+   autoarranque y ventanas emergentes) y la prueba real con MIUI.
+
+**Google Play**
+8. Revisar Data safety cuando salga el build con `PACKAGE_USAGE_STATS`: el uso se procesa solo en el
+   teléfono (no se declara como recopilado). La divulgación destacada es la pantalla del paso 2.
