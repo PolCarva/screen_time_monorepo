@@ -32,11 +32,21 @@ const GENERIC_TIP: LocalizedTip = {
 const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: LocalizedTip[] }> = {
   xiaomi: {
     name: "Xiaomi",
+    // Both switches are in Still's app info. Without Autostart, closing Still
+    // from Recents leaves the pause off until its switch goes off and on
+    // (docs/android-parity-plan.md §13); a locked card is never closed.
     tips: [
-      { en: "Turn on Autostart for Still.", es: "Activa el inicio automático de Still." },
+      {
+        en: "In Still's app info, turn on Autostart.",
+        es: "En la información de Still, activa «Inicio automático».",
+      },
       {
         en: "Set its battery saver to No restrictions.",
-        es: "Pon su ahorro de batería en Sin restricciones.",
+        es: "Pon su ahorro de batería en «Sin restricciones».",
+      },
+      {
+        en: "Lock Still in Recents: press and hold its card and tap the lock.",
+        es: "Fija Still en Recientes: mantén pulsada su tarjeta y toca el candado.",
       },
       {
         en: "Allow it to show pop-up windows while running in the background.",

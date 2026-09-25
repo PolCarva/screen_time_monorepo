@@ -25,13 +25,16 @@ const finishLater = (onPress: () => void) => ({
 /**
  * §4.3 11A — Still's Accessibility switch. Moves on only when the switch is on
  * and the service is really running; the drawn screens and the maker's usual
- * path only point the way.
+ * path only point the way. On but not running is its own case: the phone
+ * closed Still (Xiaomi does when it is swiped off Recents) and Android keeps
+ * it off until the switch goes off and on (docs/android-parity-plan.md §13).
  */
 export function AccessibilityStep({
   enabled,
   running,
   restricted,
   pathTip,
+  makerName,
   onOpen,
   onOpenAppInfo,
   onNext,
@@ -42,12 +45,15 @@ export function AccessibilityStep({
   /** A downloaded build on Android 13+: the switch may be greyed out. */
   restricted: boolean;
   pathTip: LocalizedTip | null;
+  /** A maker that closes apps in the background, or empty. */
+  makerName: string;
   onOpen: () => void;
   onOpenAppInfo: () => void;
   onNext: () => void;
   onFinishLater: () => void;
 }) {
   const verified = enabled && running;
+  const stopped = enabled && !running;
   return (
     <StoryLayout
       body={
@@ -56,10 +62,15 @@ export function AccessibilityStep({
               "Still now knows when you open one of your apps.",
               "Still ya sabe cuándo abres una de tus apps.",
             )
-          : localize(
-              "That's how Still knows when you open one of your apps. Tap the button: Still comes back by itself once it's on.",
-              "Así Still sabe cuándo abres una de tus apps. Toca el botón: Still vuelve solo cuando lo actives.",
-            )
+          : stopped
+            ? localize(
+                "It usually happens when the phone closes Still, for example when you swipe it off Recents. In Accessibility, turn Still off and on again: Still comes back by itself.",
+                "Suele pasar cuando el teléfono cierra Still, por ejemplo al quitarlo de Recientes. En Accesibilidad, apaga Still y vuelve a encenderlo: Still vuelve solo.",
+              )
+            : localize(
+                "That's how Still knows when you open one of your apps. Tap the button: Still comes back by itself once it's on.",
+                "Así Still sabe cuándo abres una de tus apps. Toca el botón: Still vuelve solo cuando lo actives.",
+              )
       }
       centerVisual={false}
       footer={
@@ -75,22 +86,32 @@ export function AccessibilityStep({
       title={
         verified
           ? localize("Still is on.", "Still está activado.")
-          : localize("Turn on Still.", "Activa Still.")
+          : stopped
+            ? localize("Turn Still back on.", "Vuelve a encender Still.")
+            : localize("Turn on Still.", "Activa Still.")
       }
     >
       <CheckRow
         label={
           verified
             ? localize("On and running", "Activado y funcionando")
-            : enabled
+            : stopped
               ? localize(
-                  "On, but it didn't start. Turn it off and on again.",
-                  "Activado, pero no arrancó. Apágalo y vuelve a encenderlo.",
+                  "On, but Still isn't running",
+                  "Activado, pero Still no está funcionando",
                 )
               : localize("Not on yet", "Todavía no está activado")
         }
-        state={verified ? "verified" : enabled ? "warning" : "pending"}
+        state={verified ? "verified" : stopped ? "warning" : "pending"}
       />
+      {stopped && makerName ? (
+        <Body style={styles.noteText}>
+          {localize(
+            `${makerName} phones do it when Still is closed from Recents. Next, “Keep Still running” shows how to avoid it.`,
+            `Los ${makerName} lo hacen al cerrar Still desde Recientes. Después, «Que Still siga activo» te muestra cómo evitarlo.`,
+          )}
+        </Body>
+      ) : null}
       {verified ? null : (
         <>
           {permissionGuide.map((frame) => {
@@ -231,8 +252,8 @@ export function KeepAliveStep({
   return (
     <StoryLayout
       body={localize(
-        `${makerName} phones close apps in the background. These settings keep Still ready for the pause.`,
-        `Los teléfonos ${makerName} cierran apps en segundo plano. Estos ajustes dejan a Still listo para la pausa.`,
+        `${makerName} phones close apps in the background. If yours closes Still, the pause stops showing until you turn Still back on. These settings keep it running.`,
+        `Los teléfonos ${makerName} cierran apps en segundo plano. Si el tuyo cierra Still, la pausa deja de aparecer hasta que lo vuelvas a encender. Estos ajustes lo mantienen activo.`,
       )}
       centerVisual={false}
       footer={
@@ -263,7 +284,7 @@ export function KeepAliveStep({
           </NumberedLine>
         ))}
       </View>
-      <PrimaryButton onPress={onOpenAppInfo} variant="quiet">
+      <PrimaryButton onPress={onOpenAppInfo} variant="secondary">
         {localize("Open Still's app info", "Abrir información de Still")}
       </PrimaryButton>
       <PrimaryButton onPress={onToggleConfirmed} variant={confirmed ? "signal" : "secondary"}>
