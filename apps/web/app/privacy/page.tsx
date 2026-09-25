@@ -30,8 +30,8 @@ const sections = [
     body: "Still puede procesar un identificador anónimo, los datos de una cuenta de Apple o Google si decides vincularla (el identificador de la cuenta y el correo que el proveedor comparta, que en Apple puede ser una dirección privada de reenvío), dispositivos y push tokens registrados, plataforma y país, confirmación de mayoría de edad, eventos del registro de anuncios vistos y entradas, sesiones, votos y conteos diarios agregados. Para proteger los formularios contra abuso, la dirección de red se transforma inmediatamente en una clave HMAC de corta duración; no se guarda la IP en claro. No solicitamos tu fecha de nacimiento.",
   },
   {
-    title: "5. Publicidad opcional",
-    body: "Los anuncios recompensados son opcionales. Still usa Google AdMob y Google User Messaging Platform para solicitar consentimiento cuando corresponde. El MVP pide anuncios no personalizados o limitados. Completar un anuncio elegible te deja entrar a la app pausada; no se guarda nada para después. Still guarda cuándo AdMob confirmó cada anuncio y cuánto se estima que generó, para mostrar el fondo semanal en vivo. Still asigna un porcentaje de su ingreso publicitario al fondo; un anuncio individual no dona dinero por sí mismo.",
+    title: "5. Publicidad",
+    body: "Para entrar a una app pausada ves un anuncio recompensado; si no hay uno disponible, una pausa de 15 segundos te deja entrar igual. Still usa Google AdMob y Google User Messaging Platform para solicitar consentimiento cuando corresponde. El MVP pide anuncios no personalizados o limitados. Completar un anuncio elegible te deja entrar a la app pausada; no se guarda nada para después. Still guarda cuándo AdMob confirmó cada anuncio y cuánto se estima que generó, para mostrar el fondo semanal en vivo. Still asigna un porcentaje de su ingreso publicitario al fondo; un anuncio individual no dona dinero por sí mismo.",
   },
   {
     title: "6. Analytics y diagnóstico",
@@ -43,7 +43,7 @@ const sections = [
   },
   {
     title: "8. Tus opciones y derechos",
-    body: "Puedes rechazar el consentimiento publicitario, entrar después de una pausa breve cuando no haya anuncio disponible, revocar permisos de plataforma, exportar los datos de la cuenta o eliminar la cuenta desde Ajustes → Privacidad en la app. También puedes pedirla sin la app desde la página «Eliminar cuenta» de este sitio. La eliminación borra perfil, dispositivos, agregados, identidades vinculadas y push tokens. Los asientos financieros y el registro de anuncios confirmados pueden conservarse seudonimizados, sin tu identidad, cuando sea legalmente necesario o para que los totales del fondo sigan siendo exactos.",
+    body: "Puedes rechazar el consentimiento publicitario, entrar después de una pausa breve cuando no haya anuncio disponible, revocar permisos de plataforma, exportar los datos de la cuenta o eliminar la cuenta desde Ajustes → Tus datos en la app. También puedes pedirla sin la app desde la página «Eliminar cuenta» de este sitio. La eliminación borra perfil, dispositivos, agregados, identidades vinculadas y push tokens. Los asientos financieros y el registro de anuncios confirmados pueden conservarse seudonimizados, sin tu identidad, cuando sea legalmente necesario o para que los totales del fondo sigan siendo exactos.",
   },
   {
     title: "9. Procesamiento internacional y seguridad",
@@ -70,7 +70,7 @@ export default function PrivacyPage() {
                 el fondo público y los servicios administrativos.
               </p>
               <p className="legal-date">
-                Vigente desde el 24 de septiembre de 2026
+                Actualizada el 25 de septiembre de 2026
               </p>
             </div>
           </header>
@@ -98,7 +98,7 @@ export default function PrivacyPage() {
             <h2>Preguntas o solicitudes</h2>
             <div>
               <p>
-                Usa <strong>Ajustes → Privacidad</strong> en la app para
+                Usa <strong>Ajustes → Tus datos</strong> en la app para
                 exportar o eliminar datos, o sigue los pasos de{" "}
                 <Link className="text-link" href="/eliminar-cuenta">
                   eliminar tu cuenta
