@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
+import { BeforeNowCard } from "@/components/before-now-card";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import {
   AnimatedNumber,
@@ -24,6 +25,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import {
   dayOutcome,
+  localDateString,
   pauseStatus,
   summarizeWeek,
   weekdayLabel,
@@ -32,6 +34,7 @@ import {
 import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
 import { useStillSheet } from "@/components/still-sheet";
 import {
+  compareBeforeNow,
   returnedToday,
   typicalMinutes,
   type ReturnedApp,
@@ -246,6 +249,18 @@ export default function TodayScreen() {
     .filter(Boolean)
     .join(" ");
   const offerUsage = readsUsage && !savedTime.usageAccess;
+  // "Before and now" (D3, D10): only with the week before Still and access now.
+  const beforeNow = savedTime.onboardedAt && savedTime.usageAccess
+    ? compareBeforeNow({
+        baseline: savedTime.baseline,
+        recent: savedTime.recent,
+        chosen: savedTime.apps.map((app) => app.packageName),
+        onboardedDay: localDateString(new Date(savedTime.onboardedAt)),
+      })
+    : null;
+  const appLabels = Object.fromEntries(
+    savedTime.apps.map((app) => [app.packageName, app.label]),
+  );
   const openUsageAccess = () => router.push("/usage-access");
   const showHowWeCount = () => {
     void sheet.show({
@@ -533,6 +548,8 @@ export default function TodayScreen() {
           </>
         )}
       </View>
+
+      {beforeNow ? <BeforeNowCard comparison={beforeNow} labels={appLabels} /> : null}
 
       {appsRow && !setupPending ? (
         <PressableScale
