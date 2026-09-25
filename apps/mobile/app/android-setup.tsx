@@ -381,16 +381,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.chalkRaised,
   },
-  appStateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
+  // Name above its detail, so a long name or "hace 45 min" wraps inside the
+  // card instead of pushing the line past its edge.
+  appStateRow: { gap: 2 },
   restricted: { gap: spacing.sm },
   restrictedNote: { color: colors.graphiteSoft, fontSize: 13, lineHeight: 19 },
-  appStateName: { fontSize: 15 },
-  appStateDetail: { color: colors.graphiteSoft, fontSize: 13 },
+  appStateName: { fontSize: 15, flexShrink: 1 },
+  appStateDetail: { color: colors.graphiteSoft, fontSize: 13, flexShrink: 1 },
   step: {
     paddingVertical: spacing.lg,
     flexDirection: "row",
