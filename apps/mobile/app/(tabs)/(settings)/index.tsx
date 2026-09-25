@@ -25,6 +25,7 @@ import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { formatDayAndTime, localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
+import { openExternalBrowser } from "@/lib/external-browser";
 import {
   getLinkedIdentityProviders,
   identityProviderName,
@@ -37,6 +38,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import { getJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
+import { PRIVACY_POLICY_PATH, webPageUrl } from "@/lib/web-pages";
 import { type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
@@ -183,6 +185,21 @@ export default function SettingsScreen() {
         ),
         message: localize("Check your connection.", "Revisa tu conexión."),
         actions: [retryAction(() => exportData()), closeAction()],
+      });
+    }
+  }
+
+  async function openPrivacyPolicy() {
+    try {
+      await openExternalBrowser(webPageUrl(PRIVACY_POLICY_PATH));
+    } catch {
+      void sheet.show({
+        title: localize("The link didn't open", "No se abrió el enlace"),
+        message: localize(
+          "Try again in a moment.",
+          "Vuelve a intentarlo en un momento.",
+        ),
+        actions: [retryAction(() => openPrivacyPolicy()), closeAction()],
       });
     }
   }
@@ -516,10 +533,21 @@ export default function SettingsScreen() {
         </Heading>
         <Body style={styles.privacyBody}>
           {localize(
-            "Download a copy or delete your account.",
-            "Descarga una copia o elimina tu cuenta.",
+            "Read how we use it, download a copy or delete your account.",
+            "Lee cómo la usamos, descarga una copia o elimina tu cuenta.",
           )}
         </Body>
+        <PressableScale
+          accessibilityRole="link"
+          dimTo={0.6}
+          scaleTo={1}
+          style={styles.textAction}
+          onPress={() => void openPrivacyPolicy()}
+        >
+          <Text style={styles.actionLabel}>
+            {localize("Privacy policy", "Política de privacidad")}
+          </Text>
+        </PressableScale>
         <PressableScale
           accessibilityRole="button"
           dimTo={0.6}
