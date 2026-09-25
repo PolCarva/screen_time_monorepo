@@ -199,19 +199,58 @@ async function googlePlay(android) {
         `Google Play ${method} ${path}`,
       ),
     uploadBundle: (editId, bundle) =>
-      request(
-        `https://androidpublisher.googleapis.com/upload/${app}/edits/${editId}/bundles?uploadType=media`,
-        {
-          method: "POST",
-          headers: {
-            ...authorization,
-            "Content-Type": "application/octet-stream",
-          },
-          body: bundle,
-        },
-        "Google Play bundle upload",
+      uploadResumable(
+        `https://androidpublisher.googleapis.com/upload/${app}/edits/${editId}/bundles?uploadType=resumable`,
+        authorization,
+        bundle,
       ),
   };
+}
+
+// A multiple of 256 KiB, as resumable uploads require for every chunk but the
+// last.
+const UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Google's resumable upload, in chunks: one request carrying the whole AAB
+ * (80+ MB) timed out mid-upload.
+ */
+async function uploadResumable(url, authorization, bytes) {
+  const start = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...authorization,
+      "X-Upload-Content-Type": "application/octet-stream",
+      "X-Upload-Content-Length": String(bytes.length),
+      "Content-Length": "0",
+    },
+  });
+  if (!start.ok)
+    throw new Error(
+      `Google Play upload start failed (${start.status}): ${(await start.text()).slice(0, 300)}`,
+    );
+  const session = start.headers.get("location");
+
+  for (let offset = 0; offset < bytes.length; offset += UPLOAD_CHUNK_BYTES) {
+    const end = Math.min(offset + UPLOAD_CHUNK_BYTES, bytes.length);
+    const response = await fetch(session, {
+      method: "PUT",
+      // Google answers 308 until the last chunk; it is not a redirect.
+      redirect: "manual",
+      headers: {
+        "Content-Range": `bytes ${offset}-${end - 1}/${bytes.length}`,
+      },
+      body: bytes.subarray(offset, end),
+    });
+    if (response.status === 308) continue;
+    const text = await response.text();
+    if (!response.ok)
+      throw new Error(
+        `Google Play upload failed at byte ${offset} (${response.status}): ${text.slice(0, 300)}`,
+      );
+    return JSON.parse(text);
+  }
+  throw new Error("Google Play upload ended without a final response.");
 }
 
 /** Opens and discards an edit: proves the account may release this app. */
