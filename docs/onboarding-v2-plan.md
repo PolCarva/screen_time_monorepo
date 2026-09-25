@@ -640,7 +640,7 @@ ni mergear sin pedido explícito.
 | HA6 | ⏳ | El emulador solo tenía datos del día tras un arranque en frío; el texto usa el N real de días. Falta Xiaomi. |
 | HI1 | ⏳ dispositivo | La extensión lee la estimación del App Group; si no puede, la pantalla la muestra arriba ("creías 3 h"). |
 | HI2 | ⏳ dispositivo | El permiso llega al diálogo de Apple en el simulador; el informe con datos requiere el iPhone (no se ingresó el código del simulador). |
-| HI3 | ❌ EAS (2026-09-25) | El primer build de producción falló: el perfil de App Store de EAS no incluye la capacidad «Time Sensitive Notifications». Salida aplicada: se quitó el entitlement (`Still.entitlements` y `app.config.ts`) y la frase "incluso con Concentración" del paso de avisos; el aviso sigue saliendo con nivel activo. Para volver a tenerlo: activar la capacidad en el App ID `app.still.ios`, regenerar el perfil (`eas credentials`) y reponer las dos líneas. |
+| HI3 | ✅ tras un trámite (2026-09-25) | EAS no lo sincroniza solo: en modo no interactivo no se autentica ante Apple y usa el perfil guardado, y con la clave de App Store Connect «sincroniza» la capacidad sin que Apple la guarde. Hubo que marcar «Time Sensitive Notifications» a mano en el App ID `app.still.ios` (developer.apple.com) y regenerar el perfil con `eas env:exec production "eas credentials -p ios" --non-interactive` (borrar el perfil del proyecto y "All: Set up…"). Perfil F5RWG7MZD4; iOS 0.3.0 (12) con el entitlement en TestFlight. Entre medio salió 0.3.0 (10) sin él. |
 | HI4 | ⏳ dispositivo | "Probar volver" existe para apps sin scheme; que abrir con `Still - <App>` dispare la automatización solo se ve en un iPhone. |
 | HI5 | — sin objeto | La rama paralela eliminó el nivel "una automatización": el nombre llega exacto desde la AppEntity. No se implementó el alias. |
 
@@ -751,11 +751,9 @@ partir los recorridos.
    (developer.apple.com/contact/request/family-controls-distribution). Cuando aprueben:
    `eas credentials` del target nuevo, mergear la rama apilada, publicar con
    `iosScreenTimeInsightsEnabled` encendido en `/admin` y la ficha/notas ya actualizadas en esa rama.
-6. Avisos urgentes (HI3): el primer build de EAS falló porque el perfil no trae la capacidad, así
-   que se publicó sin el entitlement. Si se quiere que el aviso atraviese Concentración: en
-   developer.apple.com activar «Time Sensitive Notifications» en el App ID `app.still.ios`,
-   regenerar el perfil con `eas credentials` y volver a añadir
-   `com.apple.developer.usernotifications.time-sensitive` en `Still.entitlements` y `app.config.ts`.
+6. Avisos urgentes (HI3): resuelto el 2026-09-25 (capacidad activada a mano en el App ID y perfil
+   regenerado; 0.3.0 (12)). Para cualquier capacidad nueva en el futuro: activarla primero en
+   developer.apple.com y regenerar el perfil con `eas credentials` antes de `pnpm deploy:apps`.
 
 **Xiaomi (Android 16/MIUI)**
 7. Build nuevo (cambió Kotlin): HA1 (página de Acceso de uso de Still), HA5 (Still vuelve solo al
