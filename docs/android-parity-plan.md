@@ -685,3 +685,67 @@ El arranque de actividad desde el servicio ya estaba validado en Xiaomi
 (§10–11); la ruta nueva es la misma llamada desde un temporizador, con el
 fallback `GLOBAL_ACTION_HOME` detrás. Conviene repetir el paso "esperar sin
 tocar nada" en el Xiaomi antes de publicar.
+
+---
+
+## 13. Cerrar Still desde Recientes apaga la pausa (Xiaomi, 2026-09-25)
+
+Reporte en el Xiaomi (Android 16 / MIUI): cada vez que Still se cierra por
+completo (su tarjeta deslizada fuera de Recientes) la pausa deja de aparecer;
+en segundo plano funciona. Still decía «Activado, pero no arrancó» y los
+ajustes del teléfono, «No se otorgó ningún permiso».
+
+### 13.1 Causa
+
+- MIUI mata el proceso de Still y no deja que Android lo vuelva a levantar
+  (lo decide su «Inicio automático»). El servicio cae con sus conexiones: los
+  `ConnectionRecord` del sistema quedan `DEAD`.
+- `AccessibilityManagerService` (rama `android16-release`) pasa el servicio a
+  `mCrashedServices` en `binderDied()`, y `updateServicesLocked()` salta los
+  servicios caídos. Solo salen de ahí si el servicio se vuelve a conectar, si
+  el usuario apaga y enciende el interruptor
+  (`removeDisabledServicesFromTemporaryStatesLocked`), si la app se actualiza o
+  con un force-stop, que además lo apaga. El interruptor sigue en
+  `enabled_accessibility_services`: de ahí «Activado» sin servicio.
+- Es distinto del force-stop de §11, que borra el interruptor.
+- Ninguna app puede sacar su servicio de ese estado: abrir Still no lo revive,
+  y enlazarlo desde la propia app no llega al sistema porque su conexión está
+  muerta.
+
+**Reproducción sin Xiaomi:** en el emulador API 36, `adb shell am stop-app
+com.still.screentime` deja exactamente ese estado (`Crashed
+services:{…StillAccessibilityService}` con el interruptor activado). Abrir
+Still no lo cambia; apagar y encender el interruptor sí.
+
+### 13.2 Arreglo
+
+Solo JS; lo nativo no cambia.
+
+- `pauseStatus` distingue `stopped` (activado pero sin servicio) de `activate`.
+  Hoy muestra «Still se detuvo» con «Volver a encender Still»; Ajustes, «Still
+  se detuvo» / «Tu teléfono lo cerró. Apágalo y vuelve a encenderlo en
+  Accesibilidad.».
+- Paso de Accesibilidad: «Vuelve a encender Still.» con qué hacer (apagar y
+  encender; Still vuelve solo) y, en fabricantes que cierran apps, que pasa al
+  cerrar Still desde Recientes y que el paso siguiente lo evita.
+- «Que Still siga activo»: dice qué pasa si el teléfono cierra Still. En Xiaomi
+  pide «Inicio automático» y la batería «Sin restricciones» (los dos en la
+  información de Still, cuyo botón pasa a secundario) y **fijar Still en
+  Recientes** con el candado, que MIUI nunca cierra.
+- «¿No aparece la pausa?»: la primera causa pasa a ser «Apaga y vuelve a
+  encender Still» cuando está activado sin servicio.
+
+**Verificado en el emulador API 36:** `stop-app` → Hoy, Ajustes y el paso de
+Accesibilidad muestran el estado detenido (en inglés y español, con el texto
+de Xiaomi forzado a mano para la captura) → «Abrir Accesibilidad» → apagar y
+encender → Still vuelve solo y el paso queda en «Still está activado». También
+«¿No aparece la pausa?» con la causa nueva primero. Typecheck y 290 tests en
+verde.
+
+### 13.3 Pendiente en el Xiaomi
+
+Confirmar que con «Inicio automático» activado, y con Still fijado en
+Recientes, cerrarlo ya no deja la pausa apagada. Si con el inicio automático
+sigue pasando, el siguiente experimento es el servicio en un proceso propio
+(`android:process`). Eso obliga a compartir las preferencias entre procesos y
+a separar el directorio de WebView de los anuncios.

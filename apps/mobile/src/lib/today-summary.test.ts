@@ -166,12 +166,22 @@ describe("pause status", () => {
 });
 
 describe("pause status when Accessibility is on but not running", () => {
-  it("asks to turn Still on again", () => {
+  it("says Still stopped, apart from never turned on", () => {
     expect(
       pauseStatus({
         platform: "android",
         pausesEnabled: true,
         authorized: true,
+        running: false,
+        selected: 2,
+      }),
+    ).toEqual({ kind: "stopped" });
+    // Off in Settings is still "turn it on", whatever the service says.
+    expect(
+      pauseStatus({
+        platform: "android",
+        pausesEnabled: true,
+        authorized: false,
         running: false,
         selected: 2,
       }),

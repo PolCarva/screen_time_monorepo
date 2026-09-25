@@ -140,6 +140,8 @@ export type PauseStatus =
   | { kind: "paused" }
   | { kind: "choose" }
   | { kind: "activate" }
+  /** Android: the switch is on but the phone closed Still (Xiaomi, from Recents). */
+  | { kind: "stopped" }
   | { kind: "connect"; connected: number; chosen: number }
   | { kind: "active"; apps: number };
 
@@ -167,7 +169,10 @@ export function pauseStatus(
       return { kind: "connect", connected: input.connected, chosen: input.chosen };
     return { kind: "active", apps: input.chosen };
   }
-  if (!input.authorized || input.running === false) return { kind: "activate" };
+  if (!input.authorized) return { kind: "activate" };
+  // On in Settings, yet not running: the phone closed Still and Android won't
+  // start it again until the switch goes off and on (android-parity-plan §13).
+  if (input.running === false) return { kind: "stopped" };
   if (input.selected === 0) return { kind: "choose" };
   return { kind: "active", apps: input.selected };
 }

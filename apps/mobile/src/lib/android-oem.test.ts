@@ -11,6 +11,13 @@ describe("oemGuidance", () => {
     }
   });
 
+  it("asks Xiaomi users for Autostart and to lock Still in Recents", () => {
+    // Without them, closing Still from Recents leaves the pause off.
+    const tips = oemGuidance("Xiaomi").tips.map((tip) => tip.es);
+    expect(tips[0]).toContain("Inicio automático");
+    expect(tips.some((tip) => tip.includes("Recientes"))).toBe(true);
+  });
+
   it("groups OnePlus and Realme with Oppo, and iQOO with vivo", () => {
     expect(oemGuidance("OnePlus").key).toBe("oppo");
     expect(oemGuidance("realme").key).toBe("oppo");

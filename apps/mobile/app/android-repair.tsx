@@ -28,12 +28,17 @@ const DEFAULT_ENV: InstallEnvironment = {
  */
 export default function AndroidRepairScreen() {
   const [authorized, setAuthorized] = useState(true);
+  const [stopped, setStopped] = useState(false);
   const [env, setEnv] = useState<InstallEnvironment>(DEFAULT_ENV);
 
   const load = useCallback(async () => {
     if (Platform.OS !== "android") return;
     const health = await restrictionEngine.getHealth().catch(() => null);
-    if (health) setAuthorized(health.authorization === "authorized");
+    if (health) {
+      setAuthorized(health.authorization === "authorized");
+      // On in Settings but not running: the phone closed Still (§13).
+      setStopped(health.authorization === "authorized" && health.serviceRunning === false);
+    }
     const environment = await restrictionEngine.getInstallEnvironment?.().catch(
       () => DEFAULT_ENV,
     );
@@ -66,6 +71,25 @@ export default function AndroidRepairScreen() {
           )}
         </Body>
       </View>
+
+      {stopped ? (
+        <Cause
+          title={localize("Turn Still off and on again", "Apaga y vuelve a encender Still")}
+          body={
+            oem.name
+              ? localize(
+                  `Its switch is on, but your phone closed Still. ${oem.name} phones do it when Still is closed from Recents. Turn it off and on again in Accessibility, then follow the step below so it doesn't happen again.`,
+                  `Su interruptor está activado, pero tu teléfono cerró Still. Los ${oem.name} lo hacen al cerrar Still desde Recientes. Apágalo y vuelve a encenderlo en Accesibilidad, y sigue el paso de abajo para que no vuelva a pasar.`,
+                )
+              : localize(
+                  "Its switch is on, but your phone closed Still. Turn it off and on again in Accessibility.",
+                  "Su interruptor está activado, pero tu teléfono cerró Still. Apágalo y vuelve a encenderlo en Accesibilidad.",
+                )
+          }
+          action={localize("Open Accessibility", "Abrir Accesibilidad")}
+          onPress={() => void restrictionEngine.openAccessibilitySettings?.()}
+        />
+      ) : null}
 
       {!authorized ? (
         <Cause

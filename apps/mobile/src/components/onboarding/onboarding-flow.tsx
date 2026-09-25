@@ -613,6 +613,7 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
         return (
           <AccessibilityStep
             enabled={signals.accessibilityEnabled}
+            makerName={android.oem.name}
             onFinishLater={finishLater}
             onNext={goNextVerified}
             onOpen={() => void android.openAccessibility()}

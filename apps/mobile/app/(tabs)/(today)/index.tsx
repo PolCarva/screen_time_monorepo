@@ -318,24 +318,32 @@ export default function TodayScreen() {
   // Anything required still missing: one card that resumes the verified setup
   // at its first missing step (docs/onboarding-v2-plan.md, D8, §4.6).
   const setupPending =
-    status.kind === "activate" || status.kind === "choose" || status.kind === "connect";
+    status.kind === "activate" ||
+    status.kind === "stopped" ||
+    status.kind === "choose" ||
+    status.kind === "connect";
   const setupPendingDetail =
     status.kind === "activate"
       ? localize(
           "Still isn't on, so the pause can't show up yet.",
           "Still no está activado, así que la pausa todavía no puede aparecer.",
         )
-      : status.kind === "choose"
+      : status.kind === "stopped"
         ? localize(
-            "Choose the apps where you want a pause.",
-            "Elige las apps donde quieres una pausa.",
+            "Your phone closed Still, so the pause isn't showing. Turn it off and on again in Accessibility.",
+            "Tu teléfono cerró Still y la pausa no aparece. Apágalo y vuelve a encenderlo en Accesibilidad.",
           )
-        : status.kind === "connect"
+        : status.kind === "choose"
           ? localize(
-              `${status.connected} of ${status.chosen} apps connected. Test the rest.`,
-              `${status.connected} de ${status.chosen} apps conectadas. Prueba las demás.`,
+              "Choose the apps where you want a pause.",
+              "Elige las apps donde quieres una pausa.",
             )
-          : "";
+          : status.kind === "connect"
+            ? localize(
+                `${status.connected} of ${status.chosen} apps connected. Test the rest.`,
+                `${status.connected} de ${status.chosen} apps conectadas. Prueba las demás.`,
+              )
+            : "";
   const appsRoute = Platform.OS === "ios" ? "/ios-apps" : "/android-setup";
   const appsRow =
     status.kind === "paused"
@@ -418,11 +426,15 @@ export default function TodayScreen() {
       {setupPending ? (
         <View style={styles.section}>
           <Heading style={styles.setupTitle}>
-            {localize("Finish setting up Still", "Termina de configurar Still")}
+            {status.kind === "stopped"
+              ? localize("Still stopped", "Still se detuvo")
+              : localize("Finish setting up Still", "Termina de configurar Still")}
           </Heading>
           <Body style={styles.muted}>{setupPendingDetail}</Body>
           <PrimaryButton onPress={() => router.push("/setup")} variant="signal">
-            {localize("Continue setup", "Continuar la configuración")}
+            {status.kind === "stopped"
+              ? localize("Turn Still back on", "Volver a encender Still")
+              : localize("Continue setup", "Continuar la configuración")}
           </PrimaryButton>
         </View>
       ) : null}

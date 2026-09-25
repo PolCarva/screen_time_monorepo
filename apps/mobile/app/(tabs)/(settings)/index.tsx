@@ -342,9 +342,11 @@ export default function SettingsScreen() {
       ? localize("Pauses are coming back soon", "Las pausas vuelven pronto")
       : health.authorization !== "authorized"
         ? localize("Turn on Still", "Activar Still")
-        : health.selectedCount === 0
-          ? localize("Choose apps", "Elegir apps")
-          : localize("Review apps and permission", "Revisar apps y permiso");
+        : health.serviceRunning === false
+          ? localize("Turn Still back on", "Volver a encender Still")
+          : health.selectedCount === 0
+            ? localize("Choose apps", "Elegir apps")
+            : localize("Review apps and permission", "Revisar apps y permiso");
   const syncLabel =
     syncStatus === "online"
       ? localize("UP TO DATE", "ACTUALIZADO")
@@ -425,12 +427,14 @@ export default function SettingsScreen() {
                           )
                         : health.authorization !== "authorized"
                           ? localize("Turn on Still", "Falta activar Still")
-                          : health.selectedCount === 0
-                            ? localize("Choose your apps", "Elige tus apps")
-                            : localize(
-                                "Check your setup",
-                                "Revisa la configuración",
-                              )}
+                          : health.serviceRunning === false
+                            ? localize("Still stopped", "Still se detuvo")
+                            : health.selectedCount === 0
+                              ? localize("Choose your apps", "Elige tus apps")
+                              : localize(
+                                  "Check your setup",
+                                  "Revisa la configuración",
+                                )}
             </Heading>
             <Body style={styles.muted}>
               {!restrictionsEnabled
@@ -453,7 +457,13 @@ export default function SettingsScreen() {
                           "Test each app to connect it.",
                           "Prueba cada app para conectarla.",
                         )
-                  : authorizationLabel(health.authorization)}
+                  : health.authorization === "authorized" &&
+                      health.serviceRunning === false
+                    ? localize(
+                        "Your phone closed it. Turn it off and on again in Accessibility.",
+                        "Tu teléfono lo cerró. Apágalo y vuelve a encenderlo en Accesibilidad.",
+                      )
+                    : authorizationLabel(health.authorization)}
             </Body>
           </View>
         </View>
