@@ -67,6 +67,12 @@ type AppStateValue = {
   ready: boolean;
   /** The first sync finished (or failed and fell back to the cache). */
   hydrated: boolean;
+  /**
+   * The native side has the current kill switch. Until then the iOS intent and
+   * the Android shield stay silent, so a setup test must wait for it
+   * (docs/onboarding-v2-plan.md §4.0).
+   */
+  nativeSynced: boolean;
   onboarded: boolean;
   deviceId: string | null;
   setOnboarded(value: boolean): Promise<void>;
@@ -321,6 +327,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     preferencesFromConfig(defaultRemoteConfig),
   );
   const [hydrated, setHydrated] = useState(false);
+  const [nativeSynced, setNativeSynced] = useState(false);
   const [stats, setStats] = useState(defaultStats);
   const [health, setHealth] = useState(defaultHealth);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("syncing");
@@ -532,6 +539,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!hydrated) return;
     const restrictionsEnabled = isPauseFeatureEnabled(Platform.OS, config);
+    setNativeSynced(false);
     void (async () => {
       if (Platform.OS === "ios") {
         await restrictionEngine.enableShortcutMode();
@@ -555,6 +563,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           config.rewardProvider,
         );
       }
+      setNativeSynced(true);
       setHealth(await restrictionEngine.getHealth());
     })().catch(() => undefined);
   }, [
@@ -626,6 +635,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     () => ({
       ready,
       hydrated,
+      nativeSynced,
       onboarded,
       deviceId,
       setOnboarded,
@@ -646,6 +656,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     [
       ready,
       hydrated,
+      nativeSynced,
       onboarded,
       deviceId,
       setOnboarded,
