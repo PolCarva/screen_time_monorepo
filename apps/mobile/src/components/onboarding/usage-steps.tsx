@@ -49,9 +49,11 @@ function UnknownWeek() {
 export type UsagePermissionState = "idle" | "waiting" | "denied";
 
 /**
- * §3.2 — asks for Usage access, saying what is read and that it stays on the
- * phone (Google Play's prominent disclosure). Settings differ by maker, so a
- * failed return shows the official labels and the way that always works.
+ * §3.2 — asks for Usage access, saying what is read, what for (the story and
+ * the time given back) and that it is kept on the phone: Google Play's
+ * prominent disclosure (docs/real-savings-estimate-plan.md §6). Today's
+ * "Use my real usage" shows it too. Settings differ by maker, so a failed
+ * return shows the official labels and the way that always works.
  */
 export function UsagePermissionStep({
   state,
@@ -71,8 +73,8 @@ export function UsagePermissionStep({
   return (
     <StoryLayout
       body={localize(
-        "With usage access, Still counts how much you use each app. It's worked out on this phone and doesn't leave it.",
-        "Con el acceso de uso, Still cuenta cuánto usas cada app. Se calcula en este teléfono y no sale de aquí.",
+        "With usage access, Still counts how much you use each app, to show you your time and estimate the time you get back. It's worked out and kept on this phone, and never leaves it.",
+        "Con el acceso de uso, Still cuenta cuánto usas cada app, para mostrarte tu tiempo y estimar el que recuperas. Se calcula y se guarda en este teléfono, y no sale de aquí.",
       )}
       footer={
         <StoryFooter

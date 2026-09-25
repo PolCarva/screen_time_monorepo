@@ -171,7 +171,7 @@ describe("returnedToday", () => {
         { packageName: "insta", label: "Instagram", openAttempts: 5, unlocks: 1, reentries: 1 },
         { packageName: "tiktok", label: "TikTok", openAttempts: 2, unlocks: 2, reentries: 0 },
       ],
-      totals: { notEntered: 3, reentries: 1 },
+      totals: { notEntered: 4, reentries: 1 },
       minutesFor,
       configMinutes: 2,
     });
@@ -180,6 +180,29 @@ describe("returnedToday", () => {
     expect(result.apps[1]).toMatchObject({ skipped: 0, minutes: 0 });
     expect(result.minutes).toBe(21);
     expect(result.rest).toBe(0);
+  });
+
+  it("never counts more than the day's own skips, cutting the shortest sessions first", () => {
+    const result = returnedToday({
+      apps: [
+        { packageName: "insta", label: "Instagram", openAttempts: 4, unlocks: 0, reentries: 0 },
+        { packageName: "tiktok", label: "TikTok", openAttempts: 4, unlocks: 0, reentries: 0 },
+      ],
+      // The day's totals were read before the last pauses.
+      totals: { notEntered: 5, reentries: 0 },
+      minutesFor,
+      configMinutes: 2,
+    });
+    expect(result.apps.map((app) => app.skipped)).toEqual([1, 4]);
+    expect(result.minutes).toBe(7 + 4 * 2);
+    expect(
+      returnedToday({
+        apps: [{ packageName: "insta", label: "Instagram", openAttempts: 4, unlocks: 0, reentries: 0 }],
+        totals: { notEntered: 0, reentries: 0 },
+        minutesFor,
+        configMinutes: 2,
+      }).minutes,
+    ).toBe(0);
   });
 
   it("counts pauses of apps no longer chosen at the config's minutes", () => {

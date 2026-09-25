@@ -226,6 +226,9 @@ export type ReturnedApp = AppDayCounts & {
 /**
  * Today's time back (§2.4): each chosen app's skipped pauses × its typical
  * session, plus the config's minutes for pauses of apps no longer chosen.
+ * The apps never add up to more than the day's own "didn't go in" (the two
+ * are read at different moments); any excess is cut from the shortest
+ * sessions first, the cautious side.
  */
 export function returnedToday(input: {
   apps: AppDayCounts[];
@@ -233,11 +236,29 @@ export function returnedToday(input: {
   minutesFor: (packageName: string) => { minutes: number; source: SavedTimeSource };
   configMinutes: number;
 }): { minutes: number; apps: ReturnedApp[]; rest: number } {
-  const apps = input.apps.map((app) => {
+  const total = effectiveNotEntered(
+    { notEntered: input.totals.notEntered },
+    input.totals.reentries,
+  );
+  const measured = input.apps.map((app) => {
     const entered = Math.max(0, Math.round(app.unlocks));
     const pauses = Math.max(entered, Math.round(app.openAttempts));
-    const skipped = effectiveNotEntered({ notEntered: pauses - entered }, app.reentries);
     const typical = input.minutesFor(app.packageName);
+    return {
+      app,
+      typical,
+      skipped: effectiveNotEntered({ notEntered: pauses - entered }, app.reentries),
+    };
+  });
+  let left = total;
+  const allowed = new Map<string, number>();
+  for (const entry of [...measured].sort((a, b) => a.typical.minutes - b.typical.minutes)) {
+    const skipped = Math.min(entry.skipped, left);
+    allowed.set(entry.app.packageName, skipped);
+    left -= skipped;
+  }
+  const apps = measured.map(({ app, typical }) => {
+    const skipped = allowed.get(app.packageName) ?? 0;
     return {
       ...app,
       skipped,
@@ -246,11 +267,7 @@ export function returnedToday(input: {
       minutes: skipped * typical.minutes,
     };
   });
-  const counted = apps.reduce((sum, app) => sum + app.skipped, 0);
-  const rest = Math.max(
-    0,
-    effectiveNotEntered({ notEntered: input.totals.notEntered }, input.totals.reentries) - counted,
-  );
+  const rest = left;
   const minutes = apps.reduce((sum, app) => sum + app.minutes, 0) +
     rest * Math.max(0, input.configMinutes);
   return { minutes: Math.max(0, Math.round(minutes)), apps, rest };

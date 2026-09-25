@@ -24,13 +24,20 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import {
   dayOutcome,
-  minutesReturned,
   pauseStatus,
   summarizeWeek,
   weekdayLabel,
   type WeekColumn,
 } from "@/lib/today-summary";
 import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
+import { useStillSheet } from "@/components/still-sheet";
+import {
+  returnedToday,
+  typicalMinutes,
+  type ReturnedApp,
+  type SavedTimeSource,
+} from "@/lib/saved-time";
+import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useSavedTime } from "@/state/saved-time";
 import { useShortcutTargets } from "@/state/shortcut-targets";
@@ -80,6 +87,28 @@ function times(count: number) {
   return localize(
     count === 1 ? "once" : `${count} times`,
     count === 1 ? "1 vez" : `${count} veces`,
+  );
+}
+
+/** "~7 min", "~0.5 min": one skipped pause, as the detail lists it. */
+function minutesEach(minutes: number) {
+  const value = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: minutes < 10 ? 1 : 0,
+  }).format(minutes);
+  return `~${value} min`;
+}
+
+function sourceLabel(source: SavedTimeSource) {
+  if (source === "before") return localize("before Still", "antes de Still");
+  if (source === "recent") return localize("last 7 days", "últimos 7 días");
+  return localize("estimated", "estimado");
+}
+
+/** One row of "How we count it": the app, its skips and what each is worth. */
+function returnedRow(app: ReturnedApp) {
+  return localize(
+    `${app.label} · ${times(app.skipped)} · ${minutesEach(app.minutesEach)} each · ${Math.round(app.minutes)} min (${sourceLabel(app.source)})`,
+    `${app.label} · ${times(app.skipped)} · ${minutesEach(app.minutesEach)} cada una · ${Math.round(app.minutes)} min (${sourceLabel(app.source)})`,
   );
 }
 
@@ -163,9 +192,11 @@ function LegendKey({ color, label }: { color: string; label: string }) {
 
 export default function TodayScreen() {
   const { stats, config, health } = useAppState();
-  // Keeps the week before Still, the last days' usage and the pause screen's
-  // minutes up to date (docs/real-savings-estimate-plan.md §3.2).
-  useSavedTime(config.estimatedMinutesPerAvoidedOpen);
+  const sheet = useStillSheet();
+  // The week before Still, the last days' usage and the pause screen's minutes
+  // (docs/real-savings-estimate-plan.md §3.2, §6).
+  const savedTime = useSavedTime(config.estimatedMinutesPerAvoidedOpen);
+  const readsUsage = Platform.OS === "android" && Boolean(restrictionEngine.getUsageStats);
   const { targets, health: shortcutHealth } = useShortcutTargets();
   const openWindows = useAccessWindows();
   const impactQuery = useQuery({
@@ -174,11 +205,75 @@ export default function TodayScreen() {
   });
   const now = new Date();
   const today = dayOutcome(stats);
-  const minutes = minutesReturned(
-    today,
-    config.estimatedMinutesPerAvoidedOpen,
-    stats.reentries,
-  );
+  const reentries = stats.reentries ?? 0;
+  const returned = returnedToday({
+    apps: savedTime.apps.map((app) => ({
+      packageName: app.packageName,
+      label: app.label,
+      openAttempts: app.openAttemptsToday,
+      unlocks: app.unlocksToday,
+      reentries: app.reentriesToday ?? 0,
+    })),
+    totals: { notEntered: today.notEntered, reentries },
+    minutesFor: (packageName) =>
+      typicalMinutes(packageName, {
+        baseline: savedTime.baseline,
+        recent: savedTime.usageAccess ? savedTime.recent : null,
+        configMinutes: config.estimatedMinutesPerAvoidedOpen,
+      }),
+    configMinutes: config.estimatedMinutesPerAvoidedOpen,
+  });
+  const minutes = returned.minutes;
+  const skippedApps = returned.apps.filter((app) => app.skipped > 0);
+  const measured = skippedApps.some((app) => app.source !== "default");
+  const heroNote = [
+    measured
+      ? localize(
+          `You didn't go in ${times(today.notEntered)}. Each one counts what your session in that app usually lasts.`,
+          `No entraste ${times(today.notEntered)}. Cada una cuenta lo que suele durar tu sesión en esa app.`,
+        )
+      : localize(
+          `You didn't go in ${times(today.notEntered)}. We estimate ${config.estimatedMinutesPerAvoidedOpen} min for each.`,
+          `No entraste ${times(today.notEntered)}. Estimamos ${config.estimatedMinutesPerAvoidedOpen} min por cada una.`,
+        ),
+    reentries > 0
+      ? localize(
+          "If you went back in right away, that one doesn't count.",
+          "Si volviste a entrar enseguida, esa vez no suma.",
+        )
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const offerUsage = readsUsage && !savedTime.usageAccess;
+  const openUsageAccess = () => router.push("/usage-access");
+  const showHowWeCount = () => {
+    void sheet.show({
+      title: localize("How we count it", "Cómo lo calculamos"),
+      message: measured
+        ? localize(
+            "Each time you didn't go in counts what a session of that app usually lasts on this phone: the week before Still if there is one, otherwise the last 7 days. If you went back in right away, that one doesn't count. Worked out on this phone; it doesn't leave it.",
+            "Cada vez que no entraste cuenta lo que suele durar una sesión de esa app en este teléfono: la semana antes de Still si la hay; si no, los últimos 7 días. Si volviste a entrar enseguida, esa vez no suma. Se calcula en este teléfono y no sale de aquí.",
+          )
+        : localize(
+            `We estimate ${config.estimatedMinutesPerAvoidedOpen} min each time you didn't go in. If you went back in right away, that one doesn't count.`,
+            `Estimamos ${config.estimatedMinutesPerAvoidedOpen} min por cada vez que no entraste. Si volviste a entrar enseguida, esa vez no suma.`,
+          ),
+      bullets: skippedApps.length ? skippedApps.map(returnedRow) : undefined,
+      actions: [
+        ...(offerUsage
+          ? [
+              {
+                label: localize("Use my real usage", "Calcular con mi uso"),
+                variant: "signal" as const,
+                onPress: openUsageAccess,
+              },
+            ]
+          : []),
+        { label: localize("Close", "Cerrar"), variant: "quiet" as const },
+      ],
+    });
+  };
   const week = useMemo(
     () => summarizeWeek(stats.history, { now: new Date() }),
     [stats.history],
@@ -333,11 +428,32 @@ export default function TodayScreen() {
                   "When Still pauses an app, you'll see the time you get back here.",
                   "Cuando Still pause una app, aquí verás el tiempo que recuperas.",
                 )
-              : localize(
-                  `You didn't go in ${times(today.notEntered)}. We estimate ${config.estimatedMinutesPerAvoidedOpen} min for each.`,
-                  `No entraste ${times(today.notEntered)}. Estimamos ${config.estimatedMinutesPerAvoidedOpen} min por cada una.`,
-                )}
+              : heroNote}
           </Body>
+          {today.pauses > 0 ? (
+            <View style={styles.heroLinks}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={showHowWeCount}
+                style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+              >
+                <Text style={styles.linkLabel}>
+                  {localize("How we count it", "Cómo lo calculamos")}
+                </Text>
+              </Pressable>
+              {offerUsage ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={openUsageAccess}
+                  style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+                >
+                  <Text style={styles.linkLabel}>
+                    {localize("Use my real usage", "Calcular con mi uso")}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -514,6 +630,16 @@ const styles = StyleSheet.create({
     color: colors.graphiteSoft,
     fontSize: 14,
     lineHeight: 20,
+  },
+  heroLinks: { flexDirection: "row", flexWrap: "wrap", columnGap: spacing.lg },
+  pressed: { opacity: 0.5 },
+  link: { paddingVertical: spacing.xs },
+  linkLabel: {
+    color: colors.graphite,
+    fontFamily: fonts.brandSemiBold,
+    fontSize: 14,
+    textDecorationLine: "underline",
+    textDecorationColor: colors.mineralLight,
   },
   numbers: {
     paddingVertical: spacing.lg,
