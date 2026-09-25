@@ -158,3 +158,21 @@ describe("pause status", () => {
     ).toEqual({ kind: "active", apps: 2 });
   });
 });
+
+describe("pause status when Accessibility is on but not running", () => {
+  it("asks to turn Still on again", () => {
+    expect(
+      pauseStatus({
+        platform: "android",
+        pausesEnabled: true,
+        authorized: true,
+        running: false,
+        selected: 2,
+      }),
+    ).toEqual({ kind: "activate" });
+    // Older native builds don't report it: trust the switch.
+    expect(
+      pauseStatus({ platform: "android", pausesEnabled: true, authorized: true, selected: 2 }),
+    ).toEqual({ kind: "active", apps: 2 });
+  });
+});

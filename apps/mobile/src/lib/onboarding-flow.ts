@@ -318,6 +318,10 @@ const progressSchema = z.object({
   /** Settings was opened for usage access; checked again on every return. */
   usageRequestedAt: z.string().optional(),
   adsConsent: z.enum(["required", "not-required", "unknown"]),
+  /** Google's consent form was answered (only when it was required). */
+  adsConsentAt: z.string().optional(),
+  /** What UMP allows after the answer; false means the timed pause only. */
+  adsCanRequest: z.boolean().optional(),
   adultConfirmedAt: z.string().optional(),
   /** Android: the Accessibility prominent disclosure was accepted. */
   accessibilityDisclosureAt: z.string().optional(),

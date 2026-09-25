@@ -135,7 +135,14 @@ export type PauseStatus =
 export function pauseStatus(
   input:
     | { platform: "ios"; pausesEnabled: boolean; chosen: number; connected: number }
-    | { platform: "android"; pausesEnabled: boolean; authorized: boolean; selected: number },
+    | {
+        platform: "android";
+        pausesEnabled: boolean;
+        authorized: boolean;
+        /** The service is bound; undefined from builds that don't report it. */
+        running?: boolean;
+        selected: number;
+      },
 ): PauseStatus {
   if (!input.pausesEnabled) return { kind: "paused" };
   if (input.platform === "ios") {
@@ -144,7 +151,7 @@ export function pauseStatus(
       return { kind: "connect", connected: input.connected, chosen: input.chosen };
     return { kind: "active", apps: input.chosen };
   }
-  if (!input.authorized) return { kind: "activate" };
+  if (!input.authorized || input.running === false) return { kind: "activate" };
   if (input.selected === 0) return { kind: "choose" };
   return { kind: "active", apps: input.selected };
 }

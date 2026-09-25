@@ -11,6 +11,7 @@ import Animated from "react-native-reanimated";
 
 import { slideIn } from "@/components/motion";
 import {
+  AdsConsentStep,
   AdultStep,
   PausesOffStep,
 } from "@/components/onboarding/basic-setup-steps";
@@ -48,6 +49,7 @@ import {
   useStillSheet,
 } from "@/components/still-sheet";
 import { localize } from "@/i18n";
+import { capture } from "@/lib/analytics";
 import { accessibilityPathTip, isAggressiveOem } from "@/lib/android-oem";
 import {
   canContinue,
@@ -72,21 +74,25 @@ import {
   type UsageInsights,
 } from "@/lib/onboarding-insights";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
+import { askForConsent, consentRequirement } from "@/native/ads-consent";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import {
   clearOnboardingProgress,
   loadOnboardingProgress,
   saveOnboardingProgress,
+  type FlowMode,
 } from "@/state/onboarding-progress";
 import { colors } from "@/theme/tokens";
 
 /**
  * The whole onboarding: the story, then the setup (docs/onboarding-v2-plan.md
  * §2). lib/onboarding-flow decides which step comes next; this component only
- * draws the current one and remembers where the user is.
+ * draws the current one and remembers where the user is. In "setup" mode it is
+ * the `/setup` route: the same verified setup, without the story, for someone
+ * already onboarded (§4.6).
  */
-export function OnboardingFlow() {
+export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
   const { config, hydrated, nativeSynced, setOnboarded } = useAppState();
   const sheet = useStillSheet();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
@@ -101,21 +107,26 @@ export function OnboardingFlow() {
   const [insights, setInsights] = useState<UsageInsights | null | undefined>();
   const [icons, setIcons] = useState<Record<string, string>>({});
 
+  const [consentState, setConsentState] = useState<"checking" | "ready">("checking");
+
   useEffect(() => {
-    void loadOnboardingProgress().then((loaded) => {
+    void loadOnboardingProgress(mode).then((loaded) => {
       progressRef.current = loaded;
       setProgress(loaded);
     });
-  }, []);
+  }, [mode]);
 
-  const update = useCallback((patch: Partial<OnboardingProgress>) => {
-    const current = progressRef.current;
-    if (!current) return;
-    const next = { ...current, ...patch };
-    progressRef.current = next;
-    setProgress(next);
-    void saveOnboardingProgress(next);
-  }, []);
+  const update = useCallback(
+    (patch: Partial<OnboardingProgress>) => {
+      const current = progressRef.current;
+      if (!current) return;
+      const next = { ...current, ...patch };
+      progressRef.current = next;
+      setProgress(next);
+      void saveOnboardingProgress(next, mode);
+    },
+    [mode],
+  );
 
   const platform = Platform.OS === "ios" ? "ios" : "android";
   const usageSource =
@@ -138,7 +149,7 @@ export function OnboardingFlow() {
         pausesEnabled: isPauseFeatureEnabled(Platform.OS, config),
         usageSource,
         usageGranted: progress.usage === "granted",
-        adsConsent: "not-required",
+        adsConsent: progress.adsConsent,
         aggressiveOem: platform === "android" && isAggressiveOem(manufacturer),
       },
     [config, manufacturer, platform, progress, usageSource],
@@ -203,13 +214,15 @@ export function OnboardingFlow() {
   const goBack = useCallback(() => {
     if (!context || !step) return false;
     const target = previousStep(context, step);
-    if (!target) return false;
+    // `/setup` starts after the age check: back from there leaves the screen.
+    if (!target || (mode === "setup" && target === "adult")) return false;
     goTo(target, -1);
     return true;
-  }, [context, goTo, step]);
+  }, [context, goTo, mode, step]);
 
   /** The user granted usage access: straight to the reveal. */
   const usageGrantedNow = useCallback(() => {
+    capture("onboarding_usage_access", { result: "granted" });
     setUsagePermission("idle");
     setInsights(undefined);
     setDirection(1);
@@ -257,6 +270,44 @@ export function OnboardingFlow() {
     setUsagePermission(opened ? "waiting" : "denied");
   }
 
+  // Once the setup starts, ask UMP whether Google needs a choice here (D12).
+  // Offline or failing, the step is left out: the ads SDK asks at the first ad.
+  const needsConsentCheck = inSetup && progress?.adsConsent === "unknown";
+  useEffect(() => {
+    if (!needsConsentCheck) return;
+    let cancelled = false;
+    consentRequirement()
+      .then((requirement) => {
+        if (cancelled) return;
+        update({ adsConsent: requirement });
+        setConsentState("ready");
+      })
+      .catch(() => {
+        if (!cancelled) update({ adsConsent: "not-required" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsConsentCheck, update]);
+
+  async function requestConsent() {
+    setConsentState("checking");
+    try {
+      const answer = await askForConsent();
+      if (answer.resolved) {
+        update({
+          adsConsentAt: new Date().toISOString(),
+          adsCanRequest: answer.canRequestAds,
+        });
+      }
+    } catch {
+      // The form could not show (offline): the ads SDK asks at the first ad.
+      update({ adsConsent: "not-required" });
+    } finally {
+      setConsentState("ready");
+    }
+  }
+
   // A step that already passed can lose its signal (Accessibility switched off
   // in Settings, apps unticked, or a restart after the system killed Still):
   // the flow goes back to it instead of moving on without it (D7, D9).
@@ -292,6 +343,11 @@ export function OnboardingFlow() {
     if (step && isSetupStep(step) && Platform.OS === "android") void refreshAndroid();
   }, [refreshAndroid, step]);
 
+  // Funnel only: the step's name, never an app or a figure (D14).
+  useEffect(() => {
+    if (step) capture("onboarding_step_viewed", { step, mode });
+  }, [mode, step]);
+
   // Android's back button walks the steps back instead of leaving the app.
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -307,14 +363,25 @@ export function OnboardingFlow() {
     async (route: Parameters<typeof router.replace>[0]) => {
       setBusy(true);
       try {
-        await setOnboarded(true);
-        await clearOnboardingProgress();
-        router.replace(route);
+        const current = progressRef.current;
+        if (current) {
+          capture("onboarding_completed", {
+            mode,
+            complete: Boolean(current.androidTestVerifiedAt),
+            durationSeconds: Math.round(
+              (Date.now() - Date.parse(current.startedAt)) / 1_000,
+            ),
+          });
+        }
+        if (mode === "onboarding") await setOnboarded(true);
+        await clearOnboardingProgress(mode);
+        if (mode === "setup" && router.canGoBack()) router.back();
+        else router.replace(route);
       } finally {
         setBusy(false);
       }
     },
-    [setOnboarded],
+    [mode, setOnboarded],
   );
 
   if (!context || !progress || !step) {
@@ -336,7 +403,8 @@ export function OnboardingFlow() {
 
   const signals: SetupSignals = {
     adultConfirmed: Boolean(progress.adultConfirmedAt),
-    adsConsentResolved: true,
+    adsConsentResolved:
+      progress.adsConsent === "not-required" || Boolean(progress.adsConsentAt),
     accessibilityEnabled: android.health?.authorization === "authorized",
     accessibilityRunning: Boolean(android.health?.serviceRunning),
     selectedApps: android.health?.selectedCount ?? 0,
@@ -349,7 +417,9 @@ export function OnboardingFlow() {
   const finishLater = () => void finish("/(tabs)/(today)");
   /** A setup step moves on only with its signal (D7). */
   const goNextVerified = () => {
-    if (step && canContinue(step, signals)) goNext();
+    if (!step || !canContinue(step, signals)) return;
+    capture("onboarding_step_verified", { step, mode });
+    goNext();
   };
 
   function summaryLabel(item: SetupStepId): string {
@@ -357,7 +427,12 @@ export function OnboardingFlow() {
       case "adult":
         return localize("18 or older", "Mayor de 18");
       case "ads-consent":
-        return localize("Ad preferences", "Preferencias de anuncios");
+        return progress!.adsCanRequest === false
+          ? localize(
+              "No ads: the pause lets you in after a short wait",
+              "Sin anuncios: la pausa te deja entrar tras una espera breve",
+            )
+          : localize("Ad preferences", "Preferencias de anuncios");
       case "accessibility":
         return localize("Still is on", "Still activado");
       case "apps":
@@ -405,6 +480,7 @@ export function OnboardingFlow() {
           <UsagePermissionStep
             onGrant={() => void requestUsageAccess()}
             onSkip={() => {
+              capture("onboarding_usage_access", { result: "skipped" });
               setUsagePermission("idle");
               update({ usage: "skipped", usageRequestedAt: undefined });
               goNext();
@@ -466,6 +542,20 @@ export function OnboardingFlow() {
           <PausesOffStep
             busy={busy}
             onFinish={() => void finish("/(tabs)/(today)")}
+          />
+        );
+      case "ads-consent":
+        return (
+          <AdsConsentStep
+            onAsk={() => void requestConsent()}
+            onNext={goNextVerified}
+            state={
+              signals.adsConsentResolved
+                ? "answered"
+                : progress!.adsConsent === "unknown"
+                  ? "checking"
+                  : consentState
+            }
           />
         );
       case "accessibility":
@@ -566,9 +656,13 @@ export function OnboardingFlow() {
   return (
     <OnboardingChrome
       onSkip={
-        isStoryStep(step) ? () => goTo(firstSetupStep(context), 1) : undefined
+        mode === "onboarding" && isStoryStep(step)
+          ? () => goTo(firstSetupStep(context), 1)
+          : undefined
       }
-      progress={stepProgress(context, step)}
+      progress={
+        mode === "setup" ? setupProgressOf(context, step) : stepProgress(context, step)
+      }
     >
       <Animated.View
         entering={moved ? slideIn(direction) : undefined}
@@ -579,6 +673,15 @@ export function OnboardingFlow() {
       </Animated.View>
     </OnboardingChrome>
   );
+}
+
+/** `/setup` measures only the setup steps it shows (everything after the age check). */
+function setupProgressOf(context: FlowContext, step: OnboardingStepId): number {
+  const steps: OnboardingStepId[] = setupSteps(context).filter(
+    (item) => item !== "adult",
+  );
+  const index = steps.indexOf(resolveStep(context, step));
+  return steps.length <= 1 ? 1 : Math.max(0, index) / (steps.length - 1);
 }
 
 const styles = StyleSheet.create({

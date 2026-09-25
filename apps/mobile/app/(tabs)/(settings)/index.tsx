@@ -276,7 +276,10 @@ export default function SettingsScreen() {
     ? restrictionsEnabled &&
       chosenApps.length > 0 &&
       connectedApps.length === chosenApps.length
-    : restrictionsEnabled && health.engineActive && !health.issue;
+    : restrictionsEnabled &&
+      health.engineActive &&
+      !health.issue &&
+      health.serviceRunning !== false;
   const restrictionAction = shortcutMode
     ? chosenApps.length === 0
       ? localize("Choose apps", "Elegir apps")
@@ -405,7 +408,8 @@ export default function SettingsScreen() {
           onPress={() =>
             shortcutMode
               ? router.push("/ios-apps")
-              : router.push("/android-setup")
+              : // Something missing: the verified setup; all set: the apps.
+                router.push(restrictionHealthy ? "/android-setup" : "/setup")
           }
           variant="secondary"
         >

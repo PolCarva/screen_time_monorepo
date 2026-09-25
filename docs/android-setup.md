@@ -21,8 +21,26 @@ the user will see (the Still row, the **Use Still** switch and the
 phone's language (`src/components/guide/android-settings-screens.tsx`), with
 the control to tap ringed. Tapping one runs the same flow as the button.
 
-Today counts Still's own pauses per local day, the same as on iOS. Still does
-not ask for Usage Access.
+Today counts Still's own pauses per local day, the same as on iOS. Usage
+Access is asked only by the onboarding story (optional, never stored).
+
+## Verified setup (onboarding v2)
+
+New users set everything up inside the onboarding, and every step moves on only
+with a signal read from the phone, never with an "I did it" where the phone can
+tell (docs/onboarding-v2-plan.md §4.3, §5):
+
+| Step | Moves on when |
+| --- | --- |
+| Accessibility | the switch is on **and** the service is bound (`getHealth().serviceRunning`). Settings opens as close to Still as the phone allows; once the switch is on, the service brings Still back by itself. |
+| Apps | at least one app is chosen. The picker offers the most used apps first (from the story's usage data), none ticked. |
+| Keep Still running (makers that kill background apps) | recommended: battery unrestricted is read from the phone; autostart and pop-ups have no API and are the user's own tick. |
+| Live test | the pause really showed: the service opens the shield in test mode for the app being tested (nothing counted, no ad) and "Back to Still" returns. |
+
+If a step that already passed loses its signal (Accessibility switched off, a
+restart after the system killed Still), the flow goes back to it. "Finish later"
+leaves the onboarding; Today then shows "Finish setting up Still", which opens
+`/setup`: the same steps without the story.
 
 ## What happens when a selected app opens
 
