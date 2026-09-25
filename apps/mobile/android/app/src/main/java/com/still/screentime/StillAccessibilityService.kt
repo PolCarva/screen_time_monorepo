@@ -26,6 +26,17 @@ class StillAccessibilityService : AccessibilityService() {
   private var outcomesAtLastOpen = -1
   private var lastPipSweepAt = 0L
   private val expiryHandler = Handler(Looper.getMainLooper())
+  /**
+   * Looks at the front app again once things settle. Events can arrive while
+   * the window list still shows the launcher or a shield that is closing, and
+   * a warm reopen may send nothing more once the app is in front.
+   */
+  private val settleCheck = Runnable { enforce(eventPackage = null) }
+  /** The last shield launched, checked once it had time to come up. */
+  private var launched: Launch? = null
+  /** Launches in a row whose shield never came to the front. */
+  private var unshownLaunches = 0
+  private val verifyShield = Runnable { verifyLaunch() }
   /** One pending timer per app with a live access window, keyed by package. */
   private val armedWindows = mutableMapOf<String, Runnable>()
 
@@ -72,10 +83,26 @@ class StillAccessibilityService : AccessibilityService() {
 
     if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
 
+    enforce(event.packageName?.toString())
+    scheduleSettleCheck(SETTLE_CHECK_MS)
+  }
+
+  private fun scheduleSettleCheck(delayMs: Long) {
+    expiryHandler.removeCallbacks(settleCheck)
+    expiryHandler.postDelayed(settleCheck, delayMs)
+  }
+
+  /**
+   * Puts the shield over the app in front when it is a chosen app with no
+   * access window. Called for every window event and again once they settle.
+   */
+  private fun enforce(eventPackage: String?) {
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
+
     // Resolve the foreground app from the window list rather than the event's
     // package: a warm re-open only resumes the activity and may not carry the
     // package on the event, which used to let the app slip through on reopen.
-    val target = currentForegroundApp() ?: event.packageName?.toString() ?: return
+    val target = currentForegroundApp() ?: eventPackage ?: return
 
     if (StillSelfProtection.isOwnPackage(packageName, target)) {
       // The shield itself is in front; nothing to do.
@@ -91,6 +118,7 @@ class StillAccessibilityService : AccessibilityService() {
         preferences.edit().remove(StillRestrictionModule.KEY_CURRENT_PACKAGE).apply()
       }
       lastInterventionPackage = null
+      unshownLaunches = 0
       return
     }
     if (isTemporarilyUnlocked(target)) {
@@ -101,9 +129,15 @@ class StillAccessibilityService : AccessibilityService() {
     if (isExternalAuthBrowser(target)) return
 
     val now = SystemClock.elapsedRealtime()
-    val alreadyPending =
-      lastInterventionPackage == target && now - lastInterventionAt < 1_200
-    if (alreadyPending) return
+    val sinceLaunch = now - lastInterventionAt
+    if (lastInterventionPackage == target && sinceLaunch < LAUNCH_SETTLE_MS) {
+      // Its shield was launched a moment ago. If the app is still the one in
+      // front when that moment is over, look again rather than trust it came
+      // up: the app's own late window, or a quick close and reopen, can land
+      // here and then send no further event.
+      scheduleSettleCheck(LAUNCH_SETTLE_MS - sinceLaunch + SETTLE_CHECK_MS)
+      return
+    }
     if (lastCountedPackage == target &&
       now - lastCountedAt < SHIELD_START_GRACE_MS &&
       outcomes(target) == outcomesAtLastOpen
@@ -178,6 +212,8 @@ class StillAccessibilityService : AccessibilityService() {
   }
 
   private fun launchShield(target: String, attempts: Int, setupProbe: Boolean = false) {
+    if (launched?.target != target) unshownLaunches = 0
+    launched = Launch(target, attempts, setupProbe, SystemClock.elapsedRealtime())
     runCatching {
       startActivity(Intent(this, InterventionActivity::class.java).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
@@ -186,6 +222,38 @@ class StillAccessibilityService : AccessibilityService() {
         putExtra(InterventionActivity.EXTRA_SETUP_PROBE, setupProbe)
       })
     }
+    expiryHandler.removeCallbacks(verifyShield)
+    expiryHandler.postDelayed(verifyShield, SHIELD_VERIFY_MS)
+  }
+
+  /**
+   * The shield just launched must be in front by now. If its app is still
+   * the one in front, the shield either came up and the user got back to the
+   * app without choosing (closed it and reopened the app quickly), or it
+   * never came up, because some makers refuse a start from the background.
+   * Either way it is launched again; a second start that never showed goes
+   * through the Home Screen, which `GLOBAL_ACTION_HOME` always reaches.
+   */
+  private fun verifyLaunch() {
+    val launch = launched ?: return
+    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
+    if (currentForegroundApp() != launch.target || isTemporarilyUnlocked(launch.target)) return
+    if (InterventionActivity.shownFor == launch.target) return
+
+    val came = InterventionActivity.lastShownAt >= launch.at
+    unshownLaunches = if (came) 0 else unshownLaunches + 1
+    lastInterventionPackage = launch.target
+    lastInterventionAt = SystemClock.elapsedRealtime()
+    if (unshownLaunches >= 2) {
+      unshownLaunches = 0
+      runCatching { performGlobalAction(GLOBAL_ACTION_HOME) }
+      expiryHandler.postDelayed(
+        { launchShield(launch.target, launch.attempts, launch.setupProbe) },
+        SHIELD_AFTER_HOME_MS,
+      )
+      return
+    }
+    launchShield(launch.target, launch.attempts, launch.setupProbe)
   }
 
   /**
@@ -405,8 +473,22 @@ class StillAccessibilityService : AccessibilityService() {
 
   override fun onInterrupt() = Unit
 
+  /** A shield start: for which app, with what it showed, and when. */
+  private data class Launch(
+    val target: String,
+    val attempts: Int,
+    val setupProbe: Boolean,
+    val at: Long,
+  )
+
   companion object {
     private val CLOSE_LABELS = listOf("close", "cerrar", "descartar", "dismiss")
+    /** A shield launched this recently for the same app is not launched again. */
+    private const val LAUNCH_SETTLE_MS = 1_200L
+    /** How long after the last window event the front app is looked at again. */
+    private const val SETTLE_CHECK_MS = 450L
+    /** How long a shield gets to reach the front before it is checked. */
+    private const val SHIELD_VERIFY_MS = 1_800L
     /**
      * While its shield is unanswered, the same app within this time is the same
      * open. A cold start of Still's process kept the shield from settling for

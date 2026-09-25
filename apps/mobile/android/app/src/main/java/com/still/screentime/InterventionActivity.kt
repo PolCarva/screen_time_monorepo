@@ -76,6 +76,11 @@ class InterventionActivity : Activity() {
   /** The field's slow breath during the pause; stopped with every new screen. */
   private var breathing: Animator? = null
   private var phase = Phase.GATE
+  /**
+   * The shield is the resumed activity. The pause only counts down meanwhile:
+   * the Recents screen or the notification shade on top hold it where it is.
+   */
+  private var onScreen = false
   /** Cancels the wait for the ad that is loading; null when not waiting. */
   private var cancelAdWait: (() -> Unit)? = null
   private val adWaitTimeout = Runnable { giveUpOnAd() }
@@ -272,14 +277,16 @@ class InterventionActivity : Activity() {
   /**
    * 15-second breathing pause when there is no ad (D1). Costs
    * nothing and is not reported; afterwards the user chooses the window.
-   * Its start is remembered for this app, so a shield opened again mid-pause
-   * picks the pause up instead of offering an ad that arrived in the meantime.
+   * What is left of it is remembered for this app, so a shield opened again
+   * mid-pause picks the pause up instead of offering an ad that arrived in the
+   * meantime. It only runs while the shield is on screen: leaving and coming
+   * back never skips it.
    */
   private fun renderPause(secondsLeft: Int = PAUSE_SECONDS) {
     stopAdWait()
     phase = Phase.PAUSE
-    if (secondsLeft == PAUSE_SECONDS) rememberPauseStart()
     pauseSecondsLeft = secondsLeft
+    rememberPause(secondsLeft)
     val root = column()
     root.addView(spacer(1.2f))
     val field = createFieldIcon()
@@ -309,7 +316,12 @@ class InterventionActivity : Activity() {
     stopPause()
     pauseTick = object : Runnable {
       override fun run() {
+        if (!onScreen) {
+          pauseHandler.postDelayed(this, 1_000)
+          return
+        }
         pauseSecondsLeft -= 1
+        rememberPause(pauseSecondsLeft.coerceAtLeast(0))
         if (pauseSecondsLeft <= 0) {
           counter.text = if (spanish) "Respira.\n0" else "Breathe.\n0"
           renderDecision(EnterSource.PAUSE)
@@ -339,9 +351,12 @@ class InterventionActivity : Activity() {
 
   private fun bootCount() = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
 
-  private fun rememberPauseStart() {
+  /** The seconds of pause still to breathe, and when that was true. */
+  private fun rememberPause(secondsLeft: Int) {
     val key = pauseStartKey ?: return
-    preferences.edit().putString(key, "${bootCount()}:${SystemClock.elapsedRealtime()}").apply()
+    preferences.edit()
+      .putString(key, PausePoint(bootCount(), SystemClock.elapsedRealtime(), secondsLeft).encode())
+      .apply()
   }
 
   private fun forgetPauseStart() {
@@ -350,25 +365,23 @@ class InterventionActivity : Activity() {
   }
 
   /**
-   * A shield for an app whose pause started moments ago (the user pressed Home
+   * A shield for an app whose pause began moments ago (the user pressed Home
    * mid-pause, or the app slipped in front) carries on with that pause or its
-   * decision: once the pause has begun it is never swapped for an ad. Returns
-   * false when there is no such pause, so the gate is drawn as usual.
+   * decision: once the pause has begun it is never swapped for an ad. The
+   * pause carries on where it stopped: time spent away from the shield does
+   * not count, so closing it and reopening the app a while later never lands
+   * on "I want to go in" without having breathed. Returns false when there is
+   * no such pause, so the gate is drawn as usual.
    */
   private fun resumePause(): Boolean {
     val key = pauseStartKey ?: return false
-    val stored = preferences.getString(key, null) ?: return false
-    val boot = stored.substringBefore(':').toIntOrNull()
-    val startedAt = stored.substringAfter(':').toLongOrNull()
-    val elapsedSeconds = startedAt?.let { (SystemClock.elapsedRealtime() - it) / 1_000L }
-    if (boot != bootCount() || elapsedSeconds == null || elapsedSeconds < 0 ||
-      elapsedSeconds > PAUSE_SECONDS + PAUSE_RESUME_GRACE_SECONDS
-    ) {
+    val left = PausePoint.decode(preferences.getString(key, null))
+      ?.secondsLeftAt(bootCount(), SystemClock.elapsedRealtime(), PAUSE_RESUME_GRACE_SECONDS)
+    if (left == null) {
       forgetPauseStart()
       return false
     }
-    val left = PAUSE_SECONDS - elapsedSeconds.toInt()
-    if (left > 0) renderPause(left) else renderDecision(EnterSource.PAUSE)
+    if (left > 0) renderPause(left.coerceAtMost(PAUSE_SECONDS)) else renderDecision(EnterSource.PAUSE)
     return true
   }
 
@@ -511,14 +524,29 @@ class InterventionActivity : Activity() {
     recreate()
   }
 
+  override fun onResume() {
+    super.onResume()
+    onScreen = true
+    shownFor = currentTargetPackage
+    lastShownAt = SystemClock.elapsedRealtime()
+  }
+
+  override fun onPause() {
+    onScreen = false
+    if (shownFor == currentTargetPackage) shownFor = null
+    super.onPause()
+  }
+
   override fun onStop() {
     super.onStop()
     // If the shield is backgrounded without being resolved (the user pressed
     // Home, or the chosen app slipped in front), finish it so the next open
     // creates a fresh shield. Bringing a stale, backgrounded shield to the front
     // from the service is blocked on some OEMs (e.g. MIUI); a fresh launch is not.
-    // Never finish while the rewarded ad is on top.
-    if (!adShowing && !isFinishing) {
+    // Never finish while the rewarded ad is on top, nor while the shield is
+    // being recreated (a new app's shield, or a theme change): finishing then
+    // would take the new shield down with the old one and leave the app open.
+    if (!adShowing && !isFinishing && !isChangingConfigurations) {
       finish()
     }
   }
@@ -890,6 +918,20 @@ class InterventionActivity : Activity() {
   private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
   companion object {
+    /**
+     * The app whose shield is the resumed activity right now, and when a
+     * shield last came to the front (`elapsedRealtime`). The accessibility
+     * service runs in this process and reads them to tell a shield that is up
+     * from one that never came up (StillAccessibilityService.verifyShield).
+     */
+    @Volatile
+    var shownFor: String? = null
+      private set
+
+    @Volatile
+    var lastShownAt = 0L
+      private set
+
     const val EXTRA_TARGET_PACKAGE = "target_package"
     const val EXTRA_TARGET_ATTEMPTS = "target_attempts"
     const val EXTRA_SETUP_PROBE = "setup_probe"
@@ -899,8 +941,9 @@ class InterventionActivity : Activity() {
     // Mirror of REWARD_AD_LOAD_TIMEOUT_MS: how long the gate waits for an ad
     // that is loading before it stops offering it.
     private const val AD_WAIT_MS = 12_000L
-    // A shield opened this long after its pause ended starts a new attempt.
-    private const val PAUSE_RESUME_GRACE_SECONDS = 60
+    // A shield opened this long after its pause was last on screen starts a
+    // new attempt.
+    private const val PAUSE_RESUME_GRACE_SECONDS = 75L
     private const val STATE_PAUSE_STARTED_AT = "shield_pause_started_at"
   }
 }
