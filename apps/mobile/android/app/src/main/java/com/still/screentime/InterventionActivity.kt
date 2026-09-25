@@ -508,6 +508,7 @@ class InterventionActivity : Activity() {
       .remove(StillRestrictionModule.KEY_CURRENT_PACKAGE)
       .putInt(unlocksKey, preferences.getInt(unlocksKey, 0) + 1)
       .putInt(appUnlocksKey, preferences.getInt(appUnlocksKey, 0) + 1)
+    StillRestrictionModule.recordEntryTrail(editor, preferences, day, target)
     editor.apply()
 
     if (source != EnterSource.PAUSE) {
@@ -896,11 +897,13 @@ class InterventionActivity : Activity() {
       StillRestrictionModule.appMetricKey(name, day, packageName),
       0,
     ).coerceAtLeast(0)
-    // Same meaning as Today's "No entraste": pauses that did not end in the
-    // app. This pause already counts as an attempt and has no outcome yet.
+    // Same meaning as Today's time back: pauses that did not end in the app,
+    // minus the ones undone by going in right after (real-savings D6). This
+    // pause already counts as an attempt and has no outcome yet.
     val avoidedOpens = (
       metric(StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS) - 1 -
-        metric(StillRestrictionModule.METRIC_APP_UNLOCKS)
+        metric(StillRestrictionModule.METRIC_APP_UNLOCKS) -
+        metric(StillRestrictionModule.METRIC_APP_REENTRIES)
       ).coerceAtLeast(0)
     val minutesPerOpen =
       preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)

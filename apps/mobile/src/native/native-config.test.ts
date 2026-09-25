@@ -142,6 +142,13 @@ describe("committed native production configuration", () => {
     expect(accessibilityService).toContain("KEY_EXTERNAL_AUTH_BYPASS_BOOT");
     expect(accessibilityService).toContain("METRIC_APP_OPEN_ATTEMPTS");
     expect(accessibilityService).toContain("alreadyPending");
+    // real-savings §2.3: every counted pause moves the app's trail, and going
+    // in marks it (a skip undone right after gives no time back). An open
+    // whose shield is still unanswered is never counted twice.
+    expect(accessibilityService).toContain("StillRestrictionModule.recordPauseTrail(");
+    expect(intervention).toContain("StillRestrictionModule.recordEntryTrail(");
+    expect(intervention).toContain("METRIC_APP_REENTRIES");
+    expect(accessibilityService).toContain("outcomes(target) == outcomesAtLastOpen");
     expect(accessibilityService).toContain("EXTRA_TARGET_ATTEMPTS");
     expect(accessibilityService).toContain(
       "StillSelfProtection.isOwnPackage(packageName, target)",

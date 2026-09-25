@@ -288,6 +288,152 @@ async function waitForShield(serial, target, forbiddenLabel, expectedAttempt) {
   );
 }
 
+function reentriesKey(day, packageName) {
+  return `app_reentries:${day}:${packageName}`;
+}
+
+function unlocksKey(day, packageName) {
+  return `app_unlocks:${day}:${packageName}`;
+}
+
+/** Rewrites Still's preferences while it is stopped (debuggable builds only). */
+function writePreferences(serial, xml) {
+  const staged = "/data/local/tmp/still-shield-prefs.xml";
+  execFileSync("adb", ["-s", serial, "shell", `cat > ${staged}`], {
+    input: xml,
+    timeout: 20_000,
+  });
+  deviceAdb(serial, [
+    "shell",
+    "run-as",
+    STILL_PACKAGE,
+    "sh",
+    "-c",
+    `'cat ${staged} > ${PREFERENCES_PATH}'`,
+  ]);
+  deviceAdb(serial, ["shell", "rm", "-f", staged], { quiet: true });
+}
+
+export function withBooleanPreference(xml, key, value) {
+  const pattern = new RegExp(`<boolean name="${key}" value="(?:true|false)" />`);
+  const entry = `<boolean name="${key}" value="${value}" />`;
+  return pattern.test(xml)
+    ? xml.replace(pattern, entry)
+    : xml.replace("</map>", `    ${entry}\n</map>`);
+}
+
+export function withoutPreferences(xml, names) {
+  return names.reduce(
+    (current, name) =>
+      current.replace(
+        new RegExp(`\\s*<(long|int|string|boolean) name="${name.replaceAll(".", "\\.")}"[^>]*?(?:/>|>[^<]*</\\1>)`),
+        "",
+      ),
+    xml,
+  );
+}
+
+/**
+ * Stops Still, edits its preferences and binds the Accessibility service
+ * again, so the shield starts from the edited state.
+ */
+async function restartStillWith(serial, edit) {
+  // Read first: force-stopping Still also drops it from this list (Android 16).
+  const services = deviceAdb(serial, [
+    "shell",
+    "settings",
+    "get",
+    "secure",
+    "enabled_accessibility_services",
+  ]);
+  if (!hasStillAccessibilityService(services)) {
+    throw new Error("Still Accessibility must be enabled before the restart.");
+  }
+  deviceAdb(serial, ["shell", "am", "force-stop", STILL_PACKAGE], { quiet: true });
+  writePreferences(serial, edit(readPreferences(serial)));
+  deviceAdb(serial, ["shell", "settings", "put", "secure", "enabled_accessibility_services", '""'], {
+    quiet: true,
+  });
+  await delay(500);
+  deviceAdb(serial, ["shell", "settings", "put", "secure", "enabled_accessibility_services", services], {
+    quiet: true,
+  });
+  // Emptying the list switches Accessibility off as a whole.
+  deviceAdb(serial, ["shell", "settings", "put", "secure", "accessibility_enabled", "1"], {
+    quiet: true,
+  });
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const bound = deviceAdb(serial, ["shell", "dumpsys", "accessibility"]);
+    if (/Bound services:\{Service\[label=Still/.test(bound)) return;
+    await delay(400);
+  }
+  throw new Error("Still Accessibility did not bind again after the restart.");
+}
+
+async function waitForControl(serial, labels, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastText = "";
+  while (Date.now() < deadline) {
+    const activities = deviceAdb(serial, ["shell", "dumpsys", "activity", "activities"]);
+    if (isInterventionResumed(activities)) {
+      try {
+        deviceAdb(serial, ["shell", "uiautomator", "dump", UI_DUMP_PATH], { quiet: true });
+        const xml = deviceAdb(serial, ["exec-out", "cat", UI_DUMP_PATH]);
+        lastText = visibleUiText(xml, STILL_PACKAGE);
+        const control = findControlCenter(xml, STILL_PACKAGE, labels);
+        if (control) return control;
+      } catch {
+        // The dump races the pause's countdown redraw; try again.
+      }
+    }
+    await delay(500);
+  }
+  throw new Error(
+    `No ${labels.join("/")} control within ${timeoutMs / 1_000} s.\nVisible text:\n${lastText.slice(0, 1_000)}`,
+  );
+}
+
+/**
+ * docs/real-savings-estimate-plan.md §2.3: after "Go back", opening the same
+ * app again and going in (through the free pause, with ads off for the step)
+ * counts one re-entry, total and for that app.
+ */
+async function verifyReentry(serial, day, target) {
+  const before = readPreferences(serial);
+  const adsEligible = readPreferenceBoolean(before, "ads_eligible");
+  const baseline = {
+    attempts: readPreferenceInteger(before, attemptKey(day, target.packageName)),
+    unlocks: readPreferenceInteger(before, unlocksKey(day, target.packageName)),
+    reentries: readPreferenceInteger(before, reentriesKey(day, target.packageName)),
+    total: readPreferenceInteger(before, `reentries:${day}`),
+  };
+  try {
+    await restartStillWith(serial, (xml) => withBooleanPreference(xml, "ads_eligible", false));
+    launchComponent(serial, target.packageName);
+    await waitForPreference(serial, attemptKey(day, target.packageName), baseline.attempts + 1);
+    // The free pause lasts 15 s, then asks whether to go in.
+    const goIn = await waitForControl(serial, ["I want to go in", "Quiero entrar"], 30_000);
+    deviceAdb(serial, ["shell", "input", "tap", String(goIn.x), String(goIn.y)], { quiet: true });
+    await waitForResumedPackage(serial, target.packageName);
+    await waitForPreference(serial, unlocksKey(day, target.packageName), baseline.unlocks + 1);
+    await waitForPreference(serial, reentriesKey(day, target.packageName), baseline.reentries + 1);
+    await waitForPreference(serial, `reentries:${day}`, baseline.total + 1);
+    console.log(
+      `PASS ${target.label}: Go back, then going in within 10 min counted one re-entry`,
+    );
+  } finally {
+    deviceAdb(serial, ["shell", "input", "keyevent", "KEYCODE_HOME"], { quiet: true });
+    // Close the five-minute window the pause granted, so the gate can run again.
+    await restartStillWith(serial, (xml) =>
+      withoutPreferences(withBooleanPreference(xml, "ads_eligible", adsEligible), [
+        `unlocked:${target.packageName}`,
+        `unlocked_boot:${target.packageName}`,
+      ]),
+    );
+  }
+}
+
 async function waitForResumedPackage(serial, expectedPackage) {
   const deadline = Date.now() + 8_000;
   let actual;
@@ -546,6 +692,8 @@ async function run() {
   console.log(
     "PASS Shield attribution and Go back: app metrics stayed independent.",
   );
+
+  await verifyReentry(serial, day, targets[1]);
 }
 
 const isDirectRun =

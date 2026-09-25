@@ -200,6 +200,56 @@ enum ShortcutTargetStore {
   }
 }
 
+/// The last counted pause of each app, to tell a real skip from one undone
+/// right after (docs/real-savings-estimate-plan.md §2.3, D6): a pause that did
+/// not end in the app, followed within ten minutes by going into that same
+/// app, gives no time back. Mirrors Android's ReentryTrail.kt.
+enum PauseTrailStore {
+  struct Trail: Codable {
+    let at: Date
+    var entered: Bool
+    let followsSkip: Bool
+  }
+
+  static let window: TimeInterval = 10 * 60
+  private static let trailsKey = "shortcutIntervention.pauseTrail"
+
+  /// A new counted pause of `targetKey`.
+  static func recordPause(_ targetKey: String, at now: Date = Date()) {
+    var trails = load()
+    let previous = trails[targetKey]
+    let elapsed = previous.map { now.timeIntervalSince($0.at) } ?? -1
+    trails[targetKey] = Trail(
+      at: now,
+      entered: false,
+      followsSkip: previous.map { !$0.entered } == true && elapsed >= 0 && elapsed <= window
+    )
+    save(trails)
+  }
+
+  /// The user goes into `targetKey` from its last pause; true when that entry
+  /// undoes a skipped pause (one re-entry).
+  static func recordEntry(_ targetKey: String) -> Bool {
+    var trails = load()
+    guard var trail = trails[targetKey], !trail.entered else { return false }
+    trail.entered = true
+    trails[targetKey] = trail
+    save(trails)
+    return trail.followsSkip
+  }
+
+  private static func load() -> [String: Trail] {
+    guard let data = SharedRestrictionState.defaults.data(forKey: trailsKey),
+      let trails = try? JSONDecoder().decode([String: Trail].self, from: data)
+    else { return [:] }
+    return trails
+  }
+
+  private static func save(_ trails: [String: Trail]) {
+    SharedRestrictionState.defaults.set(try? JSONEncoder().encode(trails), forKey: trailsKey)
+  }
+}
+
 enum ShortcutInterventionState {
   private static let pendingKey = "shortcutIntervention.pending"
   private static let allowancesKey = "shortcutIntervention.allowances"
@@ -265,6 +315,7 @@ enum ShortcutInterventionState {
     }
 
     SharedRestrictionState.recordOpenAttempt(targetMetricScope: metricScope)
+    PauseTrailStore.recordPause(targetKey)
     let context = ShortcutInterventionContext(
       id: UUID().uuidString,
       appName: cleanAppName,
@@ -314,6 +365,9 @@ enum ShortcutInterventionState {
       avoided: false,
       unlocked: true
     )
+    if PauseTrailStore.recordEntry(context.targetKey) {
+      SharedRestrictionState.recordReentry(targetMetricScope: "shortcut:\(context.targetKey)")
+    }
     SharedRestrictionState.flush()
     let shortcutURL = try returnURL(shortcutName: context.returnShortcutName)
     if let scheme = ShortcutTargetStore.find(appName: context.appName)?.urlScheme,

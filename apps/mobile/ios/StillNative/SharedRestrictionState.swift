@@ -77,6 +77,19 @@ enum SharedRestrictionState {
     var openAttempts = 0
     var avoidedOpens = 0
     var unlocks = 0
+    /// Skips undone by going into the same app right after (real-savings D6).
+    var reentries = 0
+
+    init() {}
+
+    // Days saved before `reentries` existed decode with 0.
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      openAttempts = try container.decodeIfPresent(Int.self, forKey: .openAttempts) ?? 0
+      avoidedOpens = try container.decodeIfPresent(Int.self, forKey: .avoidedOpens) ?? 0
+      unlocks = try container.decodeIfPresent(Int.self, forKey: .unlocks) ?? 0
+      reentries = try container.decodeIfPresent(Int.self, forKey: .reentries) ?? 0
+    }
   }
 
   enum PendingTarget {
@@ -477,6 +490,24 @@ enum SharedRestrictionState {
     }
     if avoided { metrics.avoidedOpens += 1 }
     if unlocked { metrics.unlocks += 1 }
+    defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
+  }
+
+  static func recordReentry(targetMetricScope: String) {
+    recordReentry(at: "productMetrics:\(localDay())")
+    recordReentry(at: targetMetricsKey(targetMetricScope))
+  }
+
+  private static func recordReentry(at key: String) {
+    var metrics: DailyProductMetrics
+    if let data = defaults.data(forKey: key),
+      let saved = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+    {
+      metrics = saved
+    } else {
+      metrics = DailyProductMetrics()
+    }
+    metrics.reentries += 1
     defaults.set(try? JSONEncoder().encode(metrics), forKey: key)
   }
 

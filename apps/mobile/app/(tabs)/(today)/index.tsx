@@ -170,7 +170,11 @@ export default function TodayScreen() {
   });
   const now = new Date();
   const today = dayOutcome(stats);
-  const minutes = minutesReturned(today, config.estimatedMinutesPerAvoidedOpen);
+  const minutes = minutesReturned(
+    today,
+    config.estimatedMinutesPerAvoidedOpen,
+    stats.reentries,
+  );
   const week = useMemo(
     () => summarizeWeek(stats.history, { now: new Date() }),
     [stats.history],

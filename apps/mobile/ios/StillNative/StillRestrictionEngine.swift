@@ -434,12 +434,14 @@ final class StillRestrictionEngine: RCTEventEmitter {
         "openAttempts": dayMetrics.openAttempts,
         "avoidedOpens": dayMetrics.avoidedOpens,
         "unlocks": dayMetrics.unlocks,
+        "reentries": dayMetrics.reentries,
       ]
     }
     resolve([
       "openAttempts": metrics.openAttempts,
       "avoidedOpens": metrics.avoidedOpens,
       "unlocks": metrics.unlocks,
+      "reentries": metrics.reentries,
       "history": history,
     ])
   }

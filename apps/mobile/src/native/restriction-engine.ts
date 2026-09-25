@@ -33,6 +33,8 @@ export type SelectedAppState = {
   openAttemptsToday: number;
   avoidedOpensToday: number;
   unlocksToday: number;
+  /** Skips of this app undone by going in right after (real-savings D6). */
+  reentriesToday?: number;
 };
 
 export type PermissionStatus =
@@ -127,6 +129,8 @@ export type LocalWellbeingStats = {
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
+  /** Skips undone by going into the same app right after; absent on older builds. */
+  reentries?: number;
   history: DayMetrics[];
 };
 

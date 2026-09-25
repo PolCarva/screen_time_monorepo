@@ -16,6 +16,14 @@ class StillAccessibilityService : AccessibilityService() {
   private val preferences by lazy { getSharedPreferences(StillRestrictionModule.PREFERENCES, Context.MODE_PRIVATE) }
   private var lastInterventionPackage: String? = null
   private var lastInterventionAt = 0L
+  /**
+   * The last counted open: which app, when, and its go backs + entries then.
+   * Unlike `lastInterventionPackage`, another app coming to the front (the
+   * launcher, mid-transition) does not clear it.
+   */
+  private var lastCountedPackage: String? = null
+  private var lastCountedAt = 0L
+  private var outcomesAtLastOpen = -1
   private var lastPipSweepAt = 0L
   private val expiryHandler = Handler(Looper.getMainLooper())
   /** One pending timer per app with a live access window, keyed by package. */
@@ -96,6 +104,27 @@ class StillAccessibilityService : AccessibilityService() {
     val alreadyPending =
       lastInterventionPackage == target && now - lastInterventionAt < 1_200
     if (alreadyPending) return
+    if (lastCountedPackage == target &&
+      now - lastCountedAt < SHIELD_START_GRACE_MS &&
+      outcomes(target) == outcomesAtLastOpen
+    ) {
+      // Nothing was chosen on the shield since this app was counted: on a cold
+      // start the shield takes seconds and the app's own late window can cover
+      // it. Bring the shield up again; it is the same open, not a new one
+      // (docs/real-savings-estimate-plan.md §12).
+      val attempts = preferences.getInt(
+        StillRestrictionModule.appMetricKey(
+          StillRestrictionModule.METRIC_APP_OPEN_ATTEMPTS,
+          StillDay.today(),
+          target,
+        ),
+        1,
+      ).coerceAtLeast(1)
+      lastInterventionPackage = target
+      lastInterventionAt = now
+      launchShield(target, attempts)
+      return
+    }
     lastInterventionPackage = target
     lastInterventionAt = now
 
@@ -114,7 +143,7 @@ class StillAccessibilityService : AccessibilityService() {
       target,
     )
     val nextAttempts = preferences.getInt(appAttemptsKey, 0) + 1
-    preferences.edit()
+    val editor = preferences.edit()
       .putString(StillRestrictionModule.KEY_CURRENT_PACKAGE, target)
       .putInt(attemptsKey, preferences.getInt(attemptsKey, 0) + 1)
       .putInt(appAttemptsKey, nextAttempts)
@@ -122,13 +151,30 @@ class StillAccessibilityService : AccessibilityService() {
         StillRestrictionModule.appStateKey(StillRestrictionModule.STATE_LAST_PAUSE_AT, target),
         Instant.now().toString(),
       )
-      .apply()
+    StillRestrictionModule.recordPauseTrail(editor, preferences, target, System.currentTimeMillis())
+    editor.apply()
+    rememberCountedOpen(target, now)
 
     // Refresh the ad if it expired since the last intervention. If it is not
     // ready in time the shield waits for it, then falls back to the timed pause.
     StillRewardedAdManager.preload(applicationContext, "intervention")
 
     launchShield(target, nextAttempts)
+  }
+
+  private fun rememberCountedOpen(target: String, at: Long) {
+    lastCountedPackage = target
+    lastCountedAt = at
+    outcomesAtLastOpen = outcomes(target)
+  }
+
+  /** Times the user went back from or into `target`'s shield today. */
+  private fun outcomes(target: String): Int {
+    val day = StillDay.today()
+    fun metric(name: String) =
+      preferences.getInt(StillRestrictionModule.appMetricKey(name, day, target), 0)
+    return metric(StillRestrictionModule.METRIC_APP_AVOIDED_OPENS) +
+      metric(StillRestrictionModule.METRIC_APP_UNLOCKS)
   }
 
   private fun launchShield(target: String, attempts: Int, setupProbe: Boolean = false) {
@@ -305,6 +351,7 @@ class StillAccessibilityService : AccessibilityService() {
     // Keep the window-change path from launching a second shield right after.
     lastInterventionPackage = target
     lastInterventionAt = SystemClock.elapsedRealtime()
+    rememberCountedOpen(target, lastInterventionAt)
     StillRewardedAdManager.preload(applicationContext, "window-ended")
     launchShield(target, attempts)
 
@@ -360,6 +407,12 @@ class StillAccessibilityService : AccessibilityService() {
 
   companion object {
     private val CLOSE_LABELS = listOf("close", "cerrar", "descartar", "dismiss")
+    /**
+     * While its shield is unanswered, the same app within this time is the same
+     * open. A cold start of Still's process kept the shield from settling for
+     * up to 13 s on the QA emulator.
+     */
+    private const val SHIELD_START_GRACE_MS = 15_000L
     /**
      * How long to wait before checking that the shield actually came up. Long
      * enough for the window transition to settle: the grant is already gone,
