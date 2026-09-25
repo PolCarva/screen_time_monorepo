@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react-native";
+import * as Updates from "expo-updates";
 import PostHog from "posthog-react-native";
 
 import { getJson, setJson } from "./storage";
@@ -22,13 +23,20 @@ function applyAnalyticsPreference(enabled: boolean) {
 
 export async function initializeObservability() {
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
-  if (dsn)
+  if (dsn) {
     Sentry.init({
       dsn,
       sendDefaultPii: false,
       enableNative: true,
       tracesSampleRate: 0.1,
     });
+    // Which JavaScript an error came from: the store build's own or an
+    // over-the-air update (docs/ota-updates-plan.md). Tags, so Sentry can
+    // filter by them.
+    Sentry.setTag("expo-update-id", Updates.updateId ?? "embedded");
+    Sentry.setTag("expo-channel", Updates.channel ?? "none");
+    Sentry.setTag("expo-runtime-version", Updates.runtimeVersion ?? "unknown");
+  }
 
   const enabled = await getJson("analyticsEnabled", true).catch(() => false);
   applyAnalyticsPreference(enabled);

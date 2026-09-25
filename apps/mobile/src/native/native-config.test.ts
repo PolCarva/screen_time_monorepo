@@ -361,3 +361,66 @@ describe("committed native production configuration", () => {
     );
   });
 });
+
+describe("over-the-air updates configuration (docs/ota-updates-plan.md)", () => {
+  const appConfig = nativeFile("app.config.ts");
+  const version = /const VERSION = "(\d+\.\d+\.\d+)";/.exec(appConfig)?.[1];
+  const projectUrl = "https://u.expo.dev/0dffe42d-253f-40f4-9f70-5870276707ff";
+
+  it("makes updates for store builds of the same version only", () => {
+    expect(version).toBeDefined();
+    expect(appConfig).toContain("version: VERSION,");
+    expect(appConfig).toContain("runtimeVersion: VERSION,");
+    expect(appConfig).toContain("url: `https://u.expo.dev/${EAS_PROJECT_ID}`");
+    expect(JSON.parse(nativeFile("package.json")).dependencies["expo-updates"]).toBeDefined();
+  });
+
+  it("keeps the version and runtime equal in every native file", () => {
+    expect(nativeFile("android/app/build.gradle")).toContain(`versionName "${version}"`);
+    expect(nativeFile("android/app/src/main/res/values/strings.xml")).toContain(
+      `<string name="expo_runtime_version">${version}</string>`,
+    );
+    const pbxproj = nativeFile("ios/Still.xcodeproj/project.pbxproj");
+    const marketing = [...pbxproj.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map((m) => m[1]);
+    expect(marketing.length).toBeGreaterThan(0);
+    expect(new Set(marketing)).toEqual(new Set([version]));
+    expect(nativeFile("ios/Still/Info.plist")).toMatch(
+      new RegExp(`<key>CFBundleShortVersionString</key>\\s*<string>${version}</string>`),
+    );
+    expect(nativeFile("ios/Still/Supporting/Expo.plist")).toMatch(
+      new RegExp(`<key>EXUpdatesRuntimeVersion</key>\\s*<string>${version}</string>`),
+    );
+  });
+
+  it("turns updates on natively, with the channel left to the build", () => {
+    const manifest = nativeFile("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain(
+      '<meta-data android:name="expo.modules.updates.ENABLED" android:value="true"/>',
+    );
+    expect(manifest).toContain(
+      `<meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="${projectUrl}"/>`,
+    );
+    // Launch never waits for the network.
+    expect(manifest).toContain(
+      '<meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>',
+    );
+    // EAS writes the channel into the build's copy; a committed one would
+    // send local or QA builds to production updates.
+    expect(manifest).not.toContain("UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY");
+
+    const expoPlist = nativeFile("ios/Still/Supporting/Expo.plist");
+    expect(expoPlist).toMatch(/<key>EXUpdatesEnabled<\/key>\s*<true\/>/);
+    expect(expoPlist).toMatch(
+      new RegExp(`<key>EXUpdatesURL</key>\\s*<string>${projectUrl}</string>`),
+    );
+    expect(expoPlist).toMatch(/<key>EXUpdatesLaunchWaitMs<\/key>\s*<integer>0<\/integer>/);
+    expect(expoPlist).not.toContain("EXUpdatesRequestHeaders");
+  });
+
+  it("sends production and preview builds to their own channels, never dev builds", () => {
+    const eas = JSON.parse(nativeFile("eas.json"));
+    expect(eas.build.production.channel).toBe("production");
+    expect(eas.build.preview.channel).toBe("preview");
+    expect(eas.build.development.channel).toBeUndefined();
+  });
+});

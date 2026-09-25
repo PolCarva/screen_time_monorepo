@@ -5,6 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
 import { restrictionEngine } from "@/native/restriction-engine";
+import { holdOtaReload } from "./ota-policy";
 import { supabase } from "@/lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -149,6 +150,8 @@ export async function linkIdentity(provider: IdentityProvider) {
     path: "auth/callback",
   });
   await restrictionEngine.beginExternalAuthSession?.();
+  // An update never reloads mid sign-in, before the pause is back on.
+  const releaseOta = holdOtaReload();
   try {
     const { data, error } = await supabase.auth.linkIdentity({
       provider,
@@ -172,6 +175,7 @@ export async function linkIdentity(provider: IdentityProvider) {
       return signInToExistingAccount(provider, redirectTo);
     }
   } finally {
+    releaseOta();
     await restrictionEngine.endExternalAuthSession?.().catch(() => undefined);
   }
 }

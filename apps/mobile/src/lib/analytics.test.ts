@@ -7,10 +7,19 @@ const mocks = vi.hoisted(() => ({
   optOut: vi.fn(),
   posthog: vi.fn(),
   sentryInit: vi.fn(),
+  sentrySetTag: vi.fn(),
   setJson: vi.fn(),
 }));
 
-vi.mock("@sentry/react-native", () => ({ init: mocks.sentryInit }));
+vi.mock("@sentry/react-native", () => ({
+  init: mocks.sentryInit,
+  setTag: mocks.sentrySetTag,
+}));
+vi.mock("expo-updates", () => ({
+  updateId: "0123abcd-update",
+  channel: "production",
+  runtimeVersion: "0.3.5",
+}));
 vi.mock("posthog-react-native", () => ({
   default: mocks.posthog.mockImplementation(function PostHogMock() {
     return {
@@ -83,5 +92,36 @@ describe("analytics privacy preference", () => {
     expect(mocks.capture).toHaveBeenCalledWith("onboarding_step_viewed", {
       step: "reveal",
     });
+  });
+});
+
+describe("crash reports", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mocks.getJson.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_SENTRY_DSN;
+  });
+
+  it("stays off without a DSN", async () => {
+    const analytics = await import("./analytics");
+    await analytics.initializeObservability();
+
+    expect(mocks.sentryInit).not.toHaveBeenCalled();
+    expect(mocks.sentrySetTag).not.toHaveBeenCalled();
+  });
+
+  it("tags every report with the JavaScript the phone runs", async () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example/1";
+    const analytics = await import("./analytics");
+    await analytics.initializeObservability();
+
+    expect(mocks.sentryInit).toHaveBeenCalledOnce();
+    expect(mocks.sentrySetTag).toHaveBeenCalledWith("expo-update-id", "0123abcd-update");
+    expect(mocks.sentrySetTag).toHaveBeenCalledWith("expo-channel", "production");
+    expect(mocks.sentrySetTag).toHaveBeenCalledWith("expo-runtime-version", "0.3.5");
   });
 });

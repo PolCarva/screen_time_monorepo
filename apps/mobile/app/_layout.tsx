@@ -26,6 +26,7 @@ import { restrictionEngine } from "@/native/restriction-engine";
 import { AppStateProvider, useAppState } from "@/state/app-state";
 import { RewardAdProvider } from "@/state/reward-ad-state";
 import { ShortcutTargetsProvider } from "@/state/shortcut-targets";
+import { useOtaUpdates } from "@/state/use-ota-updates";
 import { colors } from "@/theme/tokens";
 
 void SplashScreen.preventAutoHideAsync();
@@ -55,6 +56,8 @@ function Navigation() {
   const { onboarded, hydrated } = useAppState();
   const lastShortcutIntervention = useRef<string | null>(null);
   const noticePromptShown = useRef(false);
+  // Over-the-air updates: applied only back on a tab after a while away.
+  useOtaUpdates({ segments, hydrated, onboarded });
 
   // Only iOS posts a notice (the second an access window ends), so only iOS
   // asks, and only after saying what it is for. Asked on Today, once setup is

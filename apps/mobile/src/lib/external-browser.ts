@@ -1,6 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { AppState, Platform } from "react-native";
 
+import { holdOtaReload } from "./ota-policy";
 import { restrictionEngine } from "@/native/restriction-engine";
 
 const EXTERNAL_BROWSER_TIMEOUT_MS = 10 * 60 * 1_000;
@@ -21,6 +22,8 @@ function externalHttpsUrl(value: string) {
 export async function openExternalBrowser(value: string): Promise<void> {
   const url = externalHttpsUrl(value);
   await restrictionEngine.beginExternalAuthSession?.();
+  // An update never reloads before `finish` turns the pause back on.
+  const releaseOta = holdOtaReload();
 
   return new Promise((resolve, reject) => {
     let leftStill = false;
@@ -40,6 +43,7 @@ export async function openExternalBrowser(value: string): Promise<void> {
       finishing = true;
       clearTimeout(timeout);
       subscription.remove();
+      releaseOta();
       try {
         await restrictionEngine.endExternalAuthSession?.();
         if (error) reject(error);

@@ -1,6 +1,8 @@
 import { deleteAccountResponseSchema } from "@screen-time/contracts";
 import { AdsConsent } from "react-native-google-mobile-ads";
+import Constants from "expo-constants";
 import { router, useFocusEffect, useIsFocused } from "expo-router";
+import * as Updates from "expo-updates";
 import { useCallback, useEffect, useState } from "react";
 import {
   Platform,
@@ -646,8 +648,22 @@ export default function SettingsScreen() {
           </Text>
         </PressableScale>
       </View>
+      <Mono style={styles.version}>{versionLabel()}</Mono>
     </Screen>
   );
+}
+
+/**
+ * Which JavaScript this phone runs, for support and QA: the store build's own,
+ * or an over-the-air update and its id (docs/ota-updates-plan.md).
+ */
+function versionLabel(): string {
+  const version = Constants.expoConfig?.version ?? "";
+  if (!Updates.isEnabled || Updates.isEmbeddedLaunch || !Updates.updateId) {
+    return localize(`Version ${version} · store build`, `Versión ${version} · de la tienda`);
+  }
+  const update = Updates.updateId.slice(0, 8);
+  return localize(`Version ${version} · update ${update}`, `Versión ${version} · actualización ${update}`);
 }
 
 const styles = StyleSheet.create({
@@ -707,4 +723,5 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontFamily: fonts.brandSemiBold, color: colors.graphite },
   dangerLabel: { fontFamily: fonts.brandSemiBold, color: colors.danger },
+  version: { paddingTop: spacing.lg, color: colors.graphiteSoft },
 });
