@@ -1,7 +1,7 @@
 # Reenvío de Still iOS a App Review (0.3.1)
 
-Fecha: 2026-09-25 · Rama: `fix/ios-app-review` (desde `main` 6f57895) · Estado: plan, sin
-implementar.
+Fecha: 2026-09-25 · Rama: `fix/ios-app-review` (desde `main` 6f57895) · Estado: en ejecución
+(código C1–C5 hecho; ver §12).
 
 **Pedido del usuario:** "investigar por qué me rechazaron la versión" y hacer un plan "para poder
 generar una versión con todas las features que tenemos y que nos lo puedan aprobar para iOS. En
@@ -276,3 +276,77 @@ confirma antes con el usuario.
 - Logo de Instagram en los dibujos de la guía (riesgo bajo).
 - Family Controls / `feat/onboarding-ios-screen-time`, que sigue sin mergear.
 - Tiempo devuelto con uso real (`feat/real-savings-estimate`).
+
+## 11. Textos finales
+
+### 11.1 Respuesta a App Review (se pega en «Reply to App Review», con el vídeo adjunto)
+
+```text
+Hello, and thank you for the review.
+
+Below is the information you asked for. We have submitted version 0.3.1 (it includes every feature of the app) and added the same information to the Notes field of App Review Information. The screen recording, made on an iPhone with iOS 27, starts by launching the app and shows the whole flow, including Sign in with Apple and account deletion. It is attached to this message and to App Review Information.
+
+1. PURPOSE AND AUDIENCE
+Still is for adults (18+) who open some apps on reflex and want a moment to decide. The user chooses apps; each time one of them opens, Still shows a short pause first. Still shows how many times each app was opened today and the time given back. It does not block, hide or restrict any app.
+
+2. HOW TO REVIEW (physical device: Shortcuts personal automations do not run in the Simulator)
+No login is needed: Still creates an anonymous session by itself.
+a) Open Still, go through the onboarding and confirm you are 18+.
+b) Choose Calendar or Maps (both are on every iPhone).
+c) Follow the in-app guide: Shortcuts > Automation > + > App > Choose > Calendar > blue checkmark > Run Immediately > Next > Create New Shortcut > Search Actions: "Still" > tap "Calendar" under "Pause App" (the ready-made action "Pause Calendar") > blue checkmark. Back in Still, tap Test.
+d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad loads within 12 seconds, a 15-second breathing pause lets the user in for 5 minutes.
+The target app is visible for a moment before Still appears: iOS runs the automation after the app opens.
+e) Optional account: Settings > Account > Sign in with Apple (or Google). It is only used to vote for the weekly project (Impact tab) and to recover the account on a new phone.
+f) Account deletion: Settings > Your data > "Delete account and data". With an Apple ID linked, Apple asks to confirm and our server revokes the token (Sign in with Apple REST API) before deleting. The privacy policy is in Settings > Your data.
+
+3. EXTERNAL SERVICES
+Supabase (anonymous authentication and database); our own API on Vercel; Sign in with Apple; Google Sign-In (optional); Google AdMob (rewarded ads, non-personalized; Google's consent form in the EEA, UK and Switzerland); Apple Shortcuts / App Intents; Apple Push Notification service (reminder when the chosen time ends).
+
+4. REGIONS
+The app works the same in every region, in Spanish and English. Google's consent form only appears in the EEA, UK and Switzerland. Ad availability varies by region; with no ad, the 15-second pause applies. The candidate organizations of the weekly fund are in Uruguay.
+
+5. MONEY, CHARITIES AND THIRD-PARTY MATERIAL
+Not a regulated industry. There are no in-app purchases, payments or donations: users never pay. The developer allocates 80% of Still's ad revenue to a weekly donation that the developer makes through each organization's public donation channel; users vote on which organization receives it, and the receipt is published in the app. The organizations (Cruz Roja Uruguaya, Fundación Pérez Scremini, Karumbé) are shown by name with their public websites for transparency; they are not affiliated with Still and do not endorse it. Other apps' names appear only as text, so the user can choose which apps to pause and Still can reopen them through their public URL schemes. Still never reads, blocks or modifies other apps, does not request Screen Time (Family Controls) access, and keeps the chosen app names on the device.
+
+The app has no user-generated content and no paid content.
+
+If a call would help, we are happy to schedule one.
+
+Pablo Carvalho
+```
+
+Las notas de App Review Information (≤ 4000 caracteres), la descripción y el texto promocional
+están en `docs/store-listing.md`.
+
+### 11.2 Guion del vídeo (U2)
+
+iPhone con iOS 27, 0.3.1 instalada desde TestFlight (borrar la app antes), Still en inglés
+(Ajustes → Still → Idioma → English), grabación de pantalla desde el Centro de control. Duración de
+2 a 4 minutos, sin cortes:
+
+1. Pantalla de inicio → tocar Still. El vídeo tiene que empezar abriendo la app.
+2. Onboarding completo: historia, confirmar 18+, anuncios, elegir **Calendar**.
+3. Guía de Atajos: crear la automatización «When Calendar is opened» con «Pause Calendar» y volver a
+   Still → Test.
+4. Abrir Calendar desde el inicio → aparece la pausa → «I don't want to go in anymore».
+5. Abrir Calendar otra vez → «Watch ad» → ver el anuncio → elegir minutos → vuelve Calendar.
+6. Volver a Still: Today e Impact.
+7. Settings → Account → Sign in with Apple → Impact → votar.
+8. Settings → Your data → Privacy policy (se abre la página) → cerrar.
+9. Settings → Your data → Delete account and data → Delete permanently → confirmar con Apple →
+   vuelve al onboarding.
+10. Opcional: Ajustes de iOS → tu nombre → Iniciar sesión con Apple, donde Still ya no aparece.
+
+Después: AirDrop del `.mov` a la Mac y pasar la ruta. Se comprime con
+`ffmpeg -i in.mov -vf scale=-2:1280 -c:v libx264 -crf 28 -preset slow -an out.mp4` si pesa más de
+~50 MB.
+
+## 12. Resultados
+
+| Paso | Estado | Detalle |
+|---|---|---|
+| C1 enlace a la privacidad | hecho | 3b90923; Ajustes → Tus datos → «Política de privacidad» |
+| C2 sin `suspendToHome` | hecho | 976cda0; test que impide `NSSelectorFromString` |
+| C3 revocación de Apple | hecho (código) | 95de93a; falta la clave (U1) para que revoque en producción |
+| C4 manifiesto de privacidad | hecho | los 10 tipos de la etiqueta publicada, ninguno de rastreo |
+| C5 versión y textos | hecho | 0.3.1; ficha y notas nuevas en `docs/store-listing.md` |

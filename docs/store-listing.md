@@ -24,7 +24,7 @@ Copy for App Store Connect and Google Play. Spanish (Mexico / Latin America) is 
 
 **Subtítulo (30):** Una pausa antes de entrar
 
-**Texto promocional (170):** Still aparece un segundo antes de las apps que eliges. Vuelves, o entras por el tiempo que decidas. Los anuncios opcionales financian un fondo semanal de impacto.
+**Texto promocional (170):** Still aparece un segundo antes de las apps que eliges. Vuelves, o ves un anuncio y entras por el tiempo que decidas. Los anuncios financian un fondo semanal de impacto.
 
 **Palabras clave (100):** pausa,atajos,bienestar digital,enfoque,redes sociales,hábitos,concentración,distracción,uso
 
@@ -34,20 +34,20 @@ Still aparece un segundo antes de las apps que abres por reflejo. Hace visible l
 
 CÓMO FUNCIONA
 • Eliges las apps que quieres pausar.
-• Creas una automatización personal en la app Atajos de Apple: «Cuando se abra [app] → Pausar antes de abrir». Still te guía paso a paso.
-• Cuando abres esa app, Still aparece con dos caminos: volver, o ver un anuncio opcional y entrar por el tiempo que elegiste.
+• En la app Atajos de Apple creas una automatización personal por cada app: «Cuando se abra [app]» con la acción de Still «Pausar [app]», que ya viene lista. Still te guía paso a paso y comprueba que funcione.
+• Cuando abres esa app, Still aparece antes. Puedes volver sin entrar, o ver un anuncio y entrar por el tiempo que elijas, desde un minuto hasta el resto del día.
 
 UNA PAUSA QUE CUENTA
-Los anuncios son opcionales. La plataforma asigna el 80 % de su ingreso publicitario a un fondo semanal. Votas qué proyecto lo recibe y ves el monto estimado, el confirmado y el comprobante de cada donación.
+Entrar cuesta un anuncio; tú nunca pagas nada. La plataforma asigna el 80 % de su ingreso publicitario a un fondo semanal que dona a una organización social. Con tu cuenta de Apple o Google votas cuál lo recibe, y ves el monto estimado, el confirmado y el comprobante de cada donación.
 
 SIN CULPA NI RACHAS
 Still no usa puntajes, rachas ni mensajes que juzguen tu tiempo. Muestra lo que pasó hoy: cuántas veces se abrió cada app y cuánto tiempo recuperaste.
 
 PRIVADO POR DISEÑO
-Los nombres de las apps que eliges y tu historial detallado se quedan en el iPhone. Still no crea ni lee tus automatizaciones.
+Los nombres de las apps que eliges y tu historial detallado se quedan en el iPhone. Still no crea ni lee tus automatizaciones, y no usa Tiempo en pantalla.
 
 NUNCA QUEDAS BLOQUEADO
-Si no hay anuncio disponible, una pausa breve te deja entrar igual.
+Si no hay un anuncio disponible, una pausa de 15 segundos te deja entrar 5 minutos. Y puedes borrar la automatización en Atajos cuando quieras.
 
 Still es para personas de 18 años o más.
 
@@ -57,7 +57,7 @@ Still es para personas de 18 años o más.
 
 **Subtitle (30):** A pause before you open
 
-**Promotional text (170):** Still appears a second before the apps you choose. Go back, or go in for the time you pick. Optional ads fund a weekly impact fund.
+**Promotional text (170):** Still appears a second before the apps you choose. Go back, or watch an ad and go in for the time you pick. The ads fund a weekly impact fund.
 
 **Keywords (100):** pause,shortcuts,digital wellbeing,focus,social media,habits,attention,distraction,phone use
 
@@ -67,20 +67,20 @@ Still appears a second before the apps you open on reflex. It makes the decision
 
 HOW IT WORKS
 • Choose the apps you want to pause.
-• Create a personal automation in Apple's Shortcuts app: "When [app] is opened → Pause Before Opening". Still walks you through it.
-• When you open that app, Still shows two paths: go back, or watch an optional ad and go in for the time you chose.
+• In Apple's Shortcuts app, create one personal automation per app: "When [app] is opened" with Still's ready-made action "Pause [app]". Still walks you through it and checks that it works.
+• When you open that app, Still appears first. Go back without going in, or watch an ad and go in for the time you choose, from one minute to the rest of the day.
 
 A PAUSE THAT COUNTS
-Ads are optional. The platform allocates 80% of its advertising revenue to a weekly fund. You vote on which project receives it and see the estimated amount, the confirmed amount and the receipt for every donation.
+Going in costs one ad; you never pay anything. The platform allocates 80% of its advertising revenue to a weekly fund that it donates to a social organization. With your Apple or Google account you vote on which one receives it, and you see the estimated amount, the confirmed amount and the receipt for every donation.
 
 NO GUILT, NO STREAKS
 Still has no scores, streaks or messages that judge your time. It shows what happened today: how many times each app was opened and how much time you got back.
 
 PRIVATE BY DESIGN
-The names of the apps you choose and your detailed history stay on your iPhone. Still never creates or reads your automations.
+The names of the apps you choose and your detailed history stay on your iPhone. Still never creates or reads your automations, and it doesn't use Screen Time.
 
 NEVER LOCKED OUT
-If no ad is available, a short pause still lets you in.
+If no ad is available, a 15-second pause lets you in for 5 minutes. And you can delete the automation in Shortcuts at any time.
 
 Still is for people 18 and older.
 
@@ -88,17 +88,31 @@ Still is for people 18 and older.
 
 ### App Review notes
 
-> Still adds an intentional pause before apps the user chooses. iOS gives apps no way to observe other apps, so the user creates a personal automation in Apple's Shortcuts app ("When [app] is opened → Pause Before Opening", an App Intent provided by Still). Still never creates, edits or reads automations; the in-app guide only explains the steps and opens the Shortcuts app.
+Paste into App Store Connect → App Review Information → Notes (limit 4000 characters; this is about 3430) and attach the screen recording. The longer reply to App Review is in `docs/app-store-review-plan.md` §11.
+
+> Information requested under Guideline 2.1 for version 0.3.1. A screen recording made on an iPhone with iOS 27 is attached here and in our reply in App Review.
 >
-> To review: 1) open Still and finish onboarding (no account needed; the session is anonymous); 2) choose an app such as YouTube under "Apps with a pause"; 3) follow the steps shown to create the automation in Shortcuts; 4) open that app. Still comes to the foreground and offers "Watch ad" or "I don't want to go in anymore". The ad is a rewarded ad and only starts after the user taps "Watch ad". After it completes, the user chooses "I want to go in" (Still reopens the app through its public URL scheme) or "I don't want to go in anymore". Personal automations do not run in the iOS Simulator, so please review on a device.
+> 1. PURPOSE AND AUDIENCE
+> Still is for adults (18+) who open some apps on reflex and want a moment to decide. The user chooses apps; each time one of them opens, Still shows a short pause first. Still shows how many times each app was opened today and the time given back. It does not block, hide or restrict any app.
 >
-> The target app is visible for a moment before Still appears. That is how iOS orders app launch and automations, not something Still controls.
+> 2. HOW TO REVIEW (physical device: Shortcuts personal automations do not run in the Simulator)
+> No login is needed: Still creates an anonymous session by itself.
+> a) Open Still, go through the onboarding and confirm you are 18+.
+> b) Choose Calendar or Maps (both are on every iPhone).
+> c) Follow the in-app guide: Shortcuts > Automation > + > App > Choose > Calendar > blue checkmark > Run Immediately > Next > Create New Shortcut > Search Actions: "Still" > tap "Calendar" under "Pause App" (the ready-made action "Pause Calendar") > blue checkmark. Back in Still, tap Test.
+> d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad loads within 12 seconds, a 15-second breathing pause lets the user in for 5 minutes.
+> The target app is visible for a moment before Still appears: iOS runs the automation after the app opens.
+> e) Optional account: Settings > Account > Sign in with Apple (or Google). It is only used to vote for the weekly project (Impact tab) and to recover the account on a new phone.
+> f) Account deletion: Settings > Your data > "Delete account and data". With an Apple ID linked, Apple asks to confirm and our server revokes the token (Sign in with Apple REST API) before deleting. The privacy policy is in Settings > Your data.
 >
-> Still does not block, hide or restrict any app, and it does not use Screen Time or Family Controls. The user can remove the automation in Shortcuts at any time and Still stops appearing.
+> 3. EXTERNAL SERVICES
+> Supabase (anonymous authentication and database); our own API on Vercel; Sign in with Apple; Google Sign-In (optional); Google AdMob (rewarded ads, non-personalized; Google's consent form in the EEA, UK and Switzerland); Apple Shortcuts / App Intents; Apple Push Notification service (reminder when the chosen time ends).
 >
-> Sign in with Apple (and Google) is optional: it is only used to vote for the weekly impact project and to recover the account on a new phone (Settings → Account, or Impact → Vote). Account deletion is in Settings → Privacy → "Delete account and data".
+> 4. REGIONS
+> The app works the same in every region, in Spanish and English. Google's consent form only appears in the EEA, UK and Switzerland. Ad availability varies by region; with no ad, the 15-second pause applies. The candidate organizations of the weekly fund are in Uruguay.
 >
-> The names of the chosen apps stay on the device: they are stored in the App Group and are never sent to our servers or to analytics.
+> 5. MONEY, CHARITIES AND THIRD-PARTY MATERIAL
+> Not a regulated industry. There are no in-app purchases, payments or donations: users never pay. The developer allocates 80% of Still's ad revenue to a weekly donation that the developer makes through each organization's public donation channel; users vote on which organization receives it, and the receipt is published in the app. The organizations (Cruz Roja Uruguaya, Fundación Pérez Scremini, Karumbé) are shown by name with their public websites for transparency; they are not affiliated with Still and do not endorse it. Other apps' names appear only as text, so the user can choose which apps to pause and Still can reopen them through their public URL schemes. Still never reads, blocks or modifies other apps, does not request Screen Time (Family Controls) access, and keeps the chosen app names on the device.
 
 ## Google Play (Android) — `com.still.screentime`
 
@@ -115,6 +129,6 @@ Still is for people 18 and older.
 CÓMO FUNCIONA
 • Eliges las apps que quieres pausar.
 • Activas Accesibilidad para Still. La usa solo para saber cuándo se abre una de esas apps y mostrar la pausa, y para cerrar un video flotante que la tape.
-• Cuando abres esa app, Still aparece con dos caminos: volver, o ver un anuncio opcional y entrar por el tiempo que elegiste.
+• Cuando abres esa app, Still aparece antes. Puedes volver sin entrar, o ver un anuncio y entrar por el tiempo que elijas, desde un minuto hasta el resto del día.
 
-and "se quedan en el iPhone" with "se quedan en tu teléfono". English: same substitutions.
+and "se quedan en el iPhone. Still no crea ni lee tus automatizaciones, y no usa Tiempo en pantalla." with "se quedan en tu teléfono.", and "Y puedes borrar la automatización en Atajos cuando quieras." with "Y puedes desactivar Still en Ajustes cuando quieras.". English: same substitutions.
