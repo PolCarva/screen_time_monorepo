@@ -88,7 +88,7 @@ Still is for people 18 and older.
 
 ### App Review notes
 
-Paste into App Store Connect → App Review Information → Notes (limit 4000 characters; this is about 3430) and attach the screen recording. The longer reply to App Review is in `docs/app-store-review-plan.md` §11.
+Paste into App Store Connect → App Review Information → Notes (limit 4000 characters; this is about 3735) and attach the screen recording. The longer reply to App Review is in `docs/app-store-review-plan.md` §11.
 
 > Information requested under Guideline 2.1 for version 0.3.1. A screen recording made on an iPhone with iOS 27 is attached here and in our reply in App Review.
 >
@@ -102,6 +102,7 @@ Paste into App Store Connect → App Review Information → Notes (limit 4000 ch
 > c) Follow the in-app guide: Shortcuts > Automation > + > App > Choose > Calendar > blue checkmark > Run Immediately > Next > Create New Shortcut > Search Actions: "Still" > tap "Calendar" under "Pause App" (the ready-made action "Pause Calendar") > blue checkmark. Back in Still, tap Test.
 > d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad loads within 12 seconds, a 15-second breathing pause lets the user in for 5 minutes.
 > The target app is visible for a moment before Still appears: iOS runs the automation after the app opens.
+> Ads are not being served to the iOS app on real devices yet, so on a device "Watch ad" shows "Preparing the ad..." for up to 12 seconds and then the 15-second pause. The last part of the recording uses the iOS Simulator with the same build, where Google serves its test ads, to show the rewarded-ad path.
 > e) Optional account: Settings > Account > Sign in with Apple (or Google). It is only used to vote for the weekly project (Impact tab) and to recover the account on a new phone.
 > f) Account deletion: Settings > Your data > "Delete account and data". With an Apple ID linked, Apple asks to confirm and our server revokes the token (Sign in with Apple REST API) before deleting. The privacy policy is in Settings > Your data.
 >
