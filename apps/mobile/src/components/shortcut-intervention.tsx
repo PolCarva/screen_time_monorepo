@@ -277,7 +277,7 @@ export function ShortcutIntervention({
       dispatch({ type: "FINISHED" });
       // Still is already behind the target app; do not leave this screen
       // waiting for the next time the user opens Still.
-      router.replace("/(tabs)/(today)");
+      router.replace("/");
     } catch {
       dispatch({ type: "ENTER_FAILED", stage: stage.current });
     } finally {

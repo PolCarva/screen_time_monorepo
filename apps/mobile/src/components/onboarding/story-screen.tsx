@@ -140,6 +140,8 @@ export function StoryLayout({
           compact && styles.scrollContentCompact,
         ]}
         contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
         style={styles.scroll}

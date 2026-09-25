@@ -1,8 +1,11 @@
+import * as Clipboard from "expo-clipboard";
+import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
   BackHandler,
+  Linking,
   Platform,
   StyleSheet,
   View,
@@ -23,12 +26,19 @@ import {
   LiveTestStep,
   type SummaryLine,
 } from "@/components/onboarding/android-setup-steps";
-import { EXAMPLE_DEMO_APP, type DemoApp } from "@/components/onboarding/phone";
+import { IosAppPicker } from "@/components/ios/ios-app-picker";
+import { ShortcutConnectList } from "@/components/ios/shortcut-connect-list";
+import { ShortcutGuide } from "@/components/ios/shortcut-guide";
 import {
-  OnboardingChrome,
-  StoryFooter,
-  StoryLayout,
-} from "@/components/onboarding/story-screen";
+  AppTestsStep,
+  IosAppsStep,
+  NoticesStep,
+  ReturnShortcutRows,
+  ShortcutsStep,
+  type NoticePermission,
+} from "@/components/onboarding/ios-setup-steps";
+import { EXAMPLE_DEMO_APP, type DemoApp } from "@/components/onboarding/phone";
+import { OnboardingChrome } from "@/components/onboarding/story-screen";
 import {
   GuessStep,
   HabitStep,
@@ -43,14 +53,17 @@ import {
   type UsagePermissionState,
 } from "@/components/onboarding/usage-steps";
 import { useAndroidSetup } from "@/components/onboarding/use-android-setup";
-import {
-  closeAction,
-  retryAction,
-  useStillSheet,
-} from "@/components/still-sheet";
+import { useIosSetup } from "@/components/onboarding/use-ios-setup";
+import { useStillSheet } from "@/components/still-sheet";
 import { localize } from "@/i18n";
 import { capture } from "@/lib/analytics";
 import { accessibilityPathTip, isAggressiveOem } from "@/lib/android-oem";
+import {
+  guideSteps,
+  hasReadyActions,
+  resolveSetupTier,
+} from "@/lib/ios-shortcut-setup";
+import { returnShortcutName } from "@/lib/shortcut-targets";
 import {
   canContinue,
   firstSetupStep,
@@ -74,8 +87,8 @@ import {
   type UsageInsights,
 } from "@/lib/onboarding-insights";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
-import { askForConsent, consentRequirement } from "@/native/ads-consent";
 import { restrictionEngine } from "@/native/restriction-engine";
+import { askForConsent, consentRequirement } from "@/native/ads-consent";
 import { useAppState } from "@/state/app-state";
 import {
   clearOnboardingProgress,
@@ -108,6 +121,8 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
   const [icons, setIcons] = useState<Record<string, string>>({});
 
   const [consentState, setConsentState] = useState<"checking" | "ready">("checking");
+  const [noticePermission, setNoticePermission] =
+    useState<NoticePermission>("undetermined");
 
   useEffect(() => {
     void loadOnboardingProgress(mode).then((loaded) => {
@@ -140,6 +155,13 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
     update,
     insights,
     sheet,
+  });
+  const ios = useIosSetup({
+    active: inSetup,
+    progress,
+    update,
+    // The "connected" screen of a test comes back to this flow.
+    returnTo: { pathname: mode === "setup" ? "/setup" : "/(onboarding)" },
   });
   const manufacturer = android.environment?.manufacturer ?? "";
   const context = useMemo<FlowContext | null>(
@@ -314,10 +336,12 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
   const accessibilityOk =
     android.health?.authorization === "authorized" &&
     Boolean(android.health?.serviceRunning);
-  const appsChosen = android.health?.selectedCount ?? 0;
-  const healthKnown = android.health !== null;
+  const appsChosen =
+    Platform.OS === "ios" ? ios.chosen.length : (android.health?.selectedCount ?? 0);
+  const appsTested = ios.verified.length;
+  const phoneKnown = Platform.OS === "ios" ? ios.ready : android.health !== null;
   useEffect(() => {
-    if (Platform.OS !== "android" || !healthKnown || !context || !progress) return;
+    if (!phoneKnown || !context || !progress) return;
     const current = resolveStep(context, progress.step);
     if (!isSetupStep(current)) return;
     const missing = firstUnverifiedSetupStep(context, {
@@ -329,19 +353,43 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
       batteryUnrestricted: true,
       keepAliveConfirmed: true,
       liveTestVerified: Boolean(progress.androidTestVerifiedAt),
-      appTests: { total: 0, verified: 0 },
+      appTests: { total: appsChosen, verified: appsTested },
       noticesDecided: true,
     });
     if (!missing) return;
     const order = setupSteps(context);
+    // The tests of an app just added are not "lost": they are the next thing to do.
+    if (missing === "app-tests" && current === "shortcuts") return;
     if (order.indexOf(missing) < order.indexOf(current)) goTo(missing, -1);
-  }, [accessibilityOk, appsChosen, context, goTo, healthKnown, progress]);
+  }, [accessibilityOk, appsChosen, appsTested, context, goTo, phoneKnown, progress]);
 
   // Every setup step shows what the phone says now, not what it said earlier.
   const refreshAndroid = android.refresh;
   useEffect(() => {
     if (step && isSetupStep(step) && Platform.OS === "android") void refreshAndroid();
   }, [refreshAndroid, step]);
+
+  // iOS notices: read from the phone on the step and on every return (§4.4 14I).
+  const onNoticesStep = step === "notices";
+  const readNoticePermission = useCallback(async () => {
+    const current = await Notifications.getPermissionsAsync().catch(() => null);
+    if (!current) return;
+    setNoticePermission(
+      current.granted
+        ? "granted"
+        : current.status === "denied"
+          ? "denied"
+          : "undetermined",
+    );
+  }, []);
+  useEffect(() => {
+    if (!onNoticesStep) return;
+    void readNoticePermission();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void readNoticePermission();
+    });
+    return () => subscription.remove();
+  }, [onNoticesStep, readNoticePermission]);
 
   // Funnel only: the step's name, never an app or a figure (D14).
   useEffect(() => {
@@ -388,31 +436,18 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
     return <View style={styles.blank} />;
   }
 
-  async function startLegacySetup() {
-    try {
-      await restrictionEngine.enableShortcutMode();
-      await finish({ pathname: "/ios-apps", params: { onboarding: "1" } });
-    } catch {
-      void sheet.show({
-        title: localize("We couldn't continue", "No pudimos continuar"),
-        message: localize("Try again.", "Vuelve a intentarlo."),
-        actions: [retryAction(() => void startLegacySetup()), closeAction()],
-      });
-    }
-  }
-
   const signals: SetupSignals = {
     adultConfirmed: Boolean(progress.adultConfirmedAt),
     adsConsentResolved:
       progress.adsConsent === "not-required" || Boolean(progress.adsConsentAt),
     accessibilityEnabled: android.health?.authorization === "authorized",
     accessibilityRunning: Boolean(android.health?.serviceRunning),
-    selectedApps: android.health?.selectedCount ?? 0,
+    selectedApps: appsChosen,
     batteryUnrestricted: android.battery,
     keepAliveConfirmed: Boolean(progress.keepAliveConfirmedAt),
     liveTestVerified: Boolean(progress.androidTestVerifiedAt),
-    appTests: { total: 0, verified: 0 },
-    noticesDecided: false,
+    appTests: { total: appsChosen, verified: appsTested },
+    noticesDecided: noticePermission === "granted",
   };
   const finishLater = () => void finish("/(tabs)/(today)");
   /** A setup step moves on only with its signal (D7). */
@@ -451,7 +486,10 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
           `Pausa probada con ${android.testApp?.label ?? "tu app"}`,
         );
       case "app-tests":
-        return localize("Every app tested", "Cada app probada");
+        return localize(
+          `${appsTested} of ${appsChosen} ${appsChosen === 1 ? "app" : "apps"} tested`,
+          `${appsTested} de ${appsChosen} ${appsChosen === 1 ? "app probada" : "apps probadas"}`,
+        );
       case "notices":
         return localize("Notices", "Avisos");
       default:
@@ -463,6 +501,10 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
     verified: item.verified,
     recommended: item.requirement === "recommended",
   }));
+
+  // Below iOS 26 Apple asks "Continue in Still?" when an automation runs.
+  const askedToContinue =
+    Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) < 26;
 
   const topApp = insights?.topApps[0];
   const demoApp: DemoApp =
@@ -603,6 +645,19 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
             state={android.testState}
           />
         );
+      case "notices":
+        return (
+          <NoticesStep
+            onAsk={() =>
+              void Notifications.requestPermissionsAsync({
+                ios: { allowAlert: true, allowSound: true },
+              }).then(() => readNoticePermission())
+            }
+            onNext={goNext}
+            onOpenSettings={() => void Linking.openSettings()}
+            permission={noticePermission}
+          />
+        );
       case "done":
         return (
           <DoneStep
@@ -622,35 +677,76 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
             />
           );
         }
-        return renderLegacySetup();
-      default:
-        return renderLegacySetup();
-    }
-  }
-
-  // iOS only, until its verified setup steps land (plan F5): hands over to the
-  // existing screens the way the previous onboarding did.
-  function renderLegacySetup() {
-    return (
-      <StoryLayout
-        body={localize(
-          "Pick the apps here, then connect Apple's Shortcuts so it tells Still when you open them. Everything stays on this iPhone.",
-          "Elige las apps aquí y luego conecta Atajos de Apple para que avise a Still cuando las abras. Todo se queda en este iPhone.",
-        )}
-        footer={
-          <StoryFooter
-            primary={{
-              label: busy
-                ? localize("One moment…", "Un momento…")
-                : localize("Choose apps", "Elegir apps"),
-              onPress: () => void startLegacySetup(),
-              disabled: busy,
-            }}
+        return (
+          <IosAppsStep
+            chosen={appsChosen}
+            onFinishLater={finishLater}
+            onNext={goNextVerified}
+            picker={<IosAppPicker />}
           />
-        }
-        title={localize("Choose your apps.", "Elige tus apps.")}
-      />
-    );
+        );
+      case "shortcuts": {
+        const nextApp = ios.pending[0] ?? ios.chosen[0];
+        const tier = resolveSetupTier({ iosVersion: Platform.Version });
+        return (
+          <ShortcutsStep
+            app={nextApp?.name ?? EXAMPLE_DEMO_APP.label}
+            askedToContinue={askedToContinue}
+            guide={
+              <ShortcutGuide
+                app={nextApp?.name ?? EXAMPLE_DEMO_APP.label}
+                appNames={ios.chosen.map((target) => target.name)}
+                readyActions={hasReadyActions(Platform.Version)}
+                steps={guideSteps(tier, { needsReturnShortcut: false })}
+              />
+            }
+            onFinishLater={finishLater}
+            onNext={goNext}
+          />
+        );
+      }
+      case "app-tests":
+        return (
+          <AppTestsStep
+            askedToContinue={askedToContinue}
+            extra={
+              <ReturnShortcutRows
+                apps={ios.schemeless.map((target) => ({
+                  id: target.id,
+                  name: target.name,
+                  shortcut: returnShortcutName(target.name),
+                  tested: ios.returnTested(target.id),
+                }))}
+                onCopy={(shortcut) => {
+                  void Clipboard.setStringAsync(shortcut);
+                  sheet.toast({
+                    message: localize("Name copied.", "Nombre copiado."),
+                    tone: "success",
+                  });
+                }}
+                onTest={(id) => void ios.testReturn(id)}
+              />
+            }
+            list={
+              <ShortcutConnectList
+                onProbeStart={ios.onProbeStart}
+                pausesEnabled={context!.pausesEnabled}
+                probe={ios.probe}
+                returnTo={{ pathname: mode === "setup" ? "/setup" : "/(onboarding)" }}
+              />
+            }
+            nextApp={ios.pending[0]?.name ?? null}
+            onChangeApps={() => goTo("apps", -1)}
+            onFinishLater={finishLater}
+            onGuide={() => goTo("shortcuts", -1)}
+            onNext={goNextVerified}
+            total={appsChosen}
+            verified={appsTested}
+          />
+        );
+      default:
+        return null;
+    }
   }
 
   return (

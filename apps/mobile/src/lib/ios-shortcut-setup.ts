@@ -18,8 +18,20 @@ export const IOS_HOME_SHORTCUT_IMPORT_URL = "";
 /** Name of the imported shortcut, used to deep-link into it for edits and repairs. */
 export const PAUSE_SHORTCUT_NAME = "Still - Pausa";
 
-/** How long Still waits for the automation to fire before calling a test failed. */
-export const SETUP_PROBE_GRACE_MS = 6_000;
+/**
+ * How long Still waits for the automation to fire before calling a test failed
+ * (docs/onboarding-v2-plan.md §4.4). Below iOS 26 Apple first asks "Continue in
+ * Still?", which takes a person longer to answer.
+ */
+export const SETUP_PROBE_GRACE_MS = 8_000;
+export const SETUP_PROBE_GRACE_BEFORE_26_MS = 20_000;
+
+export function setupProbeGraceMs(iosVersion: string | number): number {
+  const major = Number.parseInt(String(iosVersion), 10);
+  return Number.isFinite(major) && major < 26
+    ? SETUP_PROBE_GRACE_BEFORE_26_MS
+    : SETUP_PROBE_GRACE_MS;
+}
 
 /**
  * `per_app` is one sec's setup made shorter: one automation per app whose only
@@ -206,12 +218,14 @@ export function probeResult(input: {
   startedAt: number;
   lastTriggeredAt?: string | null;
   now: number;
+  /** See setupProbeGraceMs; the iOS 26+ wait by default. */
+  graceMs?: number;
 }): ProbeResult {
   const fired = input.lastTriggeredAt ? Date.parse(input.lastTriggeredAt) : NaN;
   // Native timestamps have second precision; allow for that rounding.
   if (Number.isFinite(fired) && fired >= input.startedAt - 1_000)
     return "connected";
-  return input.now - input.startedAt >= SETUP_PROBE_GRACE_MS
+  return input.now - input.startedAt >= (input.graceMs ?? SETUP_PROBE_GRACE_MS)
     ? "not_detected"
     : "waiting";
 }

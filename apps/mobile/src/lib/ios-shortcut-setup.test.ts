@@ -5,6 +5,7 @@ import {
   IOS_HOME_SHORTCUT_IMPORT_URL,
   IOS_SHORTCUT_IMPORT_URL,
   SETUP_PROBE_GRACE_MS,
+  setupProbeGraceMs,
   guideLinkUrl,
   guideSteps,
   hasReadyActions,
@@ -153,6 +154,16 @@ describe("setup test result", () => {
     expect(
       probeResult({ startedAt, now: startedAt + SETUP_PROBE_GRACE_MS }),
     ).toBe("not_detected");
+  });
+
+  it("waits longer below iOS 26, where Apple asks to continue in Still first", () => {
+    expect(setupProbeGraceMs("18.5")).toBe(20_000);
+    expect(setupProbeGraceMs(17)).toBe(20_000);
+    expect(setupProbeGraceMs("26.0")).toBe(8_000);
+    expect(setupProbeGraceMs("27.1")).toBe(8_000);
+    expect(
+      probeResult({ startedAt, now: startedAt + 10_000, graceMs: setupProbeGraceMs("18.5") }),
+    ).toBe("waiting");
   });
 });
 

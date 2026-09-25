@@ -20,7 +20,7 @@ export default function InterventionScreen() {
 
   const leaveToHome = useLeaveToHome();
 
-  if (!shortcutId) return <Redirect href="/(tabs)/(today)" />;
+  if (!shortcutId) return <Redirect href="/" />;
 
   const parsed = Number.parseInt(attempts ?? "", 10);
   return (

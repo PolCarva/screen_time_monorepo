@@ -27,7 +27,7 @@ export function useLeaveToHome() {
       homeShortcutInstalled: await getHomeShortcutInstalled().catch(
         () => false,
       ),
-      resetNavigation: () => router.replace("/(tabs)/(today)"),
+      resetNavigation: () => router.replace("/"),
       suspendToHome: () => restrictionEngine.suspendToHome(),
       openUrl: (url) => Linking.openURL(url),
       showManualExit: () => router.push("/leave"),

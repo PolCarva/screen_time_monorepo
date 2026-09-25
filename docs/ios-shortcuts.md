@@ -120,6 +120,31 @@ automation that already uses it keeps running (verified on the simulator by
 running a shortcut made with it after hiding it). Both actions call the same
 `ShortcutInterventionState.prepare(appName:)`.
 
+## In the onboarding (onboarding v2)
+
+New users do all of this inside the onboarding, after the story
+(docs/onboarding-v2-plan.md §4.4), and `onboarded` is only set at the end:
+
+1. **Choose apps** — the same picker (`components/ios/ios-app-picker`); at least
+   one app to move on.
+2. **Connect with Shortcuts** — the drawn guide for the next app still to
+   connect, plus "Does it look different?" with the step's goal in plain words
+   and, below iOS 26, the "Continue in Still?" prompt to expect.
+3. **Test each app** — the connect list (`components/ios/shortcut-connect-list`)
+   with the test kept in the onboarding's own progress, so a Still restarted
+   by the automation resumes it. An app counts only when its automation fired
+   **during this setup** (`lastTriggeredAt` newer than the setup's start), never
+   because of an old `verifiedAt`. The "connected" screen of a test returns to
+   the onboarding (`lib/setup-test-return`). The wait before "the pause didn't
+   show up" is 8 s, 20 s below iOS 26. Apps with no URL scheme can also test
+   their way back: "Test the way back" runs `Still - <App>`, which opens the app,
+   and its automation firing proves Still can reopen it after the ad.
+4. **Notices** — the time's-up notice, asked here (recommended, not required);
+   Today still asks users onboarded before.
+
+"Finish later" leaves the onboarding; Today then shows "Finish setting up Still",
+which opens `/setup`: the same steps without the story.
+
 ## Runtime contract
 
 1. Opening YouTube triggers `PauseAppIntent` ("Pause YouTube") in the

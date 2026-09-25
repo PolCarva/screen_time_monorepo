@@ -1,12 +1,17 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { AppState, Linking, StyleSheet, View } from "react-native";
+import { AppState, Linking, Platform, StyleSheet, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { gotItAction, useStillSheet } from "@/components/still-sheet";
 import { Body, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
-import { probeResult, relativeAge, type RelativeAge } from "@/lib/ios-shortcut-setup";
+import {
+  probeResult,
+  relativeAge,
+  setupProbeGraceMs,
+  type RelativeAge,
+} from "@/lib/ios-shortcut-setup";
 import {
   type ShortcutTarget,
   activeTargets,
@@ -86,6 +91,7 @@ export function ShortcutConnectList({
         startedAt: probe.startedAt,
         lastTriggeredAt: health[probe.targetId]?.lastTriggeredAt,
         now,
+        graceMs: setupProbeGraceMs(Platform.Version),
       })
     : null;
 

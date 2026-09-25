@@ -298,6 +298,25 @@ export function probeOutcome(input: {
   return "waiting";
 }
 
+/**
+ * iOS: the chosen apps whose automation fired since `sinceMs`, with when. An
+ * app counts during a setup only if it fired during that setup; an old
+ * `verifiedAt` proves nothing about today (docs/onboarding-v2-plan.md §4.0).
+ * Native timestamps have second precision, hence the one-second allowance.
+ */
+export function firedSince(
+  ids: readonly string[],
+  health: Readonly<Record<string, { lastTriggeredAt?: string | null } | undefined>>,
+  sinceMs: number,
+): Record<string, number> {
+  const fired: Record<string, number> = {};
+  for (const id of ids) {
+    const at = Date.parse(health[id]?.lastTriggeredAt ?? "");
+    if (Number.isFinite(at) && at >= sinceMs - 1_000) fired[id] = at;
+  }
+  return fired;
+}
+
 /** What the onboarding remembers between launches (D9). */
 const probeSchema = z.object({
   kind: z.enum(["android", "ios", "ios-return"]),

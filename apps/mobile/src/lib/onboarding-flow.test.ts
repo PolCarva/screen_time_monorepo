@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canContinue,
+  firedSince,
   firstSetupStep,
   firstUnverifiedSetupStep,
   initialProgress,
@@ -304,5 +305,30 @@ describe("stored progress (D9)", () => {
       },
     };
     expect(parseProgress(progress)?.probe?.target).toBe("com.instagram.android");
+  });
+});
+
+describe("iOS apps connected during this setup (§4.4)", () => {
+  const since = Date.parse("2026-09-25T10:00:00.000Z");
+
+  it("counts only automations that fired after the setup began", () => {
+    const fired = firedSince(
+      ["news", "fitness", "maps"],
+      {
+        news: { lastTriggeredAt: "2026-09-25T10:02:00.000Z" },
+        // Connected weeks ago: says nothing about today.
+        fitness: { lastTriggeredAt: "2026-09-01T08:00:00.000Z" },
+      },
+      since,
+    );
+    expect(Object.keys(fired)).toEqual(["news"]);
+  });
+
+  it("allows for second-precision native timestamps", () => {
+    expect(
+      Object.keys(
+        firedSince(["news"], { news: { lastTriggeredAt: "2026-09-25T09:59:59.500Z" } }, since),
+      ),
+    ).toEqual(["news"]);
   });
 });
