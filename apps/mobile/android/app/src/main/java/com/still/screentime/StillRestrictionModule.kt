@@ -747,6 +747,84 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     })
   }
 
+  /**
+   * Still's counters per day and per app for the last [days] local days
+   * (at most a year), for the Savings screen: the day totals, and every app
+   * with a counter in that time, chosen now or before. Same shape as iOS.
+   */
+  @ReactMethod
+  fun getAppHistory(days: Int, promise: Promise) {
+    val dates = StillDay.lastDays(days.coerceIn(1, MAX_APP_HISTORY_DAYS))
+    val inRange = dates.toSet()
+    val metrics = listOf(
+      METRIC_APP_OPEN_ATTEMPTS,
+      METRIC_APP_AVOIDED_OPENS,
+      METRIC_APP_UNLOCKS,
+      METRIC_APP_REENTRIES,
+    )
+    // package -> day -> counters in the order of `metrics`.
+    val perApp = mutableMapOf<String, MutableMap<String, IntArray>>()
+    for ((key, value) in preferences.all) {
+      val count = value as? Int ?: continue
+      val metric = metrics.indexOf(key.substringBefore(':'))
+      if (metric < 0) continue
+      val rest = key.substringAfter(':')
+      val day = rest.substringBefore(':')
+      val packageName = rest.substringAfter(':', "")
+      if (day !in inRange || packageName.isEmpty() ||
+        StillSelfProtection.isOwnPackage(context.packageName, packageName)
+      ) {
+        continue
+      }
+      perApp.getOrPut(packageName) { mutableMapOf() }
+        .getOrPut(day) { IntArray(metrics.size) }[metric] = count
+    }
+    val chosen = StillSelfProtection.sanitizePreferences(preferences, context.packageName)
+    fun dayMap(day: String, values: IntArray) = Arguments.createMap().apply {
+      putString("date", day)
+      putInt("openAttempts", values[0])
+      putInt("avoidedOpens", values[1])
+      putInt("unlocks", values[2])
+      putInt("reentries", values[3])
+    }
+    promise.resolve(Arguments.createMap().apply {
+      putArray("days", Arguments.createArray().apply {
+        dates.forEach { day ->
+          pushMap(
+            dayMap(
+              day,
+              intArrayOf(
+                preferences.getInt("open_attempts:$day", 0),
+                preferences.getInt("avoided_opens:$day", 0),
+                preferences.getInt("unlocks:$day", 0),
+                preferences.getInt("reentries:$day", 0),
+              ),
+            ),
+          )
+        }
+      })
+      putArray("apps", Arguments.createArray().apply {
+        perApp.forEach { (packageName, byDay) ->
+          pushMap(Arguments.createMap().apply {
+            putString("key", packageName)
+            putString(
+              "label",
+              runCatching {
+                context.packageManager.getApplicationLabel(
+                  context.packageManager.getApplicationInfo(packageName, 0),
+                ).toString()
+              }.getOrDefault(packageName),
+            )
+            putBoolean("chosen", packageName in chosen)
+            putArray("days", Arguments.createArray().apply {
+              dates.filter { it in byDay }.forEach { day -> pushMap(dayMap(day, byDay.getValue(day))) }
+            })
+          })
+        }
+      })
+    })
+  }
+
   @ReactMethod
   fun resetLocalData(promise: Promise) {
     preferences.edit().clear().apply()
@@ -855,6 +933,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val PREFERENCES = "still_restrictions"
     /** Days of history Today's week shows, ending today. */
     const val HISTORY_DAYS = 7
+    /** The most days the Savings screen asks for ("All"). */
+    const val MAX_APP_HISTORY_DAYS = 365
     const val KEY_SELECTED_PACKAGES = "selected_packages"
     const val KEY_CURRENT_PACKAGE = "current_package"
     const val METRIC_APP_OPEN_ATTEMPTS = "app_open_attempts"

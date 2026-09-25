@@ -587,6 +587,28 @@ enum SharedRestrictionState {
     "\(targetProductMetricsPrefix)\(scope):\(localDay())"
   }
 
+  /// Each Shortcuts app's counters on the given days (`yyyy-MM-dd`), keyed by
+  /// its target key (`ShortcutInterventionState.key(appName:)`) and then by
+  /// day. Days without a counter are left out.
+  static func shortcutAppMetrics(days: [String]) -> [String: [String: DailyProductMetrics]] {
+    let prefix = "\(targetProductMetricsPrefix)shortcut:"
+    let wanted = Set(days)
+    var result: [String: [String: DailyProductMetrics]] = [:]
+    for (key, value) in defaults.dictionaryRepresentation() where key.hasPrefix(prefix) {
+      guard let data = value as? Data,
+        let metrics = try? JSONDecoder().decode(DailyProductMetrics.self, from: data)
+      else { continue }
+      // The target key is base64, which has no ":"; the day comes last.
+      let rest = key.dropFirst(prefix.count)
+      guard let separator = rest.lastIndex(of: ":") else { continue }
+      let targetKey = String(rest[..<separator])
+      let day = String(rest[rest.index(after: separator)...])
+      guard !targetKey.isEmpty, wanted.contains(day) else { continue }
+      result[targetKey, default: [:]][day] = metrics
+    }
+    return result
+  }
+
   private static var externalBrowserBypassActive: Bool {
     guard let deadline = defaults.object(forKey: externalBrowserBypassUntilKey) as? Date else {
       return false

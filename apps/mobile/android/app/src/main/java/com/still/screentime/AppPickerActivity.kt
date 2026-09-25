@@ -15,7 +15,9 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.animation.OvershootInterpolator
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -39,6 +41,9 @@ class AppPickerActivity : Activity() {
   private val indicatorUpdaters = mutableMapOf<String, MutableList<(Boolean) -> Unit>>()
   /** The suggestions block; hidden while searching, which covers every app. */
   private val suggestionViews = mutableListOf<View>()
+  private lateinit var search: EditText
+  private lateinit var scroll: ScrollView
+  private lateinit var list: LinearLayout
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -67,7 +72,7 @@ class AppPickerActivity : Activity() {
     root.addView(createToolbar(spanish), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
     root.addView(View(this).apply { setBackgroundColor(fog) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
 
-    val search = EditText(this).apply {
+    search = EditText(this).apply {
       hint = if (spanish) "Buscar apps" else "Search apps"
       contentDescription = hint
       isSingleLine = true
@@ -89,7 +94,7 @@ class AppPickerActivity : Activity() {
       setMargins(dp(16), dp(12), dp(16), dp(10))
     })
 
-    val list = LinearLayout(this).apply {
+    list = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       setBackgroundColor(chalkRaised)
     }
@@ -123,11 +128,12 @@ class AppPickerActivity : Activity() {
       appRows += label.lowercase(Locale.getDefault()) to row
       list.addView(row)
     }
-    root.addView(ScrollView(this).apply {
+    scroll = ScrollView(this).apply {
       clipToPadding = false
       setBackgroundColor(chalkRaised)
       addView(list)
-    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+    }
+    root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
     // Cancel and Done stay below the status bar, the last row above the
     // navigation bar, and the list shrinks above the keyboard while searching.
@@ -276,16 +282,40 @@ class AppPickerActivity : Activity() {
         row.contentDescription = "$label, ${if (packageName in selected) "selected" else "not selected"}"
       }
       setOnClickListener {
-        if (StillSelfProtection.isOwnPackage(this@AppPickerActivity.packageName, packageName)) {
+        val chosen = if (StillSelfProtection.isOwnPackage(this@AppPickerActivity.packageName, packageName)) {
           selected.remove(packageName)
+          false
         } else if (!selected.add(packageName)) {
           selected.remove(packageName)
+          false
+        } else {
+          true
         }
         indicatorUpdaters[packageName]?.forEach { it(true) }
+        if (chosen) closeSearchOn(this)
       }
     }.also { row ->
       row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(60))
     }
+  }
+
+  /**
+   * An app chosen from a search: the search closes and the full list shows it
+   * ticked under its real name, so what was typed ("Cal") never looks like
+   * the choice. Rows chosen without a search keep the list where it is.
+   */
+  private fun closeSearchOn(row: View) {
+    if (search.text.isNullOrBlank()) return
+    search.setText("")
+    search.clearFocus()
+    getSystemService(InputMethodManager::class.java)
+      ?.hideSoftInputFromWindow(search.windowToken, 0)
+    list.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+      override fun onGlobalLayout() {
+        list.viewTreeObserver.removeOnGlobalLayoutListener(this)
+        scroll.smoothScrollTo(0, (row.top - dp(72)).coerceAtLeast(0))
+      }
+    })
   }
 
   private fun filterRows(query: String) {

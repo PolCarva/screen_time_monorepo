@@ -126,3 +126,13 @@ export function searchTargets(
     addable: exact || isReservedAppName(typed) ? null : typed,
   };
 }
+
+/**
+ * The name the keyboard's return key adds, or null. Only a name nothing listed
+ * matches: with "Cal" typed and Calendar offered, return must never turn the
+ * half-typed "Cal" into an app of its own. Adding it anyway stays one tap
+ * away, on its own row.
+ */
+export function nameToAddOnSubmit(search: PickerSearch): string | null {
+  return search.matches.length === 0 ? search.addable : null;
+}

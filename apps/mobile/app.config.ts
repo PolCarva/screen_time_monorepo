@@ -67,7 +67,7 @@ const config: ExpoConfig = {
   owner: "pablo-carvalhos-team",
   name: production ? "Still" : `Still ${variant}`,
   slug: "still",
-  version: "0.3.3",
+  version: "0.3.4",
   orientation: "portrait",
   scheme: "still",
   icon: "./assets/icon.png",

@@ -24,5 +24,6 @@ RCT_EXTERN_METHOD(getPendingUnlockEvents:(RCTPromiseResolveBlock)resolve rejecte
 RCT_EXTERN_METHOD(acknowledgeUnlockEvent:(NSString *)clientSessionId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(hasPendingIntervention:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(getLocalWellbeing:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(getAppHistory:(nonnull NSNumber *)days resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(resetLocalData:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 @end

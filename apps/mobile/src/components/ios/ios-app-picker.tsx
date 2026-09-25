@@ -4,7 +4,11 @@ import { Linking, Platform, StyleSheet, TextInput, View } from "react-native";
 import { CheckFill, PressableScale } from "@/components/motion";
 import { Body, Eyebrow, Mono } from "@/components/typography";
 import { localize } from "@/i18n";
-import { pickerSections, searchTargets } from "@/lib/ios-app-picker";
+import {
+  nameToAddOnSubmit,
+  pickerSections,
+  searchTargets,
+} from "@/lib/ios-app-picker";
 import { MAX_APP_NAME_LENGTH, type ShortcutTarget } from "@/lib/shortcut-targets";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
@@ -77,6 +81,7 @@ export function IosAppPicker() {
   );
   const search = useMemo(() => searchTargets(targets, query), [query, targets]);
   const searching = query.trim().length > 0;
+  const submitName = nameToAddOnSubmit(search);
 
   async function add(name: string) {
     const result = await addCustom(name);
@@ -88,15 +93,25 @@ export function IosAppPicker() {
     setError(null);
   }
 
+  /**
+   * A tap on a search result chooses that app and closes the search, so what
+   * was typed ("Cal") is gone and the app shows with the chosen ones, under
+   * its real name ("Calendar").
+   */
+  async function toggle(target: ShortcutTarget) {
+    const choosing = target.state !== "active";
+    await setSelected(target.id, choosing);
+    if (!searching || !choosing) return;
+    setChosenBefore((before) => new Set([...(before ?? []), target.id]));
+    setQuery("");
+    setError(null);
+  }
+
   function chips(list: readonly ShortcutTarget[]) {
     return (
       <View style={styles.chips}>
         {list.map((target) => (
-          <AppChip
-            key={target.id}
-            onToggle={() => void setSelected(target.id, target.state !== "active")}
-            target={target}
-          />
+          <AppChip key={target.id} onToggle={() => void toggle(target)} target={target} />
         ))}
       </View>
     );
@@ -116,11 +131,11 @@ export function IosAppPicker() {
             setError(null);
           }}
           onSubmitEditing={() => {
-            if (search.addable) void add(search.addable);
+            if (submitName) void add(submitName);
           }}
           placeholder={localize("Search or add an app", "Busca o añade una app")}
           placeholderTextColor={colors.mineralLight}
-          returnKeyType={search.addable ? "done" : "search"}
+          returnKeyType={submitName ? "done" : "search"}
           style={styles.search}
           value={query}
         />

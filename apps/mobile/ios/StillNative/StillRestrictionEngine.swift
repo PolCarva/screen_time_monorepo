@@ -425,6 +425,50 @@ final class StillRestrictionEngine: RCTEventEmitter {
     ])
   }
 
+  /// Still's counters per day and per app for the last `days` local days (at
+  /// most a year), for the Savings screen. Same shape as Android: the day
+  /// totals, and every app with a counter then, chosen now or before.
+  @objc func getAppHistory(
+    _ days: NSNumber,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    let dates = SharedRestrictionState.lastLocalDays(max(1, min(days.intValue, 365)))
+    func entry(_ day: String, _ metrics: SharedRestrictionState.DailyProductMetrics)
+      -> [String: Any]
+    {
+      [
+        "date": day,
+        "openAttempts": metrics.openAttempts,
+        "avoidedOpens": metrics.avoidedOpens,
+        "unlocks": metrics.unlocks,
+        "reentries": metrics.reentries,
+      ]
+    }
+    let targets = ShortcutTargetStore.load()
+    let apps: [[String: Any]] = SharedRestrictionState.shortcutAppMetrics(days: dates).map {
+      element -> [String: Any] in
+      let (targetKey, byDay) = element
+      let target = targets.first { ShortcutInterventionState.key(appName: $0.name) == targetKey }
+      // An app no longer listed keeps its history under the name it had
+      // (lowercased: that is all the key holds).
+      let name =
+        target?.name
+        ?? Data(base64Encoded: targetKey).flatMap { String(data: $0, encoding: .utf8) }
+        ?? targetKey
+      return [
+        "key": name,
+        "label": name,
+        "chosen": target?.state == "active",
+        "days": dates.compactMap { day in byDay[day].map { entry(day, $0) } },
+      ]
+    }
+    resolve([
+      "days": dates.map { entry($0, SharedRestrictionState.productMetrics(day: $0)) },
+      "apps": apps,
+    ])
+  }
+
   @objc func resetLocalData(
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock

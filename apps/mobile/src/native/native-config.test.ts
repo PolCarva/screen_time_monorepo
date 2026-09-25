@@ -141,7 +141,23 @@ describe("committed native production configuration", () => {
     expect(accessibilityService).toContain("isExternalAuthBrowser(target)");
     expect(accessibilityService).toContain("KEY_EXTERNAL_AUTH_BYPASS_BOOT");
     expect(accessibilityService).toContain("METRIC_APP_OPEN_ATTEMPTS");
-    expect(accessibilityService).toContain("alreadyPending");
+    // A shield launched a moment ago is not launched twice, but the front app
+    // is looked at again once that moment is over, and a launch that never
+    // reached the front is retried (then through Home): closing the shield
+    // and reopening the app quickly must not slip through.
+    expect(accessibilityService).toContain(
+      "scheduleSettleCheck(LAUNCH_SETTLE_MS - sinceLaunch + SETTLE_CHECK_MS)",
+    );
+    expect(accessibilityService).toContain("scheduleSettleCheck(SETTLE_CHECK_MS)");
+    // The Savings screen reads every app's counters, chosen now or before.
+    expect(restrictionModule).toContain("fun getAppHistory(days: Int, promise: Promise)");
+    expect(accessibilityService).toContain("private fun verifyLaunch()");
+    expect(accessibilityService).toContain("InterventionActivity.shownFor == launch.target");
+    // The breathing pause only runs while the shield is on screen, and a
+    // shield being recreated is never finished with the old one.
+    expect(intervention).toContain("PausePoint.decode(");
+    expect(intervention).toContain("if (!onScreen) {");
+    expect(intervention).toContain("!isChangingConfigurations");
     // real-savings §2.3: every counted pause moves the app's trail, and going
     // in marks it (a skip undone right after gives no time back). An open
     // whose shield is still unanswered is never counted twice.
@@ -304,6 +320,7 @@ describe("committed native production configuration", () => {
       "getShortcutTargetsHealth",
       "beginShortcutSetupProbe",
       "finishShortcutSetupTest",
+      "getAppHistory",
     ]) {
       expect(restrictionEngine).toContain(`@objc func ${method}(`);
       expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);

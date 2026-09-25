@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { POPULAR_APP_IDS, pickerSections, searchTargets } from "./ios-app-picker";
+import {
+  POPULAR_APP_IDS,
+  nameToAddOnSubmit,
+  pickerSections,
+  searchTargets,
+} from "./ios-app-picker";
 import {
   type ShortcutTarget,
   addCustomTarget,
@@ -105,5 +110,16 @@ describe("iOS app picker search", () => {
     expect(searchTargets(catalogTargets(), "instagram").addable).toBeNull();
     expect(searchTargets(catalogTargets(), "Atajos").addable).toBeNull();
     expect(searchTargets(catalogTargets(), "   ")).toEqual({ matches: [], addable: null });
+  });
+
+  it("never adds a half-typed name with the return key when an app matches it", () => {
+    // "Cal" finds Calendar (alias Calendario): return must not add an app "Cal".
+    const typed = searchTargets(catalogTargets(), "Cal");
+    expect(ids(typed.matches)).toContain("apple-calendar");
+    expect(typed.addable).toBe("Cal");
+    expect(nameToAddOnSubmit(typed)).toBeNull();
+    // A name nothing matches is still added from the keyboard.
+    expect(nameToAddOnSubmit(searchTargets(catalogTargets(), "Tilo"))).toBe("Tilo");
+    expect(nameToAddOnSubmit(searchTargets(catalogTargets(), "instagram"))).toBeNull();
   });
 });
