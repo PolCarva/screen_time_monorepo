@@ -19,6 +19,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
+import java.time.LocalDate
 import java.util.UUID
 
 class StillRestrictionModule(private val context: ReactApplicationContext) :
@@ -157,7 +158,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     else context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
-  /** Usage access, for the onboarding story only (docs/onboarding-v2-plan.md §6.1). */
+  /** Usage access: the onboarding story and the time given back (docs/real-savings-estimate-plan.md). */
   @ReactMethod
   fun hasUsageAccess(promise: Promise) {
     promise.resolve(StillUsageInsights.hasUsageAccess(context))
@@ -208,6 +209,55 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
                 putString("label", label)
                 putArray("seconds", Arguments.createArray().apply {
                   for (day in summary.days) pushDouble((day.appMillis[packageName] ?: 0L) / 1_000.0)
+                })
+              })
+            }
+          })
+        }
+      }.onSuccess { promise.resolve(it) }
+        .onFailure { promise.reject("usage_read_failed", it.message, it) }
+    }.start()
+  }
+
+  /**
+   * Every app used from `from` (local `yyyy-MM-dd`) until `toExclusive` or now:
+   * sessions, their median and time per day (docs/real-savings-estimate-plan.md
+   * §3.1). React Native keeps only what it needs, on the phone.
+   */
+  @ReactMethod
+  fun getUsageStats(from: String, toExclusive: String?, promise: Promise) {
+    if (!StillUsageInsights.hasUsageAccess(context)) {
+      promise.reject("usage_access_denied", "Usage access is not granted")
+      return
+    }
+    val start = runCatching { LocalDate.parse(from) }.getOrNull()
+    val end = toExclusive?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    if (start == null || (toExclusive != null && end == null)) {
+      promise.reject("invalid_range", "Dates must be yyyy-MM-dd")
+      return
+    }
+    Thread {
+      runCatching {
+        val stats = StillUsageInsights.readStats(context, start, end)
+        Arguments.createMap().apply {
+          stats.firstEventMillis?.let { putDouble("firstEventAt", it.toDouble()) }
+            ?: putNull("firstEventAt")
+          putArray("days", Arguments.createArray().apply {
+            for (day in stats.days) {
+              pushMap(Arguments.createMap().apply {
+                putString("date", day.toString())
+                putBoolean("complete", day.isBefore(stats.today))
+              })
+            }
+          })
+          putArray("apps", Arguments.createArray().apply {
+            for (app in stats.apps) {
+              pushMap(Arguments.createMap().apply {
+                putString("packageName", app.packageName)
+                putInt("sessions", app.sessions)
+                putDouble("medianSeconds", app.medianMillis / 1_000.0)
+                putArray("seconds", Arguments.createArray().apply {
+                  for (millis in app.millisByDay) pushDouble(millis / 1_000.0)
                 })
               })
             }

@@ -32,7 +32,8 @@ describe("committed native production configuration", () => {
     expect(gradle).toContain("applicationId 'com.still.screentime'");
     expect(manifest).toContain('android:scheme="still"');
     // Today counts Still's own pauses on both platforms (ui-clarity-plan D4);
-    // Usage access is back only for the onboarding story (onboarding-v2 D4).
+    // Usage access feeds the onboarding story and the time given back
+    // (real-savings-estimate-plan D8).
     expect(manifest).toContain(
       '<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>',
     );
@@ -82,8 +83,15 @@ describe("committed native production configuration", () => {
     // Screen time is gone (D4); Today reads seven local days of Still's own
     // counters, keyed by the phone's day (D6).
     expect(restrictionModule).not.toContain("wellbeingAuthorization");
-    // Usage is read in one file, for the onboarding only, and never sent.
+    // Usage is read in one file and never sent; the module only hands the
+    // per-app sessions and medians to React Native (real-savings §3.1).
     expect(restrictionModule).not.toContain("UsageStatsManager");
+    expect(restrictionModule).toContain("fun getUsageStats(from: String, toExclusive: String?");
+    const usageSessions = nativeFile(
+      "android/app/src/main/java/com/still/screentime/UsageSessions.kt",
+    );
+    expect(usageSessions).toContain("const val MERGE_GAP_MILLIS = 30_000L");
+    expect(usageSessions).toContain("const val MIN_SESSION_MILLIS = 5_000L");
     const usageInsights = nativeFile(
       "android/app/src/main/java/com/still/screentime/StillUsageInsights.kt",
     );

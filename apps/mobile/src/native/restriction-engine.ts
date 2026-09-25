@@ -105,6 +105,23 @@ export type NativeUsageSummary = {
   }[];
   apps: { packageName: string; label: string; seconds: number[] }[];
 };
+/**
+ * Android usage from `from` until `toExclusive` or now, per app: sessions that
+ * started on those days, their median and time per day. Only per-app totals
+ * are kept, on the phone (docs/real-savings-estimate-plan.md, D8).
+ */
+export type NativeUsageStats = {
+  /** Epoch ms of the oldest event the phone keeps; null when it keeps none. */
+  firstEventAt: number | null;
+  days: { date: string; complete: boolean }[];
+  apps: {
+    packageName: string;
+    sessions: number;
+    medianSeconds: number;
+    /** Same order as `days`. */
+    seconds: number[];
+  }[];
+};
 /** Still's own counters for today and the last seven local days (oldest first). */
 export type LocalWellbeingStats = {
   openAttempts: number;
@@ -168,12 +185,14 @@ export interface RestrictionEngine {
   openAppInfo?(): Promise<boolean>;
   /** Android only. Opens the Accessibility settings without waiting for a result. */
   openAccessibilitySettings?(): Promise<boolean>;
-  /** Android only. Usage access, read by the onboarding story alone (D4). */
+  /** Android only. Usage access: the onboarding story and the time given back. */
   hasUsageAccess?(): Promise<boolean>;
   /** Android only. Opens Usage access; the caller checks again on return. */
   openUsageAccessSettings?(): Promise<boolean>;
   /** Android only. Seven complete local days and today, most used apps included. */
   getUsageSummary?(): Promise<NativeUsageSummary>;
+  /** Android only. Sessions, their median and time per day for every app used. */
+  getUsageStats?(from: string, toExclusive: string | null): Promise<NativeUsageStats>;
   /** Android only. An installed app's icon as a PNG `data:` URI. */
   getAppIcon?(packageName: string, sizeDp: number): Promise<string | null>;
   /** Android only. The picker with the most used apps offered first, unticked. */

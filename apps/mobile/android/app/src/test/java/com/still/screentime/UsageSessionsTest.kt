@@ -130,4 +130,116 @@ class UsageSessionsTest {
     assertEquals(10, minutes(result[0].appMillis["app.a"]))
     assertEquals(0, result[0].unlocks)
   }
+
+  private fun seconds(day: LocalDate, hour: Int, minute: Int, second: Int): Long =
+    day.atTime(hour, minute, second).atZone(zone).toInstant().toEpochMilli()
+
+  @Test
+  fun dropsTheOpenThePauseCutBeforeGoBack() {
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(seconds(day1, 10, 0, 0), Kind.RESUMED, "app.a", "Main"),
+        // Still's pause covers the app half a second later; the user goes back.
+        Event(seconds(day1, 10, 0, 0) + 500, Kind.PAUSED, "app.a", "Main"),
+        Event(seconds(day1, 10, 0, 0) + 500, Kind.RESUMED, "still", "Pause"),
+        Event(seconds(day1, 10, 0, 4), Kind.PAUSED, "still", "Pause"),
+      ),
+      at(day2, 23), { it == "still" },
+    )
+    assertEquals(emptyList<UsageSessions.Session>(), sessions)
+  }
+
+  @Test
+  fun joinsTheCutOpenAndTheVisitAfterThePause() {
+    val start = seconds(day1, 10, 0, 0)
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(start, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 500, Kind.PAUSED, "app.a", "Main"),
+        Event(start + 500, Kind.RESUMED, "still", "Pause"),
+        Event(start + 20_000, Kind.PAUSED, "still", "Pause"),
+        Event(start + 20_000, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 20_000 + 6 * 60_000, Kind.PAUSED, "app.a", "Main"),
+      ),
+      at(day2, 23), { it == "still" },
+    )
+    assertEquals(1, sessions.size)
+    // The 19.5 s of the pause in between are not time in the app.
+    assertEquals(6 * 60_000L + 500, sessions[0].activeMillis)
+  }
+
+  @Test
+  fun aLongerGapStartsANewSession() {
+    val start = seconds(day1, 10, 0, 0)
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(start, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 60_000, Kind.PAUSED, "app.a", "Main"),
+        Event(start + 100_000, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 160_000, Kind.PAUSED, "app.a", "Main"),
+      ),
+      at(day2, 23), none,
+    )
+    assertEquals(listOf(60_000L, 60_000L), sessions.map { it.activeMillis })
+  }
+
+  @Test
+  fun anotherAppInBetweenStartsANewSession() {
+    val start = seconds(day1, 10, 0, 0)
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(start, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 60_000, Kind.PAUSED, "app.a", "Main"),
+        Event(start + 60_000, Kind.RESUMED, "app.b", "Main"),
+        Event(start + 70_000, Kind.PAUSED, "app.b", "Main"),
+        Event(start + 70_000, Kind.RESUMED, "app.a", "Main"),
+        Event(start + 130_000, Kind.PAUSED, "app.a", "Main"),
+      ),
+      at(day2, 23), none,
+    )
+    assertEquals(listOf("app.a", "app.b", "app.a"), sessions.map { it.packageName })
+  }
+
+  @Test
+  fun screenOffEndsASession() {
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(at(day1, 12), Kind.RESUMED, "app.a", "Main"),
+        Event(at(day1, 12, 5), Kind.SCREEN_OFF),
+        Event(at(day1, 14), Kind.PAUSED, "app.a", "Main"),
+      ),
+      at(day2, 23), none,
+    )
+    assertEquals(listOf(5 * 60_000L), sessions.map { it.activeMillis })
+  }
+
+  @Test
+  fun aSessionAcrossMidnightCountsOnTheDayItStarted() {
+    val sessions = UsageSessions.sessions(
+      listOf(
+        Event(at(day1, 23, 50), Kind.RESUMED, "app.a", "Main"),
+        Event(at(day2, 0, 10), Kind.PAUSED, "app.a", "Main"),
+      ),
+      at(day2, 23), none,
+    )
+    assertEquals(1, UsageSessions.appStats(sessions, listOf(day1), zone)["app.a"]?.sessions)
+    assertEquals(null, UsageSessions.appStats(sessions, listOf(day2), zone)["app.a"])
+    assertEquals(20 * 60_000L, sessions[0].activeMillis)
+  }
+
+  @Test
+  fun takesTheMedianNotTheMean() {
+    fun visit(hour: Int, minutes: Int) = listOf(
+      Event(at(day1, hour), Kind.RESUMED, "app.a", "Main"),
+      Event(at(day1, hour, minutes), Kind.PAUSED, "app.a", "Main"),
+    )
+    val odd = UsageSessions.sessions(visit(8, 2) + visit(9, 4) + visit(10, 50), at(day2, 23), none)
+    assertEquals(4 * 60_000L, UsageSessions.appStats(odd, days, zone)["app.a"]?.medianMillis)
+    val even = UsageSessions.sessions(
+      visit(8, 2) + visit(9, 4) + visit(10, 6) + visit(11, 50), at(day2, 23), none,
+    )
+    val stats = UsageSessions.appStats(even, days, zone)["app.a"]
+    assertEquals(4, stats?.sessions)
+    assertEquals(5 * 60_000L, stats?.medianMillis)
+  }
 }
