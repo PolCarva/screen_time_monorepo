@@ -19,6 +19,11 @@ import { Breathing, PressableScale, rise } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import { Body, Display, Eyebrow } from "@/components/typography";
 import { localize } from "@/i18n";
+import {
+  PAUSE_COPY,
+  openedTodayHeadline,
+  pauseDeclineLabel,
+} from "@/lib/pause-copy";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import {
@@ -399,13 +404,10 @@ export function ShortcutIntervention({
     question = localize("This takes a moment.", "Tarda un momento.");
   } else {
     headline = localize(
-      `${appLabel} opened\n${attempts} ${attempts === 1 ? "time" : "times"} today.`,
-      `${appLabel} se abrió\n${attempts} ${attempts === 1 ? "vez" : "veces"} hoy.`,
+      openedTodayHeadline(appLabel, attempts, "ios", "en"),
+      openedTodayHeadline(appLabel, attempts, "ios", "es"),
     );
-    question = localize(
-      "If you go in, you choose for how long.",
-      "Si entras, eliges por cuánto tiempo.",
-    );
+    question = localize(PAUSE_COPY.question.en, PAUSE_COPY.question.es);
   }
 
   // Every way forward on this screen. At the gate the ad is the only way in;
@@ -452,7 +454,7 @@ export function ShortcutIntervention({
     if (flow.gate.ad === "ready")
       options.push({
         key: "ad",
-        label: localize("Watch ad", "Ver anuncio"),
+        label: localize(PAUSE_COPY.watchAd.en, PAUSE_COPY.watchAd.es),
         action: () => void watchAd(),
       });
     else if (flow.gate.ad === "preparing")
@@ -548,8 +550,8 @@ export function ShortcutIntervention({
             <FilledButton
               disabled={busy}
               label={localize(
-                "I don't want to go in anymore",
-                "Ya no quiero entrar",
+                pauseDeclineLabel("ios", "en"),
+                pauseDeclineLabel("ios", "es"),
               )}
               onPress={() => void decline()}
             />
