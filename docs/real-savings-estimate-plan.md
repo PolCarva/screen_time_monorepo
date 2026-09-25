@@ -491,7 +491,12 @@ mediana 13,0 s y 14,7 s en el día (`dumpsys` da ~15 s con resolución de segund
 
 ### 12.7 S7 (rama apilada)
 
-_(Se completa en `feat/onboarding-ios-screen-time`.)_
+En `feat/onboarding-ios-screen-time` (no mergear): `899ef26` mergea esta rama (con `main`)
+porque la extensión necesita S2–S5, y `f165c67` agrega los contextos `still.today.returned` y
+`still.today.compare`, el `bundleId` verificado de las 10 apps populares, `onboardedAt` en el
+App Group y `isScreenTimeAuthorized`. Compila en el simulador con la extensión embebida y
+`acceptance:ios-shortcuts` pasa; con el flag apagado, Hoy en iOS se comporta como aquí. El
+detalle completo está en §12.7 de esa rama. HI-S1…S4 quedan para el iPhone (§13.3).
 
 ---
 
