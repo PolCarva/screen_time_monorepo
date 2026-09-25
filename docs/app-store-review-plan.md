@@ -1,7 +1,7 @@
 # Reenvío de Still iOS a App Review (0.3.1)
 
-Fecha: 2026-09-25 · Rama: `fix/ios-app-review` (desde `main` 6f57895) · Estado: en ejecución
-(código C1–C5 hecho; ver §12).
+Fecha: 2026-09-25 · Rama: `fix/ios-app-review` (desde `main` 6f57895) · Estado: en ejecución.
+Bloqueado por el dominio (§13); para retomar, el prompt de §14.
 
 **Pedido del usuario:** "investigar por qué me rechazaron la versión" y hacer un plan "para poder
 generar una versión con todas las features que tenemos y que nos lo puedan aprobar para iOS. En
@@ -352,3 +352,41 @@ Después: AirDrop del `.mov` a la Mac y pasar la ruta. Se comprime con
 | Verificación en simulador | hecho | Build Release local de 0.3.1 con env de producción (iPhone 17 Pro Max, iOS 26.0). El binario no contiene `suspendToHome` ni `suspend`. Ajustes → Tus datos → «Política de privacidad» abre `…vercel.app/privacy`. «Ya no quiero entrar» termina en la indicación manual. Onboarding completo en es-MX y en-US, pausa real con el atajo «Pausar Instagram» y anuncio de prueba → elección del tiempo. |
 | M1–M4 en ASC | hecho (2026-09-25, con OK del usuario) | La versión `f79f8af8…` ahora es **0.3.1** con la build 13 (`PREPARE_FOR_SUBMISSION`; el envío `ad546c6a…` sigue en `UNRESOLVED_ISSUES` hasta U3). Descripción y promo nuevas en es-MX/en-US. Capturas `APP_IPHONE_67` (6.9") `COMPLETE`: es-MX 7, en-US 6; se borró el set 6.5" viejo. Notas: 3430 caracteres. Falta el adjunto del vídeo (U2). Capturas en `brand/product-screens/app-store-ios-0.3.1/`. Script: `scratchpad/asc/m-apply.mjs` (dry run por defecto). |
 | U1 clave de Sign in with Apple | en curso (usuario) | En Vercel ya están `APPLE_TEAM_ID` y `APPLE_SIGN_IN_CLIENT_ID`. Falta registrar la clave, `APPLE_SIGN_IN_KEY_ID` y `APPLE_SIGN_IN_PRIVATE_KEY`. |
+| Vídeo del iPhone (U2, parcial) | recibido | `~/Downloads/WhatsApp Video 2026-09-25 at 14.08.21.mp4` (2:50, 384×848 por la compresión de WhatsApp). El usuario pidió quitar los últimos 17 s y el audio (sonaba Spotify). Muestra el onboarding en inglés, la automatización «Pause Instagram», la pausa y la respiración (en el iPhone no hay anuncios), Hoy, Impacto y Ajustes. **Falta el login y el borrado de cuenta**, porque al borrar la cuenta salía «Your account wasn't deleted» (§13). |
+
+## 13. Incidente: la redirección del dominio rompió la API de las apps publicadas (25-09-2026)
+
+- **Síntoma:** en el iPhone, «Delete account and data» → «Your account wasn't deleted».
+- **Causa:** en Vercel, el dominio `screen-time-monorepo-web.vercel.app` se configuró para redirigir (308) a `https://get-still.app`. Todas las builds publicadas llaman a la API en `…vercel.app` (`EXPO_PUBLIC_API_URL`). En una redirección a otro dominio, `fetch` descarta `Authorization`, así que **toda llamada autenticada** devolvía 401 «A valid bearer token is required»: borrar y exportar datos, anuncios, sesiones de acceso, votos y registro del dispositivo. Las llamadas sin sesión (`/api/v1/config`, impacto) funcionaban porque siguen la redirección sin problema.
+- **Prueba:** con un usuario anónimo desechable, `/api/v1/preferences` y `/api/v1/privacy/delete` → 401 en `…vercel.app` y 200 en `get-still.app` (el borrado respondió `{"appleRevocation":"no_apple_identity"}`). `curl -sI https://screen-time-monorepo-web.vercel.app/api/v1/config` → `308`, `server: Vercel`, sin paso por el proxy de Next. La redirección no está en el código.
+- **Arreglo:**
+  1. **Usuario, en Vercel:** proyecto → Settings → Domains → `screen-time-monorepo-web.vercel.app` → Edit → sin redirección (servir Production). Con eso vuelven a funcionar todas las builds publicadas, incluida la 0.3.1 (13) en revisión, sin recompilar.
+  2. **Código** (26c0a50, en `main`): `apps/web/proxy.ts` + `lib/canonical-host.ts` redirigen a `get-still.app` solo las páginas que lleguen por `*.vercel.app` en producción, nunca `/api/*`, `app-ads.txt` ni `.well-known`. Así se mantiene el SEO del dominio nuevo.
+- **Google «didn't connect»:** Supabase devuelve bien la URL de vinculación y Google carga su pantalla de acceso. No se pudo reproducir sin una cuenta; hay que volver a probarlo en el iPhone después del paso 1.
+- **Pendiente para builds futuras:** `EXPO_PUBLIC_API_URL=https://get-still.app` en EAS (producción), y las URLs de soporte, marketing y privacidad de ASC en `get-still.app`. El dominio `vercel.app` tiene que seguir sirviendo `/api` para las builds viejas.
+- **Verificación, cuando el paso 1 esté hecho:**
+  - `curl -sI https://screen-time-monorepo-web.vercel.app/api/v1/config` → 200.
+  - La misma URL con `/privacy` → 308 a `get-still.app` (lo hace el proxy).
+  - El script del usuario anónimo desechable (`signup` en Supabase + `POST /api/v1/privacy/delete` en `…vercel.app`) → 200.
+
+## 14. Prompt para retomar
+
+> Retoma `docs/app-store-review-plan.md` (worktree `../screen_time-app-review`, rama `fix/ios-app-review`).
+> No reabras A1–A8. Estado: M1–M4 aplicados en ASC (0.3.1 build 13, capturas 6.9", notas); el envío
+> `ad546c6a…` sigue en `UNRESOLVED_ISSUES`. Lee §12 y §13.
+> 1. Verifica que Vercel ya no redirige la API (§13, «Verificación»). Si todavía da 308, para y
+>    pídeme el cambio de dominio en Vercel.
+> 2. Si ya cargué `APPLE_SIGN_IN_KEY_ID` y `APPLE_SIGN_IN_PRIVATE_KEY` en Vercel, redespliega
+>    (push a `main`) y confirma que el deploy tomó las variables.
+> 3. Pídeme el clip de login y borrado (Settings → Continue with Apple → Delete account and data →
+>    Delete permanently → confirmar con Apple), sin audio, y que vuelva a probar Google.
+> 4. Arma el vídeo: el de WhatsApp de Descargas sin los últimos 17 s + mi clip, todo sin audio
+>    (`-an`). Si en el simulador vuelve a haber anuncios de prueba, suma un clip del camino con
+>    anuncio con un rótulo que diga que es el simulador. Si no, quita de las notas la última frase del
+>    párrafo de los anuncios. Comprime a menos de ~50 MB.
+> 5. Pídeme OK y: actualiza las notas de ASC (`docs/store-listing.md`), sube el vídeo como
+>    `appStoreReviewAttachment`, responde en App Review con §11.1 más el vídeo y pulsa «Resubmit to App
+>    Review».
+> 6. Termina cuando `reviewSubmissions` esté en `WAITING_FOR_REVIEW` con la build 0.3.1 (13) y anota
+>    los resultados en §12.
+
