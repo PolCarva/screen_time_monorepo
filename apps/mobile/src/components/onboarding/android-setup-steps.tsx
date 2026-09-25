@@ -6,6 +6,7 @@ import { DemoAppIcon, type DemoApp } from "@/components/onboarding/phone";
 import { StoryFooter, StoryLayout } from "@/components/onboarding/story-screen";
 import { PrimaryButton } from "@/components/primary-button";
 import { permissionGuide, q } from "@/components/setup/android-accessibility";
+import { keepAliveAction } from "@/components/setup/android-settings";
 import {
   CheckRow,
   LooksDifferent,
@@ -13,7 +14,7 @@ import {
 } from "@/components/setup/setup-bits";
 import { Body } from "@/components/typography";
 import { androidSys, localize } from "@/i18n";
-import type { LocalizedTip } from "@/lib/android-oem";
+import type { KeepAliveTarget, LocalizedTip, OemTip } from "@/lib/android-oem";
 import { colors, fonts, spacing } from "@/theme/tokens";
 
 const pick = (tip: LocalizedTip) => localize(tip.en, tip.es);
@@ -226,7 +227,8 @@ export function AndroidAppsStep({
 /**
  * §4.3 13A — makers that kill background apps. Battery is read from the
  * phone; autostart and pop-ups have no API, so they are the user's own tick,
- * and the live test that follows proves them.
+ * and the live test that follows proves them. Every line opens the screen
+ * where it is done.
  */
 export function KeepAliveStep({
   makerName,
@@ -234,17 +236,17 @@ export function KeepAliveStep({
   batteryOk,
   confirmed,
   onOpenBattery,
-  onOpenAppInfo,
+  onOpenTip,
   onToggleConfirmed,
   onNext,
   onFinishLater,
 }: {
   makerName: string;
-  tips: LocalizedTip[];
+  tips: OemTip[];
   batteryOk: boolean;
   confirmed: boolean;
   onOpenBattery: () => void;
-  onOpenAppInfo: () => void;
+  onOpenTip: (target: KeepAliveTarget) => void;
   onToggleConfirmed: () => void;
   onNext: () => void;
   onFinishLater: () => void;
@@ -270,23 +272,21 @@ export function KeepAliveStep({
             ? localize("Battery: not restricted", "Batería: sin restricciones")
             : localize("Battery: still restricted", "Batería: todavía con restricciones")
         }
+        onPress={batteryOk ? undefined : onOpenBattery}
         state={batteryOk ? "verified" : "pending"}
       />
-      {batteryOk ? null : (
-        <PrimaryButton onPress={onOpenBattery} variant="secondary">
-          {localize("Open battery settings", "Abrir ajustes de batería")}
-        </PrimaryButton>
-      )}
       <View style={styles.tips}>
         {tips.map((tip, index) => (
-          <NumberedLine index={index + 1} key={tip.en}>
+          <NumberedLine
+            action={keepAliveAction(tip.opens)}
+            index={index + 1}
+            key={tip.en}
+            onPress={() => onOpenTip(tip.opens)}
+          >
             {pick(tip)}
           </NumberedLine>
         ))}
       </View>
-      <PrimaryButton onPress={onOpenAppInfo} variant="secondary">
-        {localize("Open Still's app info", "Abrir información de Still")}
-      </PrimaryButton>
       <PrimaryButton onPress={onToggleConfirmed} variant={confirmed ? "signal" : "secondary"}>
         {confirmed
           ? localize("✓ Done in Settings", "✓ Hecho en Ajustes")
@@ -297,6 +297,9 @@ export function KeepAliveStep({
 }
 
 export type LiveTestState = "idle" | "waiting" | "verified" | "failed";
+
+/** One thing to check when the test failed, and the way to its setting if it has one. */
+export type SetupCheck = { label: string; onPress?: () => void; action?: string };
 
 /**
  * §4.3 14A — the real test: open a chosen app and the pause must show, in
@@ -315,8 +318,8 @@ export function LiveTestStep({
   state: LiveTestState;
   /** The kill switch reached the native side (nativeSynced). */
   ready: boolean;
-  /** What to look at, in order, when the pause did not show. */
-  checks: string[];
+  /** What to look at, in order, when the pause did not show; each opens its setting. */
+  checks: SetupCheck[];
   onTest: () => void;
   onNext: () => void;
   onFinishLater: () => void;
@@ -388,8 +391,13 @@ export function LiveTestStep({
       {state === "failed" ? (
         <View style={styles.tips}>
           {checks.map((check, index) => (
-            <NumberedLine index={index + 1} key={check}>
-              {check}
+            <NumberedLine
+              action={check.action}
+              index={index + 1}
+              key={check.label}
+              onPress={check.onPress}
+            >
+              {check.label}
             </NumberedLine>
           ))}
         </View>
@@ -398,7 +406,13 @@ export function LiveTestStep({
   );
 }
 
-export type SummaryLine = { label: string; verified: boolean; recommended: boolean };
+export type SummaryLine = {
+  label: string;
+  verified: boolean;
+  recommended: boolean;
+  /** Takes the user to what is still missing; shown only while unverified. */
+  onFix?: () => void;
+};
 
 /** §4.5 — everything the setup proved, and what is only recommended. */
 export function DoneStep({
@@ -436,6 +450,7 @@ export function DoneStep({
               ? line.label
               : localize(`${line.label} · recommended`, `${line.label} · recomendado`)
           }
+          onPress={line.verified ? undefined : line.onFix}
           state={line.verified ? "verified" : line.recommended ? "pending" : "warning"}
         />
       ))}

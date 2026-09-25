@@ -749,3 +749,36 @@ Recientes, cerrarlo ya no deja la pausa apagada. Si con el inicio automático
 sigue pasando, el siguiente experimento es el servicio en un proceso propio
 (`android:process`). Eso obliga a compartir las preferencias entre procesos y
 a separar el directorio de WebView de los anuncios.
+
+---
+
+## 14. Cada ajuste, con acceso directo (2026-09-25)
+
+Pedido del usuario: el resumen final decía «Still sigue activo en segundo plano ·
+recomendado» sin forma de ir a arreglarlo. Y, en general, cada vez que Still
+muestra un ajuste tiene que llevar a su lugar exacto.
+
+| Dónde | Qué abre ahora |
+|---|---|
+| Resumen «Todo listo»: línea pendiente | Su paso, y en «segundo plano» además los ajustes del primer consejo del fabricante (información de Still en Xiaomi). Al volver, el paso lo comprueba y deja confirmarlo |
+| «Que Still siga activo»: fila de batería | La batería de Still (`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`; en Android 16 abre la batería de la app) |
+| «Que Still siga activo»: cada consejo | Su pantalla: `appInfo` (inicio automático y batería en Xiaomi; suspensión en Samsung), `battery`, `autostart` (listas de Huawei, OPPO y vivo), `popups` («Otros permisos» de MIUI), `recents` (abre Recientes desde el servicio) |
+| «¿No aparece la pausa?» | Los mismos consejos, cada uno con su acceso; las causas de Accesibilidad abren Accesibilidad y Still vuelve solo |
+| Prueba fallida | «Still no está funcionando» abre Accesibilidad; ventanas emergentes abre su pantalla |
+| Hoy y Ajustes, «Still se detuvo» | Accesibilidad directo (sin pasar por el flujo); Still vuelve solo |
+
+Nativo nuevo: `StillSetup.openKeepAliveSetting(target)`; cada lista termina en
+la información de Still, que existe en todos los teléfonos, y Recientes usa
+`GLOBAL_ACTION_RECENTS` del servicio. Si nada abre (Recientes sin el servicio,
+o un build anterior a este sin el método), Still dice cómo llegar en una hoja.
+Los builds sin `openKeepAliveSetting` usan la batería o la información de Still.
+
+**Verificado en el emulador API 36** con un build de depuración: cada consejo
+muestra «Configurar ›» («Abrir ›» en Recientes); la fila de batería abrió
+`AppBatteryUsageActivity` de Still y el primer consejo de Xiaomi abrió
+`InstalledAppDetails` de Still. Recientes, ventanas emergentes y el toque en el
+resumen quedaron sin comprobar: la Mac se quedó sin memoria (23 GB de swap) y
+el emulador dejó de responder. Typecheck y 291 tests en verde.
+
+**Pendiente en el Xiaomi:** que «Otros permisos» de MIUI (ventanas emergentes)
+abra en HyperOS, y que Recientes abra con la tarjeta de Still a mano.

@@ -128,9 +128,63 @@ object StillSetup {
   fun openBatterySettings(context: Context, starter: (Intent) -> Unit): Boolean {
     val attempts = listOf(
       Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-      Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        .setData(android.net.Uri.fromParts("package", context.packageName, null)),
+      appInfo(context),
     )
     return attempts.any { intent -> runCatching { starter(intent) }.isSuccess }
   }
+
+  /**
+   * Opens the screen where one "keep Still running" tip is done, so every tip
+   * has its own way there (src/lib/android-oem.ts):
+   * - appInfo: Still's App info (Autostart and battery on Xiaomi, battery on
+   *   Samsung);
+   * - battery: the battery list, as [openBatterySettings];
+   * - autostart: the maker's autostart list (Huawei, OPPO, vivo);
+   * - popups: MIUI's "Other permissions" for Still (pop-ups in the background);
+   * - recents: the Recents screen, through the running service.
+   * Makers move their screens between versions, so each list ends in Still's
+   * App info, which every phone has.
+   */
+  fun openKeepAliveSetting(context: Context, target: String, starter: (Intent) -> Unit): Boolean {
+    when (target) {
+      "recents" -> return StillAccessibilityService.openRecents()
+      "battery" -> return openBatterySettings(context, starter)
+    }
+    val attempts = buildList {
+      if (target == "autostart") {
+        AUTOSTART_SCREENS.forEach { (pkg, cls) -> add(Intent().setClassName(pkg, cls)) }
+      }
+      if (target == "popups") {
+        MIUI_PERMISSION_EDITORS.forEach { cls ->
+          add(
+            Intent("miui.intent.action.APP_PERM_EDITOR")
+              .setClassName("com.miui.securitycenter", cls)
+              .putExtra("extra_pkgname", context.packageName),
+          )
+        }
+      }
+      add(appInfo(context))
+    }
+    return attempts.any { intent -> runCatching { starter(intent) }.isSuccess }
+  }
+
+  private fun appInfo(context: Context) =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+      .setData(android.net.Uri.fromParts("package", context.packageName, null))
+
+  /** Known autostart lists, newest first; a missing one throws and the next is tried. */
+  private val AUTOSTART_SCREENS = listOf(
+    "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+    "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+    "com.oplus.safecenter" to "com.oplus.safecenter.startupapp.StartupAppListActivity",
+    "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+    "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+    "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+  )
+
+  /** MIUI / HyperOS "Other permissions" for one app, newest first. */
+  private val MIUI_PERMISSION_EDITORS = listOf(
+    "com.miui.permcenter.permissions.PermissionsEditorActivity",
+    "com.miui.permcenter.permissions.AppPermissionsEditorActivity",
+  )
 }

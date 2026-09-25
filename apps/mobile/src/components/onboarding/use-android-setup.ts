@@ -2,11 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 
 import type { DemoApp } from "@/components/onboarding/phone";
-import type { LiveTestState } from "@/components/onboarding/android-setup-steps";
+import type {
+  LiveTestState,
+  SetupCheck,
+} from "@/components/onboarding/android-setup-steps";
 import {
   DISCLOSURE_ACCEPTED_KEY,
   confirmAccessibilityDisclosure,
 } from "@/components/setup/android-accessibility";
+import { keepAliveAction, useOpenKeepAlive } from "@/components/setup/android-settings";
 import type { SheetApi } from "@/components/still-sheet";
 import { localize } from "@/i18n";
 import { oemGuidance } from "@/lib/android-oem";
@@ -213,22 +217,32 @@ export function useAndroidSetup({
     await restrictionEngine.openApp?.(testApp.packageName).catch(() => false);
   }, [testApp, update]);
 
+  const openKeepAlive = useOpenKeepAlive();
   const oem = oemGuidance(environment?.manufacturer ?? "");
   const running = health?.authorization === "authorized" && Boolean(health.serviceRunning);
-  const failureChecks = [
+  const failureChecks: SetupCheck[] = [
     running
-      ? localize("Still is on and running.", "Still está activado y funcionando.")
-      : localize(
-          "Still isn't running: go back to the Accessibility step.",
-          "Still no está funcionando: vuelve al paso de Accesibilidad.",
-        ),
+      ? { label: localize("Still is on and running.", "Still está activado y funcionando.") }
+      : {
+          label: localize(
+            "Still isn't running: turn it on in Accessibility.",
+            "Still no está funcionando: actívalo en Accesibilidad.",
+          ),
+          onPress: () => void openAccessibility(),
+        },
     ...oem.tips
       .filter((tip) => /pop-up|emergentes|background|segundo plano/i.test(tip.en + tip.es))
-      .map((tip) => localize(tip.en, tip.es)),
-    localize(
-      `Try again. Opening ${testApp?.label ?? "the app"} from your home screen counts too.`,
-      `Prueba otra vez. Abrir ${testApp?.label ?? "la app"} desde tu pantalla de inicio también vale.`,
-    ),
+      .map((tip) => ({
+        label: localize(tip.en, tip.es),
+        onPress: () => void openKeepAlive(tip.opens),
+        action: keepAliveAction(tip.opens),
+      })),
+    {
+      label: localize(
+        `Try again. Opening ${testApp?.label ?? "the app"} from your home screen counts too.`,
+        `Prueba otra vez. Abrir ${testApp?.label ?? "la app"} desde tu pantalla de inicio también vale.`,
+      ),
+    },
   ];
 
   return {
@@ -246,5 +260,6 @@ export function useAndroidSetup({
     test,
     openBattery: () => void restrictionEngine.openBatterySettings?.(),
     openAppInfo: () => void restrictionEngine.openAppInfo?.(),
+    openKeepAlive,
   };
 }

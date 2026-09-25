@@ -153,6 +153,12 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(StillSetup.openBatterySettings(context, ::startFromStill))
   }
 
+  /** Opens where one "keep Still running" tip is done (StillSetup.openKeepAliveSetting). */
+  @ReactMethod
+  fun openKeepAliveSetting(target: String, promise: Promise) {
+    promise.resolve(StillSetup.openKeepAliveSetting(context, target, ::startFromStill))
+  }
+
   private fun startFromStill(intent: Intent) {
     val activity = context.currentActivity
     if (activity != null) activity.startActivity(intent)

@@ -18,6 +18,20 @@ describe("oemGuidance", () => {
     expect(tips.some((tip) => tip.includes("Recientes"))).toBe(true);
   });
 
+  it("takes every tip to the screen where it is done", () => {
+    // Autostart and battery live in Still's app info on Xiaomi.
+    expect(oemGuidance("Xiaomi").tips.map((tip) => tip.opens)).toEqual([
+      "appInfo",
+      "appInfo",
+      "recents",
+      "popups",
+    ]);
+    expect(oemGuidance("Google").tips[0]!.opens).toBe("battery");
+    for (const maker of ["Samsung", "Huawei", "OPPO", "vivo"]) {
+      expect(oemGuidance(maker).tips.every((tip) => Boolean(tip.opens))).toBe(true);
+    }
+  });
+
   it("groups OnePlus and Realme with Oppo, and iQOO with vivo", () => {
     expect(oemGuidance("OnePlus").key).toBe("oppo");
     expect(oemGuidance("realme").key).toBe("oppo");

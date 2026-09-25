@@ -16,6 +16,7 @@ import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { IdentityButtons } from "@/components/identity-buttons";
 import { Breathing, PressableScale } from "@/components/motion";
 import { Screen } from "@/components/screen";
+import { reopenAccessibility } from "@/components/setup/android-settings";
 import {
   closeAction,
   gotItAction,
@@ -472,8 +473,11 @@ export default function SettingsScreen() {
           onPress={() =>
             shortcutMode
               ? router.push("/ios-apps")
-              : // Something missing: the verified setup; all set: the apps.
-                router.push(restrictionHealthy ? "/android-setup" : "/setup")
+              : health.authorization === "authorized" && health.serviceRunning === false
+                ? // Stopped: straight to Still's switch; Still comes back by itself.
+                  void reopenAccessibility()
+                : // Something missing: the verified setup; all set: the apps.
+                  router.push(restrictionHealthy ? "/android-setup" : "/setup")
           }
           variant="secondary"
         >

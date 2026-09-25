@@ -518,6 +518,13 @@ class StillAccessibilityService : AccessibilityService() {
      */
     val isRunning: Boolean get() = active != null
 
+    /**
+     * Opens Recents, where the user locks Still's card so the maker never
+     * closes it (docs/android-parity-plan.md §13). Only the running service
+     * can; false otherwise.
+     */
+    fun openRecents(): Boolean = active?.performGlobalAction(GLOBAL_ACTION_RECENTS) == true
+
     /** Called whenever an access window is granted, from any path. */
     fun watchAccessWindows() {
       val service = active ?: return

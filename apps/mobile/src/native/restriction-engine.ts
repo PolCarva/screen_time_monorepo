@@ -1,5 +1,6 @@
 import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
+import type { KeepAliveTarget } from "@/lib/android-oem";
 import type { SignedRewardIntent } from "@/lib/reward-intent-buffer";
 import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
 import type { SavingsHistory } from "@/lib/savings";
@@ -219,6 +220,11 @@ export interface RestrictionEngine {
   isIgnoringBatteryOptimizations?(): Promise<boolean>;
   /** Android only. Opens the battery optimization list (or Still's App info). */
   openBatterySettings?(): Promise<boolean>;
+  /**
+   * Android only. Opens where one "keep Still running" tip is done; false when
+   * nothing could open (Recents needs the running service). Absent before 0.3.5.
+   */
+  openKeepAliveSetting?(target: KeepAliveTarget): Promise<boolean>;
   /**
    * Windows still running. The deadline is owned natively, so this is the
    * truth about when each app is paused again — not a countdown JavaScript
