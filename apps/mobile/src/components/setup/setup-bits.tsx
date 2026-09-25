@@ -11,9 +11,18 @@ export type CheckState = "verified" | "pending" | "waiting" | "warning";
 /**
  * What the phone says about a setup step: verified (the signal is there),
  * waiting (a test is running), warning (half done) or pending. It is the only
- * thing that turns a step green (docs/onboarding-v2-plan.md, D7).
+ * thing that turns a step green (docs/onboarding-v2-plan.md, D7). With
+ * `onPress` the row is also the way to fix it, with "Set up ›" at its end.
  */
-export function CheckRow({ state, label }: { state: CheckState; label: string }) {
+export function CheckRow({
+  state,
+  label,
+  onPress,
+}: {
+  state: CheckState;
+  label: string;
+  onPress?: () => void;
+}) {
   const icon =
     state === "verified"
       ? "checkmark-circle"
@@ -28,7 +37,8 @@ export function CheckRow({ state, label }: { state: CheckState; label: string })
       : state === "warning"
         ? colors.warning
         : colors.mineral;
-  return (
+  const action = localize("Set up", "Configurar");
+  const row = (
     <Animated.View
       accessibilityLiveRegion="polite"
       entering={FadeIn.duration(motion.standard)}
@@ -39,7 +49,19 @@ export function CheckRow({ state, label }: { state: CheckState; label: string })
       <Text style={[styles.label, state === "verified" && styles.labelVerified]}>
         {label}
       </Text>
+      {onPress ? <ActionCue label={action} /> : null}
     </Animated.View>
+  );
+  if (!onPress) return row;
+  return (
+    <Pressable
+      accessibilityLabel={`${label}. ${action}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      {row}
+    </Pressable>
   );
 }
 
@@ -77,13 +99,48 @@ export function LooksDifferent({ lines }: { lines: string[] }) {
   );
 }
 
-/** A numbered line of a short checklist. */
-export function NumberedLine({ index, children }: { index: number; children: string }) {
+/** "Set up ›" at the end of a row that takes the user to the setting. */
+function ActionCue({ label }: { label: string }) {
   return (
-    <View style={styles.numbered}>
+    <View style={styles.cue}>
+      <Text style={styles.action}>{label}</Text>
+      <Ionicons color={colors.graphite} name="chevron-forward" size={16} />
+    </View>
+  );
+}
+
+/**
+ * A numbered line of a short checklist. With `onPress` the whole line opens
+ * the place where it is done, with `action` ("Set up" by default) at its end.
+ */
+export function NumberedLine({
+  index,
+  children,
+  onPress,
+  action = localize("Set up", "Configurar"),
+}: {
+  index: number;
+  children: string;
+  onPress?: () => void;
+  action?: string;
+}) {
+  const line = (
+    <View style={[styles.numbered, onPress && styles.numberedAction]}>
       <Text style={styles.number}>{index}</Text>
       <Text style={styles.numberedText}>{children}</Text>
+      {onPress ? <ActionCue label={action} /> : null}
     </View>
+  );
+  if (!onPress) return line;
+  return (
+    <Pressable
+      accessibilityLabel={`${children} ${action}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      {line}
+    </Pressable>
   );
 }
 
@@ -107,6 +164,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   labelVerified: { color: colors.graphite },
+  action: {
+    color: colors.graphite,
+    fontFamily: fonts.brandSemiBold,
+    fontSize: 14,
+    lineHeight: 21,
+  },
   link: { alignSelf: "flex-start", paddingVertical: spacing.xs },
   linkLabel: {
     color: colors.graphite,
@@ -117,6 +180,9 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.5 },
   numbered: { flexDirection: "row", gap: spacing.sm },
+  // A line that opens a setting is a full-size target.
+  numberedAction: { minHeight: 44, paddingVertical: spacing.xs },
+  cue: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 2 },
   number: {
     width: 18,
     color: colors.mineral,

@@ -18,6 +18,7 @@ import {
 } from "@/components/motion";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import { reopenAccessibility } from "@/components/setup/android-settings";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { locale, localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
@@ -431,7 +432,13 @@ export default function TodayScreen() {
               : localize("Finish setting up Still", "Termina de configurar Still")}
           </Heading>
           <Body style={styles.muted}>{setupPendingDetail}</Body>
-          <PrimaryButton onPress={() => router.push("/setup")} variant="signal">
+          <PrimaryButton
+            onPress={() =>
+              // Stopped: straight to Still's switch; Still comes back by itself.
+              status.kind === "stopped" ? void reopenAccessibility() : router.push("/setup")
+            }
+            variant="signal"
+          >
             {status.kind === "stopped"
               ? localize("Turn Still back on", "Volver a encender Still")
               : localize("Continue setup", "Continuar la configuración")}

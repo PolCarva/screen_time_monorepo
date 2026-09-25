@@ -2,7 +2,8 @@
  * Per-manufacturer guidance for keeping Still awake in the background. Some
  * Android makers kill background apps and need extra permissions (autostart,
  * battery, "show pop-up windows"). There is no API to read those states, so the
- * best Still can do is tell the user, in product voice, what to allow.
+ * best Still can do is tell the user, in product voice, what to allow, and
+ * take them straight to where each tip is done (`opens`).
  *
  * Pure and React-Native-free so it can be unit tested (D6). Sources for the
  * per-OEM steps are in docs/android-parity-plan.md §6.4.
@@ -17,19 +18,29 @@ export type OemKey =
 
 export type LocalizedTip = { en: string; es: string };
 
+/**
+ * The screen a tip is done on, opened natively (StillSetup.openKeepAliveSetting):
+ * Still's App info, the battery list, the maker's autostart list, MIUI's other
+ * permissions (pop-ups), or Recents. Each falls back to Still's App info.
+ */
+export type KeepAliveTarget = "appInfo" | "battery" | "autostart" | "popups" | "recents";
+
+export type OemTip = LocalizedTip & { opens: KeepAliveTarget };
+
 export type OemGuidance = {
   key: OemKey;
   /** Human name for the maker, or empty for generic. */
   name: string;
-  tips: LocalizedTip[];
+  tips: OemTip[];
 };
 
-const GENERIC_TIP: LocalizedTip = {
+const GENERIC_TIP: OemTip = {
   en: "Let Still keep running in the background and don't optimize its battery.",
   es: "Deja que Still siga en segundo plano y no optimices su batería.",
+  opens: "battery",
 };
 
-const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: LocalizedTip[] }> = {
+const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: OemTip[] }> = {
   xiaomi: {
     name: "Xiaomi",
     // Both switches are in Still's app info. Without Autostart, closing Still
@@ -39,18 +50,22 @@ const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: Localiz
       {
         en: "In Still's app info, turn on Autostart.",
         es: "En la información de Still, activa «Inicio automático».",
+        opens: "appInfo",
       },
       {
         en: "Set its battery saver to No restrictions.",
         es: "Pon su ahorro de batería en «Sin restricciones».",
+        opens: "appInfo",
       },
       {
         en: "Lock Still in Recents: press and hold its card and tap the lock.",
         es: "Fija Still en Recientes: mantén pulsada su tarjeta y toca el candado.",
+        opens: "recents",
       },
       {
         en: "Allow it to show pop-up windows while running in the background.",
         es: "Permítele mostrar ventanas emergentes mientras está en segundo plano.",
+        opens: "popups",
       },
     ],
   },
@@ -60,8 +75,14 @@ const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: Localiz
       {
         en: "Remove Still from apps that are put to sleep.",
         es: "Saca a Still de las apps que se ponen en suspensión.",
+        // App info › Battery › Unrestricted takes it off the sleeping list.
+        opens: "appInfo",
       },
-      { en: "Turn off battery optimization for it.", es: "Desactiva la optimización de batería para ella." },
+      {
+        en: "Turn off battery optimization for it.",
+        es: "Desactiva la optimización de batería para ella.",
+        opens: "battery",
+      },
     ],
   },
   huawei: {
@@ -70,19 +91,28 @@ const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: Localiz
       {
         en: "Manage Still's launch yourself and keep every switch on.",
         es: "Gestiona el inicio de Still tú mismo y deja todos los interruptores activos.",
+        opens: "autostart",
       },
     ],
   },
   oppo: {
     name: "Oppo",
     tips: [
-      { en: "Allow Autostart and background running for Still.", es: "Permite el inicio automático y la ejecución en segundo plano de Still." },
+      {
+        en: "Allow Autostart and background running for Still.",
+        es: "Permite el inicio automático y la ejecución en segundo plano de Still.",
+        opens: "autostart",
+      },
     ],
   },
   vivo: {
     name: "vivo",
     tips: [
-      { en: "Allow Autostart and unrestricted battery for Still.", es: "Permite el inicio automático y la batería sin restricciones de Still." },
+      {
+        en: "Allow Autostart and unrestricted battery for Still.",
+        es: "Permite el inicio automático y la batería sin restricciones de Still.",
+        opens: "autostart",
+      },
     ],
   },
 };

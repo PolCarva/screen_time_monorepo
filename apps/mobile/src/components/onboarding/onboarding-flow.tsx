@@ -505,10 +505,22 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
         return item;
     }
   }
+  /**
+   * What a line still missing in the summary does: its step, where Still
+   * checks it again on the way back. "In the background" also opens the
+   * phone's settings right away, where the maker's first tip is done
+   * (Autostart and battery in Still's app info on Xiaomi).
+   */
+  function fixStep(item: SetupStepId) {
+    goTo(item, -1);
+    const first = android.oem.tips[0];
+    if (item === "keep-alive" && first) void android.openKeepAlive(first.opens);
+  }
   const summary: SummaryLine[] = setupSummary(context, signals).map((item) => ({
     label: summaryLabel(item.step),
     verified: item.verified,
     recommended: item.requirement === "recommended",
+    onFix: () => fixStep(item.step),
   }));
 
   // Below iOS 26 Apple asks "Continue in Still?" when an automation runs.
@@ -631,8 +643,8 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
             makerName={android.oem.name}
             onFinishLater={finishLater}
             onNext={goNext}
-            onOpenAppInfo={android.openAppInfo}
             onOpenBattery={android.openBattery}
+            onOpenTip={(target) => void android.openKeepAlive(target)}
             onToggleConfirmed={() =>
               update({
                 keepAliveConfirmedAt: progress!.keepAliveConfirmedAt

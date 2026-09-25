@@ -5,9 +5,15 @@ import { Platform, StyleSheet, View } from "react-native";
 import { FieldApertureMark } from "@/components/field-aperture-mark";
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
+import {
+  keepAliveAction,
+  reopenAccessibility,
+  useOpenKeepAlive,
+} from "@/components/setup/android-settings";
+import { NumberedLine } from "@/components/setup/setup-bits";
 import { Body, Eyebrow, Heading } from "@/components/typography";
 import { androidSys, localize } from "@/i18n";
-import { oemGuidance } from "@/lib/android-oem";
+import { oemGuidance, type KeepAliveTarget, type OemTip } from "@/lib/android-oem";
 import {
   restrictionEngine,
   type InstallEnvironment,
@@ -27,6 +33,7 @@ const DEFAULT_ENV: InstallEnvironment = {
  * leads with what to do, not with the platform mechanism.
  */
 export default function AndroidRepairScreen() {
+  const openKeepAlive = useOpenKeepAlive();
   const [authorized, setAuthorized] = useState(true);
   const [stopped, setStopped] = useState(false);
   const [env, setEnv] = useState<InstallEnvironment>(DEFAULT_ENV);
@@ -87,7 +94,7 @@ export default function AndroidRepairScreen() {
                 )
           }
           action={localize("Open Accessibility", "Abrir Accesibilidad")}
-          onPress={() => void restrictionEngine.openAccessibilitySettings?.()}
+          onPress={() => void reopenAccessibility()}
         />
       ) : null}
 
@@ -98,8 +105,8 @@ export default function AndroidRepairScreen() {
             "Still needs its permission to step in. Switch it on, then come back.",
             "Still necesita su permiso para aparecer. Actívalo y vuelve.",
           )}
-          action={localize("Open settings", "Abrir ajustes")}
-          onPress={() => void restrictionEngine.openAccessibilitySettings?.()}
+          action={localize("Open Accessibility", "Abrir Accesibilidad")}
+          onPress={() => void reopenAccessibility()}
         />
       ) : null}
 
@@ -131,9 +138,8 @@ export default function AndroidRepairScreen() {
                 "Si la pausa llega tarde o no aparece, deja que Still funcione con libertad:",
               )
         }
-        tips={oem.tips.map((tip) => localize(tip.en, tip.es))}
-        action={localize("Open app info", "Abrir información de la app")}
-        onPress={() => void restrictionEngine.openAppInfo?.()}
+        tips={oem.tips}
+        onTip={(target) => void openKeepAlive(target)}
       />
 
       <PrimaryButton variant="quiet" onPress={() => router.back()}>
@@ -143,18 +149,21 @@ export default function AndroidRepairScreen() {
   );
 }
 
+/** One reason, and a way to the setting that fixes it: its button, or each tip. */
 function Cause({
   title,
   body,
   tips,
+  onTip,
   action,
   onPress,
 }: {
   title: string;
   body: string;
-  tips?: string[];
-  action: string;
-  onPress: () => void;
+  tips?: OemTip[];
+  onTip?: (target: KeepAliveTarget) => void;
+  action?: string;
+  onPress?: () => void;
 }) {
   return (
     <View style={styles.cause}>
@@ -162,16 +171,23 @@ function Cause({
       <Body style={styles.causeBody}>{body}</Body>
       {tips?.length ? (
         <View style={styles.tips}>
-          {tips.map((tip) => (
-            <Body key={tip} style={styles.tip}>
-              {`•  ${tip}`}
-            </Body>
+          {tips.map((tip, index) => (
+            <NumberedLine
+              action={keepAliveAction(tip.opens)}
+              index={index + 1}
+              key={tip.en}
+              onPress={onTip ? () => onTip(tip.opens) : undefined}
+            >
+              {localize(tip.en, tip.es)}
+            </NumberedLine>
           ))}
         </View>
       ) : null}
-      <PrimaryButton variant="secondary" onPress={onPress}>
-        {action}
-      </PrimaryButton>
+      {action && onPress ? (
+        <PrimaryButton variant="secondary" onPress={onPress}>
+          {action}
+        </PrimaryButton>
+      ) : null}
     </View>
   );
 }
@@ -195,5 +211,4 @@ const styles = StyleSheet.create({
   causeTitle: { fontSize: 18, lineHeight: 22 },
   causeBody: { color: colors.graphiteSoft, fontSize: 14, lineHeight: 21 },
   tips: { gap: spacing.xs },
-  tip: { color: colors.graphite, fontSize: 14, lineHeight: 21 },
 });
