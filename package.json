@@ -13,7 +13,10 @@
     "test": "pnpm -r --if-present test",
     "lint": "pnpm -r --if-present lint",
     "format": "prettier --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "deploy:apps": "node apps/mobile/scripts/deploy-apps.mjs",
+    "deploy:apps:ios": "node apps/mobile/scripts/deploy-apps.mjs ios",
+    "deploy:apps:android": "node apps/mobile/scripts/deploy-apps.mjs android"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
