@@ -1,8 +1,41 @@
 import { describe, expect, it } from "vitest";
 
-import { expandHome, parsePlatform, releaseToPromote } from "./deploy-apps.mjs";
+import {
+  expandHome,
+  parsePlatform,
+  pickFinishedBuilds,
+  releaseToPromote,
+} from "./deploy-apps.mjs";
 
 describe("deploy:apps", () => {
+  it("ships only the finished builds this run made from this commit", () => {
+    const since = Date.parse("2026-09-24T23:20:00Z");
+    const build = (id, platform, createdAt, extra = {}) => ({
+      id,
+      platform,
+      status: "FINISHED",
+      gitCommitHash: "abc",
+      createdAt,
+      ...extra,
+    });
+    const builds = [
+      build("ios-new", "IOS", "2026-09-24T23:30:00Z"),
+      build("ios-first", "IOS", "2026-09-24T23:22:00Z"),
+      build("ios-old", "IOS", "2026-09-24T21:19:00Z"),
+      build("android-errored", "ANDROID", "2026-09-24T23:23:00Z", {
+        status: "ERRORED",
+      }),
+      build("android-other-commit", "ANDROID", "2026-09-24T23:24:00Z", {
+        gitCommitHash: "def",
+      }),
+    ];
+
+    const picked = pickFinishedBuilds(builds, { commit: "abc", since });
+
+    expect(picked.ios.id).toBe("ios-new");
+    expect(picked.android).toBeUndefined();
+  });
+
   it("builds both apps unless a platform is named", () => {
     expect(parsePlatform([])).toBe("all");
     expect(parsePlatform(["ios"])).toBe("ios");
