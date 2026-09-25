@@ -11,6 +11,7 @@ import {
   fillSystemString,
   shortcutsString,
   systemVariantFor,
+  usageAccessKeys,
 } from "./system-strings";
 
 describe("system strings", () => {
@@ -82,5 +83,16 @@ describe("system strings", () => {
         expect(entry["es-419"].length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("usage access labels by Android release", () => {
+  it("follows the page's renames (android14/15/16-release)", () => {
+    expect(usageAccessKeys(34)).toEqual({ title: "usageAccess", toggle: "permitUsageAccess" });
+    expect(usageAccessKeys(35)).toEqual({ title: "usageAccess", toggle: "permitUsageAccess15" });
+    expect(usageAccessKeys(36)).toEqual({ title: "usageAccess16", toggle: "permitUsageAccess16" });
+    expect(androidSettingsString("es-419", "permitUsageAccess16")).toBe(
+      "Permitir el acceso a los datos de uso de la app",
+    );
   });
 });

@@ -31,9 +31,11 @@ describe("committed native production configuration", () => {
     expect(gradle).toContain("namespace 'com.still.screentime'");
     expect(gradle).toContain("applicationId 'com.still.screentime'");
     expect(manifest).toContain('android:scheme="still"');
-    // Today counts Still's own pauses on both platforms; screen time is no
-    // longer read, so Usage Access is not requested (ui-clarity-plan D4).
-    expect(manifest).not.toContain("android.permission.PACKAGE_USAGE_STATS");
+    // Today counts Still's own pauses on both platforms (ui-clarity-plan D4);
+    // Usage access is back only for the onboarding story (onboarding-v2 D4).
+    expect(manifest).toContain(
+      '<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>',
+    );
     expect(manifest).toContain(
       'android:name="android.permission.POST_NOTIFICATIONS"',
     );
@@ -80,7 +82,18 @@ describe("committed native production configuration", () => {
     // Screen time is gone (D4); Today reads seven local days of Still's own
     // counters, keyed by the phone's day (D6).
     expect(restrictionModule).not.toContain("wellbeingAuthorization");
+    // Usage is read in one file, for the onboarding only, and never sent.
     expect(restrictionModule).not.toContain("UsageStatsManager");
+    const usageInsights = nativeFile(
+      "android/app/src/main/java/com/still/screentime/StillUsageInsights.kt",
+    );
+    expect(usageInsights).toContain("UsageStatsManager");
+    for (const networkWord of ["HttpURLConnection", "OkHttp", "java.net.URL", "SharedPreferences"]) {
+      expect(usageInsights).not.toContain(networkWord);
+    }
+    for (const source of [intervention, accessibilityService, appPicker, selfProtection]) {
+      expect(source).not.toContain("UsageStatsManager");
+    }
     expect(restrictionModule).toContain('putArray("history"');
     for (const source of [restrictionModule, intervention, accessibilityService]) {
       expect(source).toContain("StillDay.today()");

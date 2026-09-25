@@ -222,10 +222,48 @@ export const ANDROID_SETTINGS_STRINGS = {
     es: "Permitir ajustes restringidos",
     "es-419": "Permitir configuración restringida",
   },
+  // Special app access → Usage access (onboarding v2, §3.2). The page was
+  // renamed between releases, so each release has its own pair (see
+  // usageAccessKeys): android14-, android15- and android16-release.
+  usageAccess: {
+    en: "Usage access",
+    es: "Acceso al uso",
+    "es-419": "Acceso a datos de uso",
+  },
+  permitUsageAccess: {
+    en: "Permit usage access",
+    es: "Permitir acceso al uso",
+    "es-419": "Apps con acceso de uso",
+  },
+  permitUsageAccess15: {
+    en: "Permit usage access",
+    es: "Permitir acceso al uso",
+    "es-419": "Permitir acceso a los datos de uso",
+  },
+  usageAccess16: {
+    en: "App usage data",
+    es: "Datos de uso de aplicaciones",
+    "es-419": "Datos de uso de apps",
+  },
+  permitUsageAccess16: {
+    en: "Permit access to app usage data",
+    es: "Dar acceso a datos de uso de aplicaciones",
+    "es-419": "Permitir el acceso a los datos de uso de la app",
+  },
 } satisfies Record<string, Entry>;
 
 export type ShortcutsStringKey = keyof typeof SHORTCUTS_STRINGS;
 export type AndroidSettingsStringKey = keyof typeof ANDROID_SETTINGS_STRINGS;
+
+/** The Usage access page's title and switch as the phone's Android release names them. */
+export function usageAccessKeys(sdkInt: number): {
+  title: AndroidSettingsStringKey;
+  toggle: AndroidSettingsStringKey;
+} {
+  if (sdkInt >= 36) return { title: "usageAccess16", toggle: "permitUsageAccess16" };
+  if (sdkInt === 35) return { title: "usageAccess", toggle: "permitUsageAccess15" };
+  return { title: "usageAccess", toggle: "permitUsageAccess" };
+}
 
 /**
  * Which table a phone shows. Spanish from Spain uses Apple's `es` and Android's

@@ -13,6 +13,8 @@ export type UsageDay = {
   date: string;
   foregroundSeconds: number;
   unlocks: number;
+  /** Times the screen turned on; stands in for unlocks on a phone without a lock screen. */
+  screenOns?: number;
   /** False for today, which is still running. */
   complete: boolean;
 };
@@ -34,7 +36,7 @@ export type TopApp = {
 
 export type UsageInsights = {
   dailyMinutes: number;
-  /** Unlocks a day; null when the phone recorded none (no lock screen). */
+  /** Unlocks a day (screen-ons without a lock screen); null when none were recorded. */
   unlocksPerDay: number | null;
   /** "days" = average of complete days; "today" = today so far. */
   basis: "days" | "today";
@@ -89,10 +91,15 @@ export function usageInsights(summary: UsageSummary): UsageInsights | null {
   );
   const dailyMinutes = Math.round(totalSeconds / count / 60);
   if (dailyMinutes <= 0) return null;
-  const totalUnlocks = picked.reduce(
+  const unlocks = picked.reduce(
     (sum, { day }) => sum + Math.max(0, day.unlocks),
     0,
   );
+  // A phone without a lock screen never "unlocks": count the screen turning on.
+  const totalUnlocks =
+    unlocks > 0
+      ? unlocks
+      : picked.reduce((sum, { day }) => sum + Math.max(0, day.screenOns ?? 0), 0);
   const topApps = summary.apps
     .map((app) => ({
       packageName: app.packageName,

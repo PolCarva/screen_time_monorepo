@@ -92,7 +92,11 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#F1EFE8",
     },
-    permissions: ["android.permission.POST_NOTIFICATIONS"],
+    permissions: [
+      "android.permission.POST_NOTIFICATIONS",
+      // Onboarding story only; read on the phone, never stored or sent.
+      "android.permission.PACKAGE_USAGE_STATS",
+    ],
   },
   plugins: [
     "@sentry/react-native",

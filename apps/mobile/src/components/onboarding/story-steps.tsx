@@ -202,18 +202,24 @@ function StudyCard({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function shareTitle(share: number) {
+function shareTitle(share: number, count: number) {
+  const apps = localize(
+    count === 1 ? "one app" : `${count} apps`,
+    count === 1 ? "una sola app" : `${count} apps`,
+  );
   switch (shareHeadline(share)) {
     case "moreThanHalf":
-      return localize("More than half goes to 3 apps.", "Más de la mitad es de 3 apps.");
+      return localize(`More than half goes to ${apps}.`, `Más de la mitad es de ${apps}.`);
     case "almostHalf":
-      return localize("Almost half goes to 3 apps.", "Casi la mitad es de 3 apps.");
+      return localize(`Almost half goes to ${apps}.`, `Casi la mitad es de ${apps}.`);
     case "aThird":
-      return localize("A third goes to 3 apps.", "Un tercio es de 3 apps.");
+      return localize(`A third goes to ${apps}.`, `Un tercio es de ${apps}.`);
     case "aQuarter":
-      return localize("A quarter goes to 3 apps.", "Un cuarto es de 3 apps.");
+      return localize(`A quarter goes to ${apps}.`, `Un cuarto es de ${apps}.`);
     default:
-      return localize("Your 3 most used apps.", "Tus 3 apps más usadas.");
+      return count === 1
+        ? localize("Your most used app.", "Tu app más usada.")
+        : localize(`Your ${count} most used apps.`, `Tus ${count} apps más usadas.`);
   }
 }
 
@@ -253,7 +259,11 @@ export function WhereStep({
     );
   }
   return (
-    <StoryLayout centerVisual={false} footer={footer} title={shareTitle(insights.topShare)}>
+    <StoryLayout
+      centerVisual={false}
+      footer={footer}
+      title={shareTitle(insights.topShare, top.length)}
+    >
       <View style={styles.bars}>
         {top.map((app, index) => (
           <Animated.View

@@ -159,6 +159,8 @@ dependencies {
     // Same SDK version react-native-google-mobile-ads bundles, referenced
     // directly so InterventionActivity/StillRewardedAdManager can call it.
     implementation("com.google.android.gms:play-services-ads:24.6.0")
+    // JVM tests for the pure Kotlin pieces (UsageSessions); onboarding v2 §6.1.1.
+    testImplementation("junit:junit:4.13.2")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

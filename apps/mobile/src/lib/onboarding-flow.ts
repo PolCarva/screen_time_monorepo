@@ -315,6 +315,8 @@ const progressSchema = z.object({
   startedAt: z.string(),
   guessMinutes: z.number().int().positive(),
   usage: z.enum(["granted", "skipped", "unasked"]),
+  /** Settings was opened for usage access; checked again on every return. */
+  usageRequestedAt: z.string().optional(),
   adsConsent: z.enum(["required", "not-required", "unknown"]),
   adultConfirmedAt: z.string().optional(),
   keepAliveConfirmedAt: z.string().optional(),

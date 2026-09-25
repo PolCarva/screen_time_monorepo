@@ -102,7 +102,15 @@ describe("usage insights (§3.3, §3.5)", () => {
     expect(usageInsights({ days: [], apps: [] })).toBeNull();
   });
 
-  it("reports no unlock count for a phone without a lock screen", () => {
+  it("counts screen-ons on a phone without a lock screen", () => {
+    const insights = usageInsights({
+      days: [{ ...day("2026-09-23", 120, 0), screenOns: 40 }],
+      apps: [],
+    })!;
+    expect(insights.unlocksPerDay).toBe(40);
+  });
+
+  it("reports no unlock count when the phone recorded neither", () => {
     const insights = usageInsights({
       days: [day("2026-09-23", 120, 0)],
       apps: [],

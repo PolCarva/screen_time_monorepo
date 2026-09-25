@@ -105,6 +105,74 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     promise.resolve(opened)
   }
 
+  /** Usage access, for the onboarding story only (docs/onboarding-v2-plan.md §6.1). */
+  @ReactMethod
+  fun hasUsageAccess(promise: Promise) {
+    promise.resolve(StillUsageInsights.hasUsageAccess(context))
+  }
+
+  /** Opens Usage access without waiting: React Native checks again on its return. */
+  @ReactMethod
+  fun openUsageAccessSettings(promise: Promise) {
+    val activity = context.currentActivity
+    promise.resolve(
+      StillUsageInsights.openUsageAccessSettings(context) { intent ->
+        if (activity != null) activity.startActivity(intent)
+        else context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      },
+    )
+  }
+
+  /**
+   * Seven complete local days and today: foreground time, unlocks and screen-ons
+   * per day, and the most used apps with their time per day. Read off the main
+   * thread, returned once and never stored.
+   */
+  @ReactMethod
+  fun getUsageSummary(promise: Promise) {
+    if (!StillUsageInsights.hasUsageAccess(context)) {
+      promise.reject("usage_access_denied", "Usage access is not granted")
+      return
+    }
+    Thread {
+      runCatching {
+        val summary = StillUsageInsights.readSummary(context)
+        Arguments.createMap().apply {
+          putArray("days", Arguments.createArray().apply {
+            summary.days.forEachIndexed { index, day ->
+              pushMap(Arguments.createMap().apply {
+                putString("date", day.date.toString())
+                putDouble("foregroundSeconds", day.foregroundMillis / 1_000.0)
+                putInt("unlocks", day.unlocks)
+                putInt("screenOns", day.screenOns)
+                putBoolean("complete", index != summary.todayIndex)
+              })
+            }
+          })
+          putArray("apps", Arguments.createArray().apply {
+            for ((packageName, label) in summary.apps) {
+              pushMap(Arguments.createMap().apply {
+                putString("packageName", packageName)
+                putString("label", label)
+                putArray("seconds", Arguments.createArray().apply {
+                  for (day in summary.days) pushDouble((day.appMillis[packageName] ?: 0L) / 1_000.0)
+                })
+              })
+            }
+          })
+        }
+      }.onSuccess { promise.resolve(it) }
+        .onFailure { promise.reject("usage_read_failed", it.message, it) }
+    }.start()
+  }
+
+  /** An installed app's icon as a PNG `data:` URI, for the onboarding's pictures. */
+  @ReactMethod
+  fun getAppIcon(packageName: String, sizeDp: Int, promise: Promise) {
+    val sizePx = (sizeDp * context.resources.displayMetrics.density).toInt().coerceIn(24, 288)
+    promise.resolve(StillUsageInsights.iconDataUri(context, packageName, sizePx))
+  }
+
   @ReactMethod
   fun presentAppPicker(promise: Promise) {
     StillSelfProtection.sanitizePreferences(preferences, context.packageName)

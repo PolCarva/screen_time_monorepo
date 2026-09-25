@@ -92,6 +92,17 @@ export type PendingUnlockEvent = {
   /** Set when a fresh ad paid for the visit: its reward must be claimed first. */
   rewardIntentId?: string;
 };
+/** Android usage for the onboarding story (lib/onboarding-insights); never stored. */
+export type NativeUsageSummary = {
+  days: {
+    date: string;
+    foregroundSeconds: number;
+    unlocks: number;
+    screenOns: number;
+    complete: boolean;
+  }[];
+  apps: { packageName: string; label: string; seconds: number[] }[];
+};
 /** Still's own counters for today and the last seven local days (oldest first). */
 export type LocalWellbeingStats = {
   openAttempts: number;
@@ -155,6 +166,14 @@ export interface RestrictionEngine {
   openAppInfo?(): Promise<boolean>;
   /** Android only. Opens the Accessibility settings without waiting for a result. */
   openAccessibilitySettings?(): Promise<boolean>;
+  /** Android only. Usage access, read by the onboarding story alone (D4). */
+  hasUsageAccess?(): Promise<boolean>;
+  /** Android only. Opens Usage access; the caller checks again on return. */
+  openUsageAccessSettings?(): Promise<boolean>;
+  /** Android only. Seven complete local days and today, most used apps included. */
+  getUsageSummary?(): Promise<NativeUsageSummary>;
+  /** Android only. An installed app's icon as a PNG `data:` URI. */
+  getAppIcon?(packageName: string, sizeDp: number): Promise<string | null>;
   /**
    * Windows still running. The deadline is owned natively, so this is the
    * truth about when each app is paused again — not a countdown JavaScript

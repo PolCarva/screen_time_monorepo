@@ -1,6 +1,12 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Platform, StyleSheet, View } from "react-native";
+import {
+  AppState,
+  BackHandler,
+  Platform,
+  StyleSheet,
+  View,
+} from "react-native";
 import Animated from "react-native-reanimated";
 
 import { slideIn } from "@/components/motion";
@@ -8,7 +14,7 @@ import {
   AdultStep,
   PausesOffStep,
 } from "@/components/onboarding/basic-setup-steps";
-import { EXAMPLE_DEMO_APP } from "@/components/onboarding/phone";
+import { EXAMPLE_DEMO_APP, type DemoApp } from "@/components/onboarding/phone";
 import {
   OnboardingChrome,
   StoryFooter,
@@ -22,6 +28,11 @@ import {
   PauseDemoStep,
   WhereStep,
 } from "@/components/onboarding/story-steps";
+import {
+  RevealStep,
+  UsagePermissionStep,
+  type UsagePermissionState,
+} from "@/components/onboarding/usage-steps";
 import {
   closeAction,
   retryAction,
@@ -39,6 +50,10 @@ import {
   type OnboardingProgress,
   type OnboardingStepId,
 } from "@/lib/onboarding-flow";
+import {
+  usageInsights,
+  type UsageInsights,
+} from "@/lib/onboarding-insights";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
@@ -63,6 +78,11 @@ export function OnboardingFlow() {
   // False until the first step change: the first step arrives with the screen.
   const [moved, setMoved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [usagePermission, setUsagePermission] =
+    useState<UsagePermissionState>("idle");
+  // Read once, held in memory, never stored (D4). Undefined while reading.
+  const [insights, setInsights] = useState<UsageInsights | null | undefined>();
+  const [icons, setIcons] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void loadOnboardingProgress().then((loaded) => {
@@ -72,18 +92,60 @@ export function OnboardingFlow() {
   }, []);
 
   const platform = Platform.OS === "ios" ? "ios" : "android";
+  const usageSource =
+    Platform.OS === "android" && restrictionEngine.getUsageSummary
+      ? "android-usage"
+      : "none";
   const context = useMemo<FlowContext | null>(
     () =>
       progress && {
         platform,
         pausesEnabled: isPauseFeatureEnabled(Platform.OS, config),
-        usageSource: "none",
+        usageSource,
         usageGranted: progress.usage === "granted",
         adsConsent: "not-required",
         aggressiveOem: false,
       },
-    [config, platform, progress],
+    [config, platform, progress, usageSource],
   );
+
+  // Once usage access is granted, read the week (again after a restart: it
+  // is never stored).
+  const usageGranted = progress?.usage === "granted";
+  useEffect(() => {
+    if (!usageGranted || insights !== undefined) return;
+    let cancelled = false;
+    restrictionEngine.getUsageSummary!()
+      .then((summary) => {
+        if (!cancelled) setInsights(usageInsights(summary));
+      })
+      .catch(() => {
+        if (!cancelled) setInsights(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [insights, usageGranted]);
+
+  // Then the icons of the most used apps, for the bars and the demo (D10).
+  useEffect(() => {
+    const apps = insights?.topApps ?? [];
+    if (apps.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const loaded: Record<string, string> = {};
+      for (const app of apps) {
+        const uri = await restrictionEngine
+          .getAppIcon?.(app.packageName, 48)
+          .catch(() => null);
+        if (uri) loaded[app.packageName] = uri;
+      }
+      if (!cancelled) setIcons(loaded);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [insights]);
 
   const update = useCallback((patch: Partial<OnboardingProgress>) => {
     const current = progressRef.current;
@@ -119,6 +181,55 @@ export function OnboardingFlow() {
     goTo(target, -1);
     return true;
   }, [context, goTo, step]);
+
+  /** The user granted usage access: straight to the reveal. */
+  const usageGrantedNow = useCallback(() => {
+    setUsagePermission("idle");
+    setInsights(undefined);
+    setDirection(1);
+    setMoved(true);
+    update({ usage: "granted", usageRequestedAt: undefined, step: "reveal" });
+  }, [update]);
+
+  // Back from Settings, or Still started again after the system killed it
+  // there: once Settings was opened, check Usage access on every return
+  // (§3.2, §5.1, D9).
+  const usageRequested = Boolean(progress?.usageRequestedAt);
+  const usagePermissionRef = useRef(usagePermission);
+  usagePermissionRef.current = usagePermission;
+  useEffect(() => {
+    if (step !== "usage-permission" || !usageRequested) return;
+    const check = () =>
+      void restrictionEngine
+        .hasUsageAccess?.()
+        .then((granted) =>
+          granted ? usageGrantedNow() : setUsagePermission("denied"),
+        )
+        .catch(() => setUsagePermission("denied"));
+    // Right after opening Settings Still is still in front: wait for the return.
+    if (
+      AppState.currentState === "active" &&
+      usagePermissionRef.current !== "waiting"
+    ) {
+      check();
+    }
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") check();
+    });
+    return () => subscription.remove();
+  }, [step, usageGrantedNow, usageRequested]);
+
+  async function requestUsageAccess() {
+    if (await restrictionEngine.hasUsageAccess?.().catch(() => false)) {
+      usageGrantedNow();
+      return;
+    }
+    const opened = await restrictionEngine
+      .openUsageAccessSettings?.()
+      .catch(() => false);
+    if (opened) update({ usageRequestedAt: new Date().toISOString() });
+    setUsagePermission(opened ? "waiting" : "denied");
+  }
 
   // Android's back button walks the steps back instead of leaving the app.
   useEffect(() => {
@@ -168,8 +279,37 @@ export function OnboardingFlow() {
     }
   }
 
+  const topApp = insights?.topApps[0];
+  const demoApp: DemoApp =
+    topApp && icons[topApp.packageName]
+      ? {
+          label: topApp.label,
+          icon: { kind: "image", uri: icons[topApp.packageName]! },
+        }
+      : EXAMPLE_DEMO_APP;
+
   function renderStep(current: OnboardingStepId) {
     switch (current) {
+      case "usage-permission":
+        return (
+          <UsagePermissionStep
+            onGrant={() => void requestUsageAccess()}
+            onSkip={() => {
+              setUsagePermission("idle");
+              update({ usage: "skipped", usageRequestedAt: undefined });
+              goNext();
+            }}
+            state={usagePermission}
+          />
+        );
+      case "reveal":
+        return (
+          <RevealStep
+            guessMinutes={progress!.guessMinutes}
+            insights={insights}
+            onNext={goNext}
+          />
+        );
       case "guess":
         return (
           <GuessStep
@@ -181,17 +321,19 @@ export function OnboardingFlow() {
       case "life":
         return (
           <LifeStep
-            dailyMinutes={progress!.guessMinutes}
-            fromGuess
+            dailyMinutes={insights?.dailyMinutes ?? progress!.guessMinutes}
+            fromGuess={!insights}
             onNext={goNext}
           />
         );
       case "where":
-        return <WhereStep icons={{}} insights={null} onNext={goNext} />;
+        return (
+          <WhereStep icons={icons} insights={insights ?? null} onNext={goNext} />
+        );
       case "habit":
-        return <HabitStep app={EXAMPLE_DEMO_APP} onNext={goNext} />;
+        return <HabitStep app={demoApp} onNext={goNext} />;
       case "pause-demo":
-        return <PauseDemoStep app={EXAMPLE_DEMO_APP} onNext={goNext} />;
+        return <PauseDemoStep app={demoApp} onNext={goNext} />;
       case "how":
         return <HowStep onNext={goNext} />;
       case "adult":
