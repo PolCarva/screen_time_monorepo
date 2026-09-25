@@ -21,40 +21,64 @@ Turning it on is an explicit operator action in `/admin`.
 
 1. **Choose apps in Still** (`/ios-apps`). iOS gives no app the list of
    installed apps (one sec does not get it either: its list is its own catalog,
-   and anything else is typed in with a URL scheme). Still gets as close as iOS
-   allows in two ways. Catalog apps found on the device through their URL
-   scheme are listed first under **On this iPhone**. Any other app is picked,
-   without typing, from the real app list inside Shortcuts' trigger: the
-   automation passes **Current App** to Still, and the intent adopts whatever
-   name arrives, so the app shows up in Still the first time it is opened.
-   Typing a name remains as a fallback. Still and Shortcuts themselves are
-   reserved and never paused. The choice never leaves the device.
-2. **Connect Shortcuts** (`/shortcut-setup`). Still picks the easiest tier the
-   device supports:
+   and anything else is typed in with a URL scheme). The list matters: each
+   chosen app becomes a ready-made **Pause <App>** action in Shortcuts (below),
+   its own row to connect and test, and the way Still reopens it after the
+   pause. The screen puts the likely picks on the first screen as chips: the
+   apps already chosen, the catalog apps found on this iPhone through their URL
+   scheme (Apple's own apps are left out: they are on every iPhone), then the
+   most common ones; the rest of the catalog sits behind **See N more apps**.
+   A search box finds any catalog app by name or alias and, when nothing
+   matches, offers to add what was typed. **Continue** is pinned to the bottom.
+   Still and Shortcuts themselves are reserved and never paused. The choice
+   never leaves the device.
+2. **Connect Shortcuts** (`/shortcut-setup`). One automation per app, one sec
+   style, but shorter: Still declares its action as an App Shortcut with the
+   app as parameter (`StillPauseAppIntent.swift`), so Shortcuts lists, under
+   Still's **Pause App** (**Pausar app**), one tile per app chosen in Still.
+   Tapping a tile adds **Pause Instagram** with nothing to pick, type or wire
+   with variables. The earlier "one automation for every app" tier (**Get
+   Current App** plus a variable) was dropped on 2026-09-25.
 
    | Tier | iOS | Steps | Status |
    | --- | --- | --- | --- |
    | Import | 27+ | Add a shared shortcut, pick the apps in its trigger, flip its switch | Off until H2 is validated |
-   | Single automation | 18.2+ | One automation for every app using **Get Current App** | **Active**; trigger semantics still to be confirmed on a device |
-   | Per app | 16.4+ | One automation per app | **Active** below 18.2, and as the user's fallback |
+   | Per app | 16.4+ | One automation per app with Still's ready-made action | **Active** |
 
-   The per-app tier is shown one tap at a time, each step with **Shortcuts'
-   own screen drawn in code**, in the phone's language, and the control to tap
-   ringed (and numbered when there are several). The example is always
+   The screen starts with the chosen apps, each with its state (**Connected ·
+   last pause 2 h ago** / **Not connected yet**) and its own **Test** button,
+   so testing never waits at the end of a long guide. Below it, the guide for
+   the next app to connect, folded once one app is connected (the steps are
+   the same for every app). **Connect <App> in Shortcuts** and **Done** are
+   pinned to the bottom.
+
+   The guide is shown one tap at a time, each step with **Shortcuts' own
+   screen drawn in code**, in the phone's language, and the control to tap
+   ringed. The texts name the app being connected; the pictures show
    Instagram:
 
    1. In the trigger list, search **App** and tap it.
    2. Tap **Choose**.
-   3. Check **Instagram**, then the blue check mark.
+   3. Check the app, then the blue check mark.
    4. Tap **Run Immediately**, keep **Notify When Run** off, tap **Next**.
    5. Tap **Create New Shortcut**.
    6. Tap **Search Actions** and type **Still**.
-   7. Tap **Pause Before Opening** (**Pausar antes de abrir** on a Spanish
-      iPhone). An automation saved without this step shows
+   7. Under **Pause App**, tap the app's tile. The action reads **Pause
+      Instagram** (**Pausar Instagram**). An automation saved without it shows
       up as "No actions" in Shortcuts and does nothing; it is the easiest step
       to miss, so the repair screen leads with it.
-   8. Tap **App name** and pick **Instagram** from the list. Nothing to type.
-   9. Tap the blue check mark to save.
+   8. Tap the blue check mark to save.
+
+   Below iOS 17 apps cannot declare App Shortcuts with a parameter: step 7
+   becomes "tap **Pause App**, then **App**, and pick the app" (the list still
+   shows only the apps chosen in Still).
+
+   Verified on the iOS 26.0 simulator (es-419): the tiles appear in the action
+   search of a new shortcut and of a new automation, and update as soon as the
+   choice changes in Still; tapping one adds **Pausar Instagram**; running it
+   brings up Still's pause for Instagram. Avoid the **Pausar app** tile of the
+   **Get Started** screen that follows **Next**: it saves an automation whose
+   action has no app. The guide goes through **Create New Shortcut** instead.
 
    Every picture is a button. Shortcuts has no URL for the middle of its "new
    automation" sheet, so only the entry points land on the exact screen:
@@ -77,18 +101,29 @@ Turning it on is an explicit operator action in `/admin`.
    reopen it directly.
 
 3. **Test it.** Tapping **Test** arms a two-minute probe and opens the app.
-   When the automation fires, Still comes back with a "connected" screen. A
-   test never counts as an opening and never shows an ad. If nothing fires,
-   the row says so and links to `/shortcut-repair`.
+   When the automation fires, Still comes back with a "connected" screen, and
+   **Continue** returns to whatever started the test (`returnTo` of
+   `ShortcutConnectList`; the setup screen by default). A test never counts as
+   an opening and never shows an ad. If nothing fires, the row says so and
+   links to `/shortcut-repair`.
 
-The tiers are controlled by `IOS_SHORTCUT_IMPORT_URL` and
-`IOS_SINGLE_AUTOMATION_ENABLED` in `apps/mobile/src/lib/ios-shortcut-setup.ts`.
-Set them only after the matching hypothesis is recorded as validated in
-section 10 of the plan; no other code changes are needed.
+The import tier is controlled by `IOS_SHORTCUT_IMPORT_URL` in
+`apps/mobile/src/lib/ios-shortcut-setup.ts`. Set it only after H2 is recorded
+as validated in section 10 of the plan; no other code changes are needed.
+
+### Automations made before the ready-made action
+
+The first action, **Pause Before Opening** (`PauseBeforeOpeningIntent`, a
+typed or variable app name), is still compiled into the app with
+`isDiscoverable = false`: it no longer appears in Shortcuts' library, but every
+automation that already uses it keeps running (verified on the simulator by
+running a shortcut made with it after hiding it). Both actions call the same
+`ShortcutInterventionState.prepare(appName:)`.
 
 ## Runtime contract
 
-1. Opening YouTube triggers `PauseBeforeOpeningIntent` in the background.
+1. Opening YouTube triggers `PauseAppIntent` ("Pause YouTube") in the
+   background (or `PauseBeforeOpeningIntent` in an older automation).
 2. The intent resolves the name against the apps mirrored from Still. Aliases
    ("Twitter" / "X") share one allowance and one counter. An app Still has
    never seen is adopted; an app the user removed in Still keeps the intent
@@ -149,10 +184,13 @@ an offline device from missing signing credentials. Installing on iOS 27 needs
 an Xcode that ships the iOS 27 SDK, or a build distributed through EAS.
 
 Then verify the compiled app contract. The command checks that Shortcuts can
-discover the action, that its single app parameter offers the apps chosen in
-Still as options, that Still only foregrounds dynamically, that the Spanish
-of Still's action (`ios/Still/Localizable.xcstrings`) reached the bundle, and
-that the production iOS AdMob application id did too:
+discover **Pause App**, that its single parameter is the app entity listing the
+apps chosen in Still, that it is an App Shortcut with the app in its phrase (one
+ready-made action per app), that the former **Pause Before Opening** is still
+in the build but hidden, that Still only foregrounds dynamically, that the
+Spanish of Still's action (`ios/Still/Localizable.xcstrings`) and of its Siri
+phrase (`ios/Still/es.lproj/AppShortcuts.strings`) reached the bundle, and that
+the production iOS AdMob application id did too:
 
 ```sh
 pnpm --filter mobile acceptance:ios-shortcuts -- /absolute/path/to/Still.app
@@ -198,8 +236,9 @@ there. Stand in for it with a plain shortcut that runs the same action.
    through `applenews://`) and add **Fitness** by name (returns through the
    `Still - Fitness` shortcut).
 4. In Shortcuts create `Test Still News` and `Test Still Fitness`, each with
-   the single action **Pause Before Opening** set to that app, plus the return
-   shortcut `Still - Fitness` (**Open App → Fitness**).
+   the single action added from that app's tile under **Pause App** (it reads
+   **Pause News**), plus the return shortcut `Still - Fitness` (**Open App →
+   Fitness**).
 5. Run `shortcuts://run-shortcut?name=Test%20Still%20News` (or tap the tile).
    Still comes to the foreground exactly as it would from the automation.
 
@@ -235,8 +274,8 @@ installing the native build, with `iosRestrictionEnabled` on:
 1. Open Still once. Settings shows **Choose your apps** and `0/0 APPS`, not a
    green "active" state.
 2. Choose YouTube and one app outside the catalog in `/ios-apps`. In Shortcuts,
-   **Pause Before Opening** lists exactly those two apps under **App name**.
-3. Configure YouTube with the four per-app steps, tap **Test** in Still, and
+   searching **Still** shows **Pause App** with exactly those two tiles.
+3. Configure YouTube with the eight per-app steps, tap **Test** in Still, and
    confirm Still returns by itself with **YouTube is connected** and that the
    day's counter did not increase.
 4. Open YouTube. Still shows `YouTube opened 1 time today` with **Watch ad** and

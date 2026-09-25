@@ -23,7 +23,7 @@ const sections = [
   },
   {
     title: "3. Atajos en iOS",
-    body: "En iPhone, la pausa funciona con una automatización personal que tú creas en la app Atajos de Apple («Cuando se abra [app] → Pausar antes de abrir»). Still no crea, lee ni modifica tus automatizaciones y no usa Tiempo en pantalla. Los nombres de las apps elegidas se guardan en el almacenamiento compartido de Still dentro del dispositivo y nunca se envían a nuestros servidores. Puedes borrar la automatización en Atajos cuando quieras.",
+    body: "En iPhone, la pausa funciona con una automatización personal que tú creas en la app Atajos de Apple («Cuando se abra [app] → Pausar [app]»). Still no crea, lee ni modifica tus automatizaciones y no usa Tiempo en pantalla. Los nombres de las apps elegidas se guardan en el almacenamiento compartido de Still dentro del dispositivo y nunca se envían a nuestros servidores. Puedes borrar la automatización en Atajos cuando quieras.",
   },
   {
     title: "4. Datos que procesamos",

@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		0B6AC31BE982433B500B0576 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 86A1354A46C5D0F1E477E1AC /* PrivacyInfo.xcprivacy */; };
+		0E54025DE9C9CC4ED26677C1 /* StillPauseAppIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 922F6E6530BE2234476E6404 /* StillPauseAppIntent.swift */; };
+		1321E9B512F58ABFF2BEC8B8 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 28F80274C00B6ADE4D1C1F02 /* AppShortcuts.strings */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		1F90C6A1B33D4E19A27C1120 /* StillShortcutIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F90C6A0B33D4E19A27C1120 /* StillShortcutIntent.swift */; };
 		26DE55649387FAF9E6E49EA1 /* StillRestrictionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */; };
@@ -28,6 +30,7 @@
 		13B07F961A680F5B00A75B9A /* Still.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Still.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Still/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Still/Info.plist; sourceTree = "<group>"; };
+		1EDF72357745694F4A0647A2 /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = Still/en.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 		1F90C6A0B33D4E19A27C1120 /* StillShortcutIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillShortcutIntent.swift; path = StillNative/StillShortcutIntent.swift; sourceTree = "<group>"; };
 		23BD8C17DAA046DBC65BFDC0 /* StillShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StillShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		293A547EFA94C58F701A733E /* StillRestrictionEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillRestrictionEngine.swift; path = StillNative/StillRestrictionEngine.swift; sourceTree = "<group>"; };
@@ -40,6 +43,7 @@
 		86A1354A46C5D0F1E477E1AC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Still/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		8A0649E3CA61A03FD04306F2 /* StillActivityReportView.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = StillActivityReportView.m; path = StillNative/StillActivityReportView.m; sourceTree = "<group>"; };
 		90C56F328EF2CE1BC601D140 /* StillRestrictionEngine.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = StillRestrictionEngine.m; path = StillNative/StillRestrictionEngine.m; sourceTree = "<group>"; };
+		922F6E6530BE2234476E6404 /* StillPauseAppIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StillPauseAppIntent.swift; path = StillNative/StillPauseAppIntent.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Still/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AFFD8B72D5CF7021B81E7208 /* Pods-Still.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Still.debug.xcconfig"; path = "Target Support Files/Pods-Still/Pods-Still.debug.xcconfig"; sourceTree = "<group>"; };
 		BAD6FEE7D603F6C2B9E9AF03 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -49,6 +53,7 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Still/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Still-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Still-Bridging-Header.h"; path = "Still/Still-Bridging-Header.h"; sourceTree = "<group>"; };
+		FD06849AA3C2AC693FF3CFBF /* es */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = es; path = Still/es.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +79,7 @@
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				86A1354A46C5D0F1E477E1AC /* PrivacyInfo.xcprivacy */,
 				4C2A9E71D05B8F3A6E19B2D4 /* Localizable.xcstrings */,
+				28F80274C00B6ADE4D1C1F02 /* AppShortcuts.strings */,
 			);
 			name = Still;
 			sourceTree = "<group>";
@@ -167,6 +173,7 @@
 				90C56F328EF2CE1BC601D140 /* StillRestrictionEngine.m */,
 				D645E053729E6B0B27BD1691 /* StillActivityReportView.swift */,
 				8A0649E3CA61A03FD04306F2 /* StillActivityReportView.m */,
+				922F6E6530BE2234476E6404 /* StillPauseAppIntent.swift */,
 			);
 			name = StillNative;
 			sourceTree = "<group>";
@@ -261,6 +268,7 @@
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				0B6AC31BE982433B500B0576 /* PrivacyInfo.xcprivacy in Resources */,
 				4C2A9E72D05B8F3A6E19B2D4 /* Localizable.xcstrings in Resources */,
+				1321E9B512F58ABFF2BEC8B8 /* AppShortcuts.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -450,10 +458,23 @@
 				EEA10FA2FDCB43BD380F6CD6 /* ExpoModulesProvider.swift in Sources */,
 				B216A772470F7C54AF282DB0 /* StillActivityReportView.swift in Sources */,
 				E87D93990A352761727CD162 /* StillActivityReportView.m in Sources */,
+				0E54025DE9C9CC4ED26677C1 /* StillPauseAppIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		28F80274C00B6ADE4D1C1F02 /* AppShortcuts.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				1EDF72357745694F4A0647A2 /* en */,
+				FD06849AA3C2AC693FF3CFBF /* es */,
+			);
+			name = AppShortcuts.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {

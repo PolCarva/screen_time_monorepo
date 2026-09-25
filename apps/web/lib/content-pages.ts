@@ -23,7 +23,7 @@ const PAGES = {
     path: "/configurar/iphone",
     title: "Atajos de iPhone: pausa antes de abrir Instagram | Still",
     description:
-      "Crea la automatización «Cuando se abra Instagram → Pausar antes de abrir» en Atajos. Paso a paso, en dos minutos y sin bloquear tus apps.",
+      "Crea la automatización «Cuando se abra Instagram → Pausar Instagram» en Atajos. Paso a paso, en dos minutos y sin bloquear tus apps.",
     h1: "Cómo poner una pausa antes de abrir Instagram en iPhone con Atajos",
     eyebrow: "Configurar · iPhone",
     name: "Configurar en iPhone",
