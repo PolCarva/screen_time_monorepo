@@ -350,3 +350,7 @@ Después: AirDrop del `.mov` a la Mac y pasar la ruta. Se comprime con
 | C3 revocación de Apple | hecho (código) | 95de93a; falta la clave (U1) para que revoque en producción |
 | C4 manifiesto de privacidad | hecho | los 10 tipos de la etiqueta publicada, ninguno de rastreo |
 | C5 versión y textos | hecho | 0.3.1; ficha y notas nuevas en `docs/store-listing.md` |
+| C6 checks y publicación | hecho | `pnpm check` y `pnpm build` en verde (móvil 266, web 80, contracts 30 tests). `main` = 06c6de8 (fast-forward, push). `pnpm deploy:apps`: **iOS 0.3.1 (13)** en TestFlight (VALID) y **Android 0.3.1 (8)** en internal y enviada a revisión en alpha. |
+| Verificación en simulador | hecho | Build Release local de 0.3.1 con env de producción (iPhone 17 Pro Max, iOS 26.0). El binario no contiene `suspendToHome` ni `suspend`. Ajustes → Tus datos → «Política de privacidad» abre `…vercel.app/privacy`. «Ya no quiero entrar» termina en la indicación manual. Onboarding completo en es-MX y en-US, pausa real con el atajo «Pausar Instagram» y anuncio de prueba → elección del tiempo. |
+| M3 capturas (preparadas) | listo para subir | 6.9" (1320×2868, JPEG sin alfa), reales de 0.3.1: es-MX 7 (pausa, tiempo, Hoy, así funciona, apps, guía, Impacto) y en-US 6. Copia en `brand/product-screens/app-store-ios-0.3.1/`. |
+| U1 clave de Sign in with Apple | en curso (usuario) | En Vercel ya están `APPLE_TEAM_ID` y `APPLE_SIGN_IN_CLIENT_ID`. Falta registrar la clave, `APPLE_SIGN_IN_KEY_ID` y `APPLE_SIGN_IN_PRIVATE_KEY`. |
