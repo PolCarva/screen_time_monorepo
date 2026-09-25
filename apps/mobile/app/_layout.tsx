@@ -157,6 +157,7 @@ function Navigation() {
       <Stack.Screen name="android-setup" />
       <Stack.Screen name="android-repair" />
       <Stack.Screen name="usage-access" />
+      <Stack.Screen name="savings" />
       <Stack.Screen
         name="leave"
         options={{ animation: "fade", gestureEnabled: false }}

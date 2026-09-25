@@ -445,8 +445,17 @@ export default function TodayScreen() {
                 )
               : heroNote}
           </Body>
-          {today.pauses > 0 ? (
-            <View style={styles.heroLinks}>
+          <View style={styles.heroLinks}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/savings")}
+              style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+            >
+              <Text style={styles.linkLabel}>
+                {localize("By app and by day", "Por app y por día")}
+              </Text>
+            </Pressable>
+            {today.pauses > 0 ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={showHowWeCount}
@@ -456,19 +465,19 @@ export default function TodayScreen() {
                   {localize("How we count it", "Cómo lo calculamos")}
                 </Text>
               </Pressable>
-              {offerUsage ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={openUsageAccess}
-                  style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-                >
-                  <Text style={styles.linkLabel}>
-                    {localize("Use my real usage", "Calcular con mi uso")}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
+            ) : null}
+            {today.pauses > 0 && offerUsage ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={openUsageAccess}
+                style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+              >
+                <Text style={styles.linkLabel}>
+                  {localize("Use my real usage", "Calcular con mi uso")}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       )}
 

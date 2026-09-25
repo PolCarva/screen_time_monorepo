@@ -2,6 +2,7 @@ import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
 import type { SignedRewardIntent } from "@/lib/reward-intent-buffer";
 import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
+import type { SavingsHistory } from "@/lib/savings";
 import type { DayMetrics } from "@/lib/today-summary";
 
 /** An earned rewarded ad the native shield recorded for React Native to claim. */
@@ -228,6 +229,11 @@ export interface RestrictionEngine {
   acknowledgeUnlockEvent(clientSessionId: string): Promise<void>;
   hasPendingIntervention(): Promise<string | null>;
   getLocalWellbeing(): Promise<LocalWellbeingStats>;
+  /**
+   * Still's counters per day and per app for the last `days` local days, for
+   * the Savings screen. Absent from builds before 0.3.4.
+   */
+  getAppHistory?(days: number): Promise<SavingsHistory>;
   resetLocalData(): Promise<void>;
 }
 
@@ -287,6 +293,7 @@ const unavailable: RestrictionEngine = {
     unlocks: 0,
     history: [],
   }),
+  getAppHistory: async () => ({ days: [], apps: [] }),
   resetLocalData: async () => undefined,
 };
 

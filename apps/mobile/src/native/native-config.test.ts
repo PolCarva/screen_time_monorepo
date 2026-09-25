@@ -149,6 +149,8 @@ describe("committed native production configuration", () => {
       "scheduleSettleCheck(LAUNCH_SETTLE_MS - sinceLaunch + SETTLE_CHECK_MS)",
     );
     expect(accessibilityService).toContain("scheduleSettleCheck(SETTLE_CHECK_MS)");
+    // The Savings screen reads every app's counters, chosen now or before.
+    expect(restrictionModule).toContain("fun getAppHistory(days: Int, promise: Promise)");
     expect(accessibilityService).toContain("private fun verifyLaunch()");
     expect(accessibilityService).toContain("InterventionActivity.shownFor == launch.target");
     // The breathing pause only runs while the shield is on screen, and a
@@ -318,6 +320,7 @@ describe("committed native production configuration", () => {
       "getShortcutTargetsHealth",
       "beginShortcutSetupProbe",
       "finishShortcutSetupTest",
+      "getAppHistory",
     ]) {
       expect(restrictionEngine).toContain(`@objc func ${method}(`);
       expect(restrictionBridge).toContain(`RCT_EXTERN_METHOD(${method}:`);
