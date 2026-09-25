@@ -133,3 +133,11 @@ CÓMO FUNCIONA
 • Cuando abres esa app, Still aparece antes. Puedes volver sin entrar, o ver un anuncio y entrar por el tiempo que elijas, desde un minuto hasta el resto del día.
 
 and "se quedan en el iPhone. Still no crea ni lee tus automatizaciones, y no usa Tiempo en pantalla." with "se quedan en tu teléfono.", and "Y puedes borrar la automatización en Atajos cuando quieras." with "Y puedes desactivar Still en Ajustes cuando quieras.". English: same substitutions.
+
+## Pending for 0.3.2 (both stores)
+
+From 0.3.2 the breathing pause no longer gives a fixed 5 minutes: after it the user picks how long with the same slider as after an ad. Keep the 0.3.1 text above while 0.3.1 (13) is the build under review; when 0.3.2 goes to review or production, replace:
+
+- "Si no hay un anuncio disponible, una pausa de 15 segundos te deja entrar 5 minutos." → "Si no hay un anuncio disponible, tras una pausa de 15 segundos eliges cuánto tiempo entrar."
+- "If no ad is available, a 15-second pause lets you in for 5 minutes." → "If no ad is available, after a 15-second pause you choose how long to go in."
+- Review notes, step d): "a 15-second breathing pause lets the user in for 5 minutes." → "a 15-second breathing pause comes first, and then the user picks how long the same way."

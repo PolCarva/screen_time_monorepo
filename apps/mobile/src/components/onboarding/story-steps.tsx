@@ -363,8 +363,8 @@ export function PauseDemoStep({
       ? localize("Going back is one tap.", "Volver es un toque.")
       : state === "ad"
         ? localize(
-            "An ad lets you in for as long as you choose. If there's no ad, a short wait.",
-            "Un anuncio te deja entrar el tiempo que elijas. Si no hay anuncio, una espera breve.",
+            "After an ad, or a short wait if there's no ad, you choose how long to go in.",
+            "Tras un anuncio, o una espera breve si no hay, eliges cuánto tiempo entrar.",
           )
         : localize("Try it: this is the pause.", "Pruébala: así es la pausa.");
   return (

@@ -271,7 +271,7 @@ class InterventionActivity : Activity() {
 
   /**
    * 15-second breathing pause when there is no ad (D1). Costs
-   * nothing and is not reported; entering afterwards grants a short window only.
+   * nothing and is not reported; afterwards the user chooses the window.
    * Its start is remembered for this app, so a shield opened again mid-pause
    * picks the pause up instead of offering an ad that arrived in the meantime.
    */
@@ -373,18 +373,12 @@ class InterventionActivity : Activity() {
   }
 
   /**
-   * After the ad has paid for the visit: choose the window, then enter or
-   * leave; leaving keeps nothing. The free pause does not choose — it buys a
-   * fixed short window, so waiting out an ad-less pause never beats watching
-   * the ad.
+   * After the ad has paid for the visit, or after the breathing pause: choose
+   * the window, then enter or leave; leaving keeps nothing.
    */
   private fun renderDecision(source: EnterSource) {
     stopAdWait()
     phase = Phase.DECISION
-    if (source == EnterSource.PAUSE) {
-      renderPauseDecision()
-      return
-    }
     busy = false
     val root = column()
     root.addView(spacer(1.1f))
@@ -436,45 +430,10 @@ class InterventionActivity : Activity() {
     return if (spanish) "Quiero entrar · $label" else "I want to go in · $label"
   }
 
-  /** The decision after a free pause: a fixed short window, nothing to choose. */
-  private fun renderPauseDecision() {
-    busy = false
-    val windowLabel = AccessDuration.label(PAUSE_ALLOWANCE_SECONDS, spanish)
-    val root = column()
-    root.addView(spacer(1.2f))
-    root.addView(createFieldIcon(), LinearLayout.LayoutParams(dp(64), dp(64)))
-    root.addView(
-      headline(
-        if (spanish) "¿Sigues queriendo abrir $appLabel?"
-        else "Do you still want to open $appLabel?",
-      ),
-    )
-    root.addView(
-      subtext(
-        if (spanish) "$appLabel quedará abierta $windowLabel. Al terminar, vuelve la pausa."
-        else "$appLabel will stay open for $windowLabel. When the time is up, the pause comes back.",
-      ),
-    )
-    root.addView(spacer(1f))
-    root.addView(
-      filledButton(if (spanish) "Quiero entrar" else "I want to go in") {
-        enterTarget(EnterSource.PAUSE)
-      },
-    )
-    root.addView(
-      textButton(
-        if (spanish) "Ya no quiero entrar" else "I don't want to go in anymore",
-        chalk,
-        enabled = true,
-      ) { goHome() },
-    )
-    present(root)
-  }
-
   /**
    * Grant the access window for the exact package, record the spend, and relaunch
    * the app. A fresh ad reports a rewarded unlock charged to that ad; a pause
-   * grants a short window, spends nothing and is not reported.
+   * spends nothing and is not reported.
    */
   private fun enterTarget(source: EnterSource) {
     if (busy) return
@@ -488,9 +447,7 @@ class InterventionActivity : Activity() {
     forgetPauseStart()
     // "Rest of the day" becomes the time actually left in the day, here and
     // not a moment earlier, so the deadline is the one the label promised.
-    val windowSeconds =
-      if (source == EnterSource.PAUSE) PAUSE_ALLOWANCE_SECONDS
-      else AccessDuration.resolve(chosenStep)
+    val windowSeconds = AccessDuration.resolve(chosenStep)
     val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, 0)
     val day = StillDay.today()
     val unlocksKey = "unlocks:$day"
@@ -511,11 +468,9 @@ class InterventionActivity : Activity() {
     StillRestrictionModule.recordEntryTrail(editor, preferences, day, target)
     editor.apply()
 
-    if (source != EnterSource.PAUSE) {
-      preferences.edit()
-        .putInt(StillRestrictionModule.KEY_LAST_ACCESS_DURATION, chosenStep)
-        .apply()
-    }
+    preferences.edit()
+      .putInt(StillRestrictionModule.KEY_LAST_ACCESS_DURATION, chosenStep)
+      .apply()
 
     // The window must end on time even if the user never leaves the app, so the
     // always-running accessibility service is told to watch this deadline.
@@ -939,9 +894,8 @@ class InterventionActivity : Activity() {
     const val EXTRA_TARGET_ATTEMPTS = "target_attempts"
     const val EXTRA_SETUP_PROBE = "setup_probe"
 
-    // Mirror of intervention-flow.ts: 15 s breathing pause, 5 min access after it.
+    // Mirror of intervention-flow.ts: 15 s breathing pause, then the user chooses.
     private const val PAUSE_SECONDS = 15
-    private const val PAUSE_ALLOWANCE_SECONDS = 5 * 60
     // Mirror of REWARD_AD_LOAD_TIMEOUT_MS: how long the gate waits for an ad
     // that is loading before it stops offering it.
     private const val AD_WAIT_MS = 12_000L

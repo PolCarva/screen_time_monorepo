@@ -245,7 +245,8 @@ export function ShortcutIntervention({
         ...(method === "fresh_reward" && rewardIntentId ? { rewardIntentId } : {}),
         durationSeconds,
         unlockShortcut: (contextId, options) => {
-          if (method === "pause") return unlockShortcutWithPause(contextId);
+          if (method === "pause")
+            return unlockShortcutWithPause(contextId, options.durationSeconds);
           // The ad just watched pays for the visit; there is nothing saved.
           if (!options.rewardIntentId) throw new Error("no_unlocks");
           return unlockShortcut(contextId, {
@@ -380,15 +381,6 @@ export function ShortcutIntervention({
       "Al terminar el tiempo, vuelve la pausa.",
     );
     question = promise;
-  } else if (flow.phase === "decision") {
-    headline = localize(
-      `Do you still want to open ${appLabel}?`,
-      `¿Sigues queriendo abrir ${appLabel}?`,
-    );
-    question = localize(
-      `${appLabel} will stay open for ${unlockLabel}. When the time is up, the pause comes back.`,
-      `${appLabel} quedará abierta ${unlockLabel}. Al terminar, vuelve la pausa.`,
-    );
   } else if (flow.phase === "pause") {
     headline = localize(
       `Breathe.\n${flow.pauseSecondsLeft}`,
@@ -420,12 +412,10 @@ export function ShortcutIntervention({
   if (flow.phase === "decision") {
     options.push({
       key: "enter",
-      label: chooses
-        ? localize(
-            `I want to go in · ${unlockLabel}`,
-            `Quiero entrar · ${unlockLabel}`,
-          )
-        : localize("I want to go in", "Quiero entrar"),
+      label: localize(
+        `I want to go in · ${unlockLabel}`,
+        `Quiero entrar · ${unlockLabel}`,
+      ),
       action: () => void enter(),
     });
   } else if (flow.phase === "pause") {

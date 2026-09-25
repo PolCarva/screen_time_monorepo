@@ -11,7 +11,6 @@ import {
   type InterventionFlowState,
   type InterventionGate,
   NOTHING_LEFT,
-  PAUSE_ALLOWANCE_SECONDS,
   PAUSE_SECONDS,
   accessSecondsFor,
   canChooseDuration,
@@ -45,9 +44,8 @@ describe("intervention gate selection", () => {
     expect(isTimedPause(NOTHING_LEFT)).toBe(true);
   });
 
-  it("keeps the free pause short compared with a paid unlock", () => {
+  it("keeps the breathing pause at 15 seconds", () => {
     expect(PAUSE_SECONDS).toBe(15);
-    expect(PAUSE_ALLOWANCE_SECONDS).toBe(300);
   });
 });
 
@@ -333,19 +331,33 @@ describe("intervention flow: choosing the window after paying", () => {
     expect(accessSecondsFor(entering)).toBe(REST_OF_DAY_SECONDS);
   });
 
-  it("gives the free pause a fixed short window the user cannot stretch", () => {
+  it("lets the user choose the window after the breathing pause too", () => {
     const decision = run(
-      createInterventionFlow({ gate: NOTHING_LEFT }),
+      createInterventionFlow({ gate: NOTHING_LEFT, durationSeconds: 1_800 }),
       ...ticks(PAUSE_SECONDS),
     );
-    expect(canChooseDuration(decision)).toBe(false);
-    expect(accessSecondsFor(decision)).toBe(PAUSE_ALLOWANCE_SECONDS);
+    expect(canChooseDuration(decision)).toBe(true);
+    // The slider starts where this device left it last time.
+    expect(accessSecondsFor(decision)).toBe(1_800);
 
-    const stretched = run(decision, {
+    const chosen = run(decision, {
       type: "CHOOSE_DURATION",
       seconds: REST_OF_DAY_SECONDS,
     });
-    expect(accessSecondsFor(stretched)).toBe(PAUSE_ALLOWANCE_SECONDS);
+    expect(accessSecondsFor(chosen)).toBe(REST_OF_DAY_SECONDS);
+    expect(enterMethod(chosen)).toBe("pause");
+  });
+
+  it("chooses nothing while the pause is still running", () => {
+    const pausing = run(
+      createInterventionFlow({ gate: NOTHING_LEFT }),
+      ...ticks(PAUSE_SECONDS - 1),
+    );
+    expect(pausing.phase).toBe("pause");
+    expect(canChooseDuration(pausing)).toBe(false);
+    expect(
+      run(pausing, { type: "CHOOSE_DURATION", seconds: 3_600 }).durationSeconds,
+    ).toBe(DEFAULT_ACCESS_DURATION_SECONDS);
   });
 
   it("ignores a duration change outside the decision", () => {

@@ -1,13 +1,10 @@
 import { DEFAULT_ACCESS_DURATION_SECONDS } from "@screen-time/contracts";
 
-/** Length of the breathing pause offered when there is no ad to show. */
-export const PAUSE_SECONDS = 15;
 /**
- * A pause costs nothing, so it buys a short window and the user does not get to
- * choose its length. This keeps "go offline to skip the ad" from being a better
- * deal than watching it.
+ * Length of the breathing pause offered when there is no ad to show. Once it
+ * is over the user chooses how long to stay, as after an ad.
  */
-export const PAUSE_ALLOWANCE_SECONDS = 5 * 60;
+export const PAUSE_SECONDS = 15;
 
 /**
  * What the gate offers: only the ad. While it loads the gate waits for it
@@ -216,18 +213,16 @@ export function enterMethod(
   return state.earnedBy === "ad" ? "fresh_reward" : "pause";
 }
 
-/** The free pause buys a fixed short window; after an ad the user chooses. */
+/** After the ad or after the breathing pause, the user chooses how long. */
 export function canChooseDuration(
   state: Pick<InterventionFlowState, "earnedBy">,
 ): boolean {
-  return state.earnedBy === "ad";
+  return state.earnedBy !== null;
 }
 
 /** The window to ask the platform for, in seconds. */
 export function accessSecondsFor(
-  state: Pick<InterventionFlowState, "earnedBy" | "durationSeconds">,
+  state: Pick<InterventionFlowState, "durationSeconds">,
 ): number {
-  return canChooseDuration(state)
-    ? state.durationSeconds
-    : PAUSE_ALLOWANCE_SECONDS;
+  return state.durationSeconds;
 }

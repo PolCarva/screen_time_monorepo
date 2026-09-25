@@ -30,7 +30,6 @@ import { z } from "zod";
 import { adValueFromMicros } from "@/lib/ad-value";
 import { apiFetch, apiRequest, ApiError } from "@/lib/api";
 import { applyDevConfigOverrides } from "@/lib/dev-config";
-import { PAUSE_ALLOWANCE_SECONDS } from "@/lib/intervention-flow";
 import {
   intentsNeeded,
   mergeIntents,
@@ -97,10 +96,13 @@ type AppStateValue = {
     },
   ): Promise<ShortcutUnlockSession>;
   /**
-   * Activates a short allowance after the timed pause. It spends nothing and
+   * Activates the window chosen after the timed pause. It spends nothing and
    * reports nothing: the pause is the friction of last resort, not a purchase.
    */
-  unlockShortcutWithPause(contextId: string): Promise<ShortcutUnlockSession>;
+  unlockShortcutWithPause(
+    contextId: string,
+    durationSeconds: number,
+  ): Promise<ShortcutUnlockSession>;
   cancelShortcut(contextId: string): Promise<void>;
   /** Where the duration slider starts: the last window chosen on this device. */
   lastAccessDurationSeconds: number;
@@ -623,13 +625,18 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     },
     [deviceId],
   );
-  const unlockShortcutWithPause = useCallback(async (contextId: string) => {
-    if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
-    return restrictionEngine.completeShortcutIntervention(
-      contextId,
-      PAUSE_ALLOWANCE_SECONDS,
-    );
-  }, []);
+  const unlockShortcutWithPause = useCallback(
+    async (contextId: string, durationSeconds: number) => {
+      if (Platform.OS !== "ios") throw new Error("shortcut_unlock_ios_only");
+      // The breathing pause is free and never reported; the window is the one
+      // the user chose after it.
+      return restrictionEngine.completeShortcutIntervention(
+        contextId,
+        resolveAccessDurationSeconds(durationSeconds),
+      );
+    },
+    [],
+  );
   const cancelShortcut = useCallback(async (contextId: string) => {
     await restrictionEngine.cancelShortcutIntervention(contextId);
   }, []);

@@ -62,7 +62,7 @@ Cuando Apple tenga la información, va a revisar la app a fondo. Esto es lo que 
 
 | # | Decisión | Origen |
 |---|---|---|
-| **A1** | **La pausa no cambia.** Para entrar se ve un anuncio recompensado. Si no carga en 12 s, hay una respiración de 15 s que deja entrar 5 min. La ficha, las notas y la respuesta lo dicen tal cual, **sin describir el anuncio como "opcional"** cuando es el camino para entrar. Si Apple lo objeta por 3.2.2(iii), la siguiente build suma un camino sin anuncio. | Usuario, 2026-09-25 |
+| **A1** | **La pausa no cambia.** Para entrar se ve un anuncio recompensado. Si no carga en 12 s, hay una respiración de 15 s que deja entrar 5 min (desde 0.3.2, tras la respiración se elige la duración con el mismo slider). La ficha, las notas y la respuesta lo dicen tal cual, **sin describir el anuncio como "opcional"** cuando es el camino para entrar. Si Apple lo objeta por 3.2.2(iii), la siguiente build suma un camino sin anuncio. | Usuario, 2026-09-25 |
 | **A2** | **ONG.** No hay permiso de las organizaciones. Notas y respuesta explican que los usuarios nunca pagan, que el desarrollador dona el 80 % del ingreso por anuncios por los canales públicos de cada ONG, que no hay afiliación ni aval y que el comprobante se publica. Pedir permiso queda como tarea aparte. | Usuario, 2026-09-25 |
 | **A3** | **La revocación de Sign in with Apple entra en esta build.** | Usuario, 2026-09-25 |
 | **A4** | **Se reutiliza el registro de versión rechazado.** Su número pasa de 0.2.0 a **0.3.1** y se le asigna la build nueva. La conversación sigue en el mismo envío. | Recomendación aceptada |
