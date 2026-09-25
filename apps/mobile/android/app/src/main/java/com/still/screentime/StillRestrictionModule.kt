@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Handler
@@ -19,6 +20,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
+import java.time.LocalDate
 import java.util.UUID
 
 class StillRestrictionModule(private val context: ReactApplicationContext) :
@@ -157,7 +159,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     else context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
-  /** Usage access, for the onboarding story only (docs/onboarding-v2-plan.md §6.1). */
+  /** Usage access: the onboarding story and the time given back (docs/real-savings-estimate-plan.md). */
   @ReactMethod
   fun hasUsageAccess(promise: Promise) {
     promise.resolve(StillUsageInsights.hasUsageAccess(context))
@@ -208,6 +210,55 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
                 putString("label", label)
                 putArray("seconds", Arguments.createArray().apply {
                   for (day in summary.days) pushDouble((day.appMillis[packageName] ?: 0L) / 1_000.0)
+                })
+              })
+            }
+          })
+        }
+      }.onSuccess { promise.resolve(it) }
+        .onFailure { promise.reject("usage_read_failed", it.message, it) }
+    }.start()
+  }
+
+  /**
+   * Every app used from `from` (local `yyyy-MM-dd`) until `toExclusive` or now:
+   * sessions, their median and time per day (docs/real-savings-estimate-plan.md
+   * §3.1). React Native keeps only what it needs, on the phone.
+   */
+  @ReactMethod
+  fun getUsageStats(from: String, toExclusive: String?, promise: Promise) {
+    if (!StillUsageInsights.hasUsageAccess(context)) {
+      promise.reject("usage_access_denied", "Usage access is not granted")
+      return
+    }
+    val start = runCatching { LocalDate.parse(from) }.getOrNull()
+    val end = toExclusive?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    if (start == null || (toExclusive != null && end == null)) {
+      promise.reject("invalid_range", "Dates must be yyyy-MM-dd")
+      return
+    }
+    Thread {
+      runCatching {
+        val stats = StillUsageInsights.readStats(context, start, end)
+        Arguments.createMap().apply {
+          stats.firstEventMillis?.let { putDouble("firstEventAt", it.toDouble()) }
+            ?: putNull("firstEventAt")
+          putArray("days", Arguments.createArray().apply {
+            for (day in stats.days) {
+              pushMap(Arguments.createMap().apply {
+                putString("date", day.toString())
+                putBoolean("complete", day.isBefore(stats.today))
+              })
+            }
+          })
+          putArray("apps", Arguments.createArray().apply {
+            for (app in stats.apps) {
+              pushMap(Arguments.createMap().apply {
+                putString("packageName", app.packageName)
+                putInt("sessions", app.sessions)
+                putDouble("medianSeconds", app.medianMillis / 1_000.0)
+                putArray("seconds", Arguments.createArray().apply {
+                  for (millis in app.millisByDay) pushDouble(millis / 1_000.0)
                 })
               })
             }
@@ -621,6 +672,10 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
             "unlocksToday",
             preferences.getInt(appMetricKey(METRIC_APP_UNLOCKS, day, packageName), 0),
           )
+          putInt(
+            "reentriesToday",
+            preferences.getInt(appMetricKey(METRIC_APP_REENTRIES, day, packageName), 0),
+          )
         })
       }
     promise.resolve(apps)
@@ -677,6 +732,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       putInt("openAttempts", preferences.getInt("open_attempts:$today", 0))
       putInt("avoidedOpens", preferences.getInt("avoided_opens:$today", 0))
       putInt("unlocks", preferences.getInt("unlocks:$today", 0))
+      putInt("reentries", preferences.getInt("reentries:$today", 0))
       putArray("history", Arguments.createArray().apply {
         StillDay.lastDays(HISTORY_DAYS).forEach { day ->
           pushMap(Arguments.createMap().apply {
@@ -684,6 +740,7 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
             putInt("openAttempts", preferences.getInt("open_attempts:$day", 0))
             putInt("avoidedOpens", preferences.getInt("avoided_opens:$day", 0))
             putInt("unlocks", preferences.getInt("unlocks:$day", 0))
+            putInt("reentries", preferences.getInt("reentries:$day", 0))
           })
         }
       })
@@ -693,7 +750,25 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun resetLocalData(promise: Promise) {
     preferences.edit().clear().apply()
+    SessionMinutes.clear(context)
     promise.resolve(null)
+  }
+
+  /**
+   * Minutes one skipped pause gives back per app, measured on the phone, for
+   * the pause screen's line (docs/real-savings-estimate-plan.md §3.1). Apps
+   * left out use the config's minutes.
+   */
+  @ReactMethod
+  fun syncSessionMinutes(minutes: ReadableMap, promise: Promise) {
+    val clean = minutes.toHashMap().mapNotNull { (packageName, value) ->
+      (value as? Number)?.toDouble()
+        ?.takeIf { it.isFinite() && it >= 0.0 }
+        ?.let { packageName to it.coerceAtMost(60.0) }
+    }.toMap()
+    runCatching { SessionMinutes.write(context, clean) }
+      .onSuccess { promise.resolve(null) }
+      .onFailure { promise.reject("session_minutes_failed", it.message, it) }
   }
 
   @ReactMethod fun addListener(eventName: String) = Unit
@@ -785,6 +860,8 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
     const val METRIC_APP_OPEN_ATTEMPTS = "app_open_attempts"
     const val METRIC_APP_AVOIDED_OPENS = "app_avoided_opens"
     const val METRIC_APP_UNLOCKS = "app_unlocks"
+    /** Skips undone by going into the same app right after (ReentryTrail, D6). */
+    const val METRIC_APP_REENTRIES = "app_reentries"
     const val KEY_LAST_RESTORED = "last_restored_at"
     /** Saved passes were removed; only cleared, never read. */
     private const val KEY_REWARDED_BALANCE = "rewarded_balance"
@@ -817,6 +894,41 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       "$metric:$day:$packageName"
 
     fun appStateKey(state: String, packageName: String) = "$state:$packageName"
+
+    const val STATE_PAUSE_TRAIL = "pause_trail"
+
+    /** A counted pause of `packageName`: its trail moves on (ReentryTrail). */
+    fun recordPauseTrail(
+      editor: SharedPreferences.Editor,
+      preferences: SharedPreferences,
+      packageName: String,
+      nowMillis: Long,
+    ) {
+      val key = appStateKey(STATE_PAUSE_TRAIL, packageName)
+      val trail = ReentryTrail.onPause(ReentryTrail.decode(preferences.getString(key, null)), nowMillis)
+      editor.putString(key, ReentryTrail.encode(trail))
+    }
+
+    /**
+     * The user goes into `packageName` from its pause: counts one re-entry,
+     * total and per app, when that pause came right after a skipped one.
+     */
+    fun recordEntryTrail(
+      editor: SharedPreferences.Editor,
+      preferences: SharedPreferences,
+      day: String,
+      packageName: String,
+    ) {
+      val key = appStateKey(STATE_PAUSE_TRAIL, packageName)
+      val (trail, reentry) = ReentryTrail.onEnter(ReentryTrail.decode(preferences.getString(key, null)))
+      trail?.let { editor.putString(key, ReentryTrail.encode(it)) }
+      if (!reentry) return
+      val totalKey = "reentries:$day"
+      val appKey = appMetricKey(METRIC_APP_REENTRIES, day, packageName)
+      editor
+        .putInt(totalKey, preferences.getInt(totalKey, 0) + 1)
+        .putInt(appKey, preferences.getInt(appKey, 0) + 1)
+    }
     private const val EXTERNAL_AUTH_BYPASS_TIMEOUT_MS = 10 * 60 * 1_000L
     private const val PICKER_REQUEST = 4270
   }

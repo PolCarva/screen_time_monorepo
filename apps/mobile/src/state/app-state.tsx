@@ -59,6 +59,8 @@ type LocalStats = {
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
+  /** Never uploaded: the server keeps its own formula (real-savings D1). */
+  reentries?: number;
   /** The last seven local days, oldest first (see lib/today-summary). */
   history: DayMetrics[];
 };
@@ -486,6 +488,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         openAttempts: local.openAttempts,
         avoidedOpens: local.avoidedOpens,
         unlocks: local.unlocks,
+        reentries: local.reentries ?? 0,
         history: Array.isArray(local.history) ? local.history : [],
       };
       setStats(nextStats);

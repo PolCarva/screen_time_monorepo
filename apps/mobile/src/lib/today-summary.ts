@@ -6,7 +6,9 @@
  * - entered: unlocks, whatever paid for them (the ad or the free wait);
  * - notEntered: pauses that did not end in the app ("Go back", or leaving the
  *   pause without choosing);
- * - minutes returned (estimated): notEntered × minutes per avoided open.
+ * - minutes returned (estimated): notEntered, minus the skips undone by going
+ *   into the same app right after (docs/real-savings-estimate-plan.md, D6),
+ *   × minutes per avoided open.
  */
 
 export type DayMetrics = {
@@ -15,6 +17,8 @@ export type DayMetrics = {
   openAttempts: number;
   avoidedOpens: number;
   unlocks: number;
+  /** Skips undone by going into the same app right after; absent on older builds. */
+  reentries?: number;
 };
 
 export type DayOutcome = {
@@ -31,11 +35,23 @@ export function dayOutcome(
   return { pauses, entered, notEntered: pauses - entered };
 }
 
+/** Pauses that give time back: not entered, minus the skips undone right after. */
+export function effectiveNotEntered(
+  outcome: Pick<DayOutcome, "notEntered">,
+  reentries = 0,
+): number {
+  return Math.max(0, outcome.notEntered - Math.max(0, Math.round(reentries)));
+}
+
 export function minutesReturned(
   outcome: Pick<DayOutcome, "notEntered">,
   minutesPerNotEntered: number,
+  reentries = 0,
 ): number {
-  return Math.max(0, Math.round(outcome.notEntered * minutesPerNotEntered));
+  return Math.max(
+    0,
+    Math.round(effectiveNotEntered(outcome, reentries) * minutesPerNotEntered),
+  );
 }
 
 /** `yyyy-MM-dd` of a moment in the phone's time zone, like the native keys. */

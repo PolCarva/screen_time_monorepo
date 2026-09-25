@@ -50,7 +50,7 @@ export type SheetAction = {
 export type SheetOptions = {
   title: string;
   message?: string;
-  /** Only for disclosures that must list what a permission does. */
+  /** Only for lists the sheet must spell out: a permission's scope, per-app details. */
   bullets?: string[];
   /** The first action is the main one; "Not now"/"Close" goes last. */
   actions: SheetAction[];

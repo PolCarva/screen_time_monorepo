@@ -17,10 +17,11 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Reads how the phone was used, for the onboarding story only
- * (docs/onboarding-v2-plan.md, D4). Everything is computed here, returned to
- * React Native once and forgotten: nothing is stored and nothing leaves the
- * phone. This is the only file that touches `UsageStatsManager`.
+ * Reads how the phone was used: for the onboarding story
+ * (docs/onboarding-v2-plan.md) and for the time each skipped pause gives back
+ * (docs/real-savings-estimate-plan.md). Everything is computed here and handed
+ * to React Native, which keeps only per-app totals on the phone (D8); nothing
+ * leaves it. This is the only file that touches `UsageStatsManager`.
  */
 object StillUsageInsights {
   /** Complete days before today that the story averages. */
@@ -64,12 +65,87 @@ object StillUsageInsights {
     val days = (DAYS downTo 0).map { today.minusDays(it.toLong()) }
     val start = days.first().atStartOfDay(zone).toInstant().toEpochMilli()
     val now = System.currentTimeMillis()
+    val events = readEvents(context, start, now).events
+    val summary = UsageSessions.summarize(events, days, zone, now, excluded(context))
+    val totals = mutableMapOf<String, Long>()
+    for (day in summary) {
+      for ((packageName, millis) in day.appMillis) {
+        totals[packageName] = (totals[packageName] ?: 0L) + millis
+      }
+    }
+    val apps = totals.entries
+      .sortedByDescending { it.value }
+      .take(TOP_APPS)
+      .map { (packageName, _) -> packageName to label(context, packageName) }
+    return Summary(summary, summary.lastIndex, apps)
+  }
+
+  data class AppUsage(
+    val packageName: String,
+    /** Sessions that started on the range's days (UsageSessions.sessions). */
+    val sessions: Int,
+    val medianMillis: Long,
+    /** Foreground time per day, same order as `Stats.days`. */
+    val millisByDay: List<Long>,
+  )
+
+  data class Stats(
+    /** The oldest event the phone still keeps; days before it have no data. */
+    val firstEventMillis: Long?,
+    val days: List<LocalDate>,
+    val today: LocalDate,
+    val apps: List<AppUsage>,
+  )
+
+  /**
+   * Every app used from `from` until `toExclusive` (or now), with its sessions,
+   * their median and its time per day (docs/real-savings-estimate-plan.md §3.1).
+   */
+  fun readStats(
+    context: Context,
+    from: LocalDate,
+    toExclusive: LocalDate?,
+    zone: ZoneId = ZoneId.systemDefault(),
+  ): Stats {
+    val today = LocalDate.now(zone)
+    val last = minOf(toExclusive?.minusDays(1) ?: today, today)
+    val days = generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(last) }.toList()
+    val start = from.atStartOfDay(zone).toInstant().toEpochMilli()
+    val end = minOf(
+      System.currentTimeMillis(),
+      toExclusive?.atStartOfDay(zone)?.toInstant()?.toEpochMilli() ?: Long.MAX_VALUE,
+    )
+    if (days.isEmpty() || end <= start) return Stats(null, emptyList(), today, emptyList())
+    val read = readEvents(context, start, end)
+    val excluded = excluded(context)
+    val perDay = UsageSessions.summarize(read.events, days, zone, end, excluded)
+    val stats = UsageSessions.appStats(
+      UsageSessions.sessions(read.events, end, excluded), days, zone,
+    )
+    val packages = (perDay.flatMap { it.appMillis.keys } + stats.keys).toSortedSet()
+    val apps = packages.map { packageName ->
+      val app = stats[packageName]
+      AppUsage(
+        packageName = packageName,
+        sessions = app?.sessions ?: 0,
+        medianMillis = app?.medianMillis ?: 0L,
+        millisByDay = perDay.map { it.appMillis[packageName] ?: 0L },
+      )
+    }
+    return Stats(read.firstEventMillis, days, today, apps)
+  }
+
+  private class Read(val events: List<UsageSessions.Event>, val firstEventMillis: Long?)
+
+  private fun readEvents(context: Context, start: Long, end: Long): Read {
     val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    val raw = manager.queryEvents(start, now)
+    val raw = manager.queryEvents(start, end)
     val event = UsageEvents.Event()
     val events = mutableListOf<UsageSessions.Event>()
+    var first: Long? = null
     while (raw.hasNextEvent()) {
       raw.getNextEvent(event)
+      if (first == null || event.timeStamp < first) first = event.timeStamp
       val kind = when (event.eventType) {
         UsageEvents.Event.ACTIVITY_RESUMED -> UsageSessions.Kind.RESUMED
         UsageEvents.Event.ACTIVITY_PAUSED,
@@ -83,30 +159,24 @@ object StillUsageInsights {
       } ?: continue
       events += UsageSessions.Event(event.timeStamp, kind, event.packageName, event.className)
     }
+    return Read(events, first)
+  }
+
+  /**
+   * Settings is where the onboarding itself sends the user (usage access,
+   * Accessibility): its time says nothing about habits and it is never an app
+   * to pause. Still's own pause is left out too, so it never splits a visit.
+   */
+  private fun excluded(context: Context): (String) -> Boolean {
     val launchable = launchablePackages(context)
     val home = homePackages(context)
-    // Settings is where the onboarding itself sends the user (usage access,
-    // Accessibility): its time says nothing about habits and it is never an
-    // app to pause.
-    val excluded: (String) -> Boolean = { packageName ->
+    return { packageName ->
       packageName == context.packageName ||
         packageName == "com.android.systemui" ||
         packageName == "com.android.settings" ||
         packageName in home ||
         packageName !in launchable
     }
-    val summary = UsageSessions.summarize(events, days, zone, now, excluded)
-    val totals = mutableMapOf<String, Long>()
-    for (day in summary) {
-      for ((packageName, millis) in day.appMillis) {
-        totals[packageName] = (totals[packageName] ?: 0L) + millis
-      }
-    }
-    val apps = totals.entries
-      .sortedByDescending { it.value }
-      .take(TOP_APPS)
-      .map { (packageName, _) -> packageName to label(context, packageName) }
-    return Summary(summary, summary.lastIndex, apps)
   }
 
   /** The app's icon as a PNG `data:` URI, or null if the app is gone. */

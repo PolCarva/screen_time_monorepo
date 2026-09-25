@@ -4,6 +4,7 @@ import {
   dayOutcome,
   lastLocalDates,
   localDateString,
+  effectiveNotEntered,
   minutesReturned,
   pauseStatus,
   summarizeWeek,
@@ -41,6 +42,11 @@ describe("day outcome (D5)", () => {
     expect(minutesReturned({ notEntered: 4 }, 2)).toBe(8);
     expect(minutesReturned({ notEntered: 3 }, 2.5)).toBe(8);
     expect(minutesReturned({ notEntered: 0 }, 2)).toBe(0);
+    // A skip undone by going in right after gives no time back (real-savings D6).
+    expect(minutesReturned({ notEntered: 4 }, 2, 1)).toBe(6);
+    expect(minutesReturned({ notEntered: 1 }, 2, 3)).toBe(0);
+    expect(effectiveNotEntered({ notEntered: 5 }, 2)).toBe(3);
+    expect(effectiveNotEntered({ notEntered: 5 })).toBe(5);
   });
 });
 
