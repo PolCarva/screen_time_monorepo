@@ -10,9 +10,7 @@ export type ShortcutStepVisualVariant =
   | "pause"
   | "import"
   | "toggle"
-  | "trigger-multi"
-  | "current-app"
-  | "pause-current";
+  | "trigger-multi";
 
 type ShortcutStepVisualProps = {
   accessibilityLabel: string;
@@ -108,7 +106,7 @@ function PauseVisual({ appName }: { appName: string }) {
           </Text>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>
-              {sys("appNameParam")}
+              {sys("app")}
             </Text>
             <View style={styles.valuePill}>
               <Text style={styles.valueText}>{appName}</Text>
@@ -193,54 +191,6 @@ function TriggerMultiVisual({ appNames }: { appNames: readonly string[] }) {
   );
 }
 
-function CurrentAppVisual() {
-  return (
-    <>
-      <Chrome title={localize("Add Action", "Añadir acción")} />
-      <View style={styles.actionCard}>
-        <ShortcutBadge label="◎" tone="blue" />
-        <View style={styles.actionCopy}>
-          <Text style={styles.actionTitle}>
-            {localize("Get Current App", "Obtener app actual")}
-          </Text>
-          <Text style={styles.fieldLabel}>
-            {localize(
-              "Tells Still which app you opened",
-              "Le dice a Still qué app abriste",
-            )}
-          </Text>
-        </View>
-      </View>
-    </>
-  );
-}
-
-function PauseCurrentVisual() {
-  return (
-    <>
-      <Chrome title={localize("Still action", "Acción de Still")} />
-      <View style={styles.actionCard}>
-        <ShortcutBadge label="S" tone="still" />
-        <View style={styles.actionCopy}>
-          <Text style={styles.actionTitle}>
-            {sys("stillAction")}
-          </Text>
-          <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>
-              {sys("appNameParam")}
-            </Text>
-            <View style={[styles.valuePill, styles.variablePill]}>
-              <Text style={styles.valueText}>
-                {sys("currentApp")}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </>
-  );
-}
-
 export function ShortcutStepVisual({
   accessibilityLabel,
   appName = EXAMPLE_APP.name,
@@ -262,8 +212,6 @@ export function ShortcutStepVisual({
       {variant === "trigger-multi" ? (
         <TriggerMultiVisual appNames={appNames} />
       ) : null}
-      {variant === "current-app" ? <CurrentAppVisual /> : null}
-      {variant === "pause-current" ? <PauseCurrentVisual /> : null}
     </View>
   );
 }
@@ -338,7 +286,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F1FF",
   },
   valueText: { color: "#1769D2", fontSize: 12, fontWeight: "700" },
-  variablePill: { backgroundColor: "#E4F6EA" },
   pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   ctaPill: {
     minHeight: 34,

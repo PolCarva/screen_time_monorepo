@@ -18,6 +18,7 @@ add_source(project, app_target, 'StillNative', File.join(native, 'SharedRestrict
 add_source(project, app_target, 'StillNative', File.join(native, 'StillRestrictionEngine.swift'))
 # The App Intent is only discoverable by Shortcuts if it is compiled into the app target.
 add_source(project, app_target, 'StillNative', File.join(native, 'StillShortcutIntent.swift'))
+add_source(project, app_target, 'StillNative', File.join(native, 'StillPauseAppIntent.swift'))
 add_source(project, app_target, 'StillNative', File.join(native, 'StillRestrictionEngine.m'))
 add_source(project, app_target, 'StillNative', File.join(native, 'StillActivityReportView.swift'))
 add_source(project, app_target, 'StillNative', File.join(native, 'StillActivityReportView.m'))

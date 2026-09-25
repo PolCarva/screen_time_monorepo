@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "App" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        }
+      }
+    },
     "App name" : {
       "localizations" : {
         "es" : {
@@ -41,6 +51,26 @@
         }
       }
     },
+    "Pause ${app}" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar ${app}"
+          }
+        }
+      }
+    },
+    "Pause App" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar app"
+          }
+        }
+      }
+    },
     "Pause Before Opening" : {
       "localizations" : {
         "es" : {
@@ -61,12 +91,32 @@
         }
       }
     },
+    "Shows Still's pause before the app opens. Add it to an automation that runs when that app is opened." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra la pausa de Still antes de que la app se abra. Añádela a una automatización que se ejecute al abrir esa app."
+          }
+        }
+      }
+    },
     "Shows a Still pause when an app-opening personal automation runs." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Muestra la pausa de Still cuando una automatización personal abre una app."
+          }
+        }
+      }
+    },
+    "The app Still pauses before it opens." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app que Still pausa antes de que se abra."
           }
         }
       }

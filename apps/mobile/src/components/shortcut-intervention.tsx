@@ -36,6 +36,7 @@ import {
   getInterventionOptions,
   rewardStatusForGate,
 } from "@/lib/shortcut-intervention";
+import { setupTestReturnHref } from "@/lib/setup-test-return";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useRewardAd } from "@/state/reward-ad-state";
@@ -319,10 +320,8 @@ export function ShortcutIntervention({
       .finishShortcutSetupTest(shortcutId)
       .catch(() => undefined);
     dispatch({ type: "TEST_ACKNOWLEDGED" });
-    router.replace({
-      pathname: "/shortcut-setup",
-      params: { tested: appLabel },
-    });
+    // Back to whatever started the test: the setup screen or an onboarding step.
+    router.replace(await setupTestReturnHref(appLabel));
   }, [appLabel, shortcutId]);
 
   if (flow.phase === "setup_test" || flow.outcome === "tested") {

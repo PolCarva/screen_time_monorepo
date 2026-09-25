@@ -92,8 +92,8 @@ function causeCopy(id: RepairCauseId, tier: SetupTier): CauseCopy {
           `Dice «${sys("noActions")}» o muestra otra app`,
         ),
         body: localize(
-          `Under the app it should read “${sys("stillAction")}”. If it says “${sys("noActions")}”, open it and follow the guide from “${sys("createNewShortcut")}”. If the action is there, tap it and choose the same app.`,
-          `Bajo la app tiene que decir «${sys("stillAction")}». Si dice «${sys("noActions")}», ábrela y sigue la guía desde «${sys("createNewShortcut")}». Si la acción está, tócala y elige la misma app.`,
+          `Under the app it should read “${sys("stillAction")}” (or “${sys("legacyStillAction")}” in older automations). If it says “${sys("noActions")}”, open it and follow the guide from “${sys("createNewShortcut")}”. If Still's action names another app, remove it and add the tile of the right app.`,
+          `Bajo la app tiene que decir «${sys("stillAction")}» (o «${sys("legacyStillAction")}» en automatizaciones anteriores). Si dice «${sys("noActions")}», ábrela y sigue la guía desde «${sys("createNewShortcut")}». Si la acción de Still nombra otra app, bórrala y añade la ficha de la app correcta.`,
         ),
         action: edit,
       };

@@ -4,10 +4,10 @@ import {
   GUIDE_SCREEN_IDS,
   IOS_HOME_SHORTCUT_IMPORT_URL,
   IOS_SHORTCUT_IMPORT_URL,
-  IOS_SINGLE_AUTOMATION_ENABLED,
   SETUP_PROBE_GRACE_MS,
   guideLinkUrl,
   guideSteps,
+  hasReadyActions,
   isTrustedImportUrl,
   parseIosVersion,
   probeResult,
@@ -21,25 +21,20 @@ import {
 const importUrl = "https://www.icloud.com/shortcuts/0123456789abcdef";
 
 describe("iOS Shortcuts setup tiers", () => {
-  it("keeps the import tier off until its link exists, and uses one automation where iOS allows", () => {
+  it("keeps the import tier off until its link exists and sets up one app at a time", () => {
     // H2 (shared shortcut with a trigger) has no link yet.
     expect(IOS_SHORTCUT_IMPORT_URL).toBe("");
     expect(IOS_HOME_SHORTCUT_IMPORT_URL).toBe("");
-    // H1: "Current App" hands Still the real app name (verified in the
-    // simulator), so picking from the installed apps needs no typing.
-    expect(IOS_SINGLE_AUTOMATION_ENABLED).toBe(true);
-    expect(resolveSetupTier({ iosVersion: "27.0" })).toBe("single_automation");
-    expect(resolveSetupTier({ iosVersion: "18.2" })).toBe("single_automation");
-    expect(resolveSetupTier({ iosVersion: "18.1" })).toBe("per_app");
+    // No "Get Current App" and no variables: one automation per app, one sec
+    // style, whose action arrives with the app already in it.
+    for (const version of ["27.0", "26.0", "18.2", "17.0", "16.4"])
+      expect(resolveSetupTier({ iosVersion: version })).toBe("per_app");
   });
 
-  it("lets the user fall back to one automation per app", () => {
-    expect(resolveSetupTier({ iosVersion: "26.0", preferPerApp: true })).toBe(
-      "per_app",
-    );
-    expect(
-      resolveSetupTier({ iosVersion: "27.0", importUrl, preferPerApp: true }),
-    ).toBe("per_app");
+  it("offers Still's action ready made from iOS 17, where App Shortcuts take a parameter", () => {
+    expect(hasReadyActions("17.0")).toBe(true);
+    expect(hasReadyActions("27.1")).toBe(true);
+    expect(hasReadyActions("16.4")).toBe(false);
   });
 
   it("parses the versions React Native reports", () => {
@@ -50,42 +45,14 @@ describe("iOS Shortcuts setup tiers", () => {
   });
 
   it("offers the one-tap import only on iOS 27+ with a trusted link", () => {
-    const off = { singleAutomationEnabled: false };
-    expect(resolveSetupTier({ iosVersion: "27.1", importUrl, ...off })).toBe(
-      "import",
-    );
-    expect(resolveSetupTier({ iosVersion: "26.4", importUrl, ...off })).toBe(
-      "per_app",
-    );
+    expect(resolveSetupTier({ iosVersion: "27.1", importUrl })).toBe("import");
+    expect(resolveSetupTier({ iosVersion: "26.4", importUrl })).toBe("per_app");
     expect(
       resolveSetupTier({
         iosVersion: "27.0",
         importUrl: "https://evil.example/shortcuts/abc",
-        ...off,
       }),
     ).toBe("per_app");
-  });
-
-  it("offers the single automation from iOS 18.2 once enabled", () => {
-    const enabled = { singleAutomationEnabled: true };
-    expect(resolveSetupTier({ iosVersion: "18.2", ...enabled })).toBe(
-      "single_automation",
-    );
-    expect(resolveSetupTier({ iosVersion: "26.0", ...enabled })).toBe(
-      "single_automation",
-    );
-    expect(resolveSetupTier({ iosVersion: "18.1", ...enabled })).toBe("per_app");
-    expect(resolveSetupTier({ iosVersion: "16.4", ...enabled })).toBe("per_app");
-  });
-
-  it("prefers the import over the single automation when both are possible", () => {
-    expect(
-      resolveSetupTier({
-        iosVersion: "27.0",
-        importUrl,
-        singleAutomationEnabled: true,
-      }),
-    ).toBe("import");
   });
 
   it("only trusts Apple's shortcut sharing host", () => {
@@ -122,7 +89,8 @@ describe("iOS Shortcuts setup steps", () => {
   });
 
   it("walks the per-app automation one tap at a time, in Shortcuts' own order", () => {
-    expect(setupSteps("per_app", { needsReturnShortcut: false })).toEqual([
+    const steps = setupSteps("per_app", { needsReturnShortcut: false });
+    expect(steps).toEqual([
       "pick_app_trigger",
       "tap_choose",
       "select_app",
@@ -130,28 +98,10 @@ describe("iOS Shortcuts setup steps", () => {
       "create_new_shortcut",
       "search_actions",
       "add_still_action",
-      "pick_app_name",
       "save_automation",
     ]);
-  });
-
-  it("uses the current app instead of a typed name in the single automation", () => {
-    const steps = setupSteps("single_automation", { needsReturnShortcut: false });
-    expect(steps).toEqual([
-      "pick_app_trigger",
-      "tap_choose",
-      "select_all_apps",
-      "run_immediately",
-      "create_new_shortcut",
-      "add_current_app",
-      "search_actions",
-      "add_still_action",
-      "open_variables",
-      "pick_current_app",
-      "check_result",
-    ]);
-    // Nothing in this tier asks the user to type or pick an app name in Still's action.
-    expect(steps).not.toContain("pick_app_name");
+    // Still's action comes with the app in it: nothing to pick, type or wire.
+    expect(steps.join()).not.toMatch(/pick_app_name|current_app|variables/);
   });
 
   it("lists repair causes with the most likely one first", () => {
@@ -244,15 +194,14 @@ describe("last pause age", () => {
 describe("guide pictures and jump links", () => {
   const perApp = guideSteps("per_app", { needsReturnShortcut: true });
 
-  it("backs every step of both tiers with a screen drawn in code", () => {
+  it("backs every step with a screen drawn in code, and draws nothing unused", () => {
     const known = new Set<string>(GUIDE_SCREEN_IDS);
-    const single = guideSteps("single_automation", { needsReturnShortcut: true });
-    for (const step of [...perApp, ...single]) {
+    for (const step of perApp) {
       expect(step.screen, step.id).not.toBeNull();
       expect(known.has(step.screen!), step.id).toBe(true);
     }
     expect(new Set(perApp.map((step) => step.screen)).size).toBe(perApp.length);
-    expect(new Set(single.map((step) => step.screen)).size).toBe(single.length);
+    expect(new Set(perApp.map((step) => step.screen))).toEqual(known);
   });
 
   it("jumps to the exact Shortcuts screen only where iOS has a link for it", () => {

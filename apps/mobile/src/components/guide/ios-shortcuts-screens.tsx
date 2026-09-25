@@ -2,7 +2,7 @@ import type { SFSymbol as SFSymbolName } from "expo-symbols";
 import { useState, type PropsWithChildren, type ReactNode } from "react";
 import { View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
-import { AppIcon, EXAMPLE_APP } from "@/components/guide/app-icons";
+import { AppIcon, EXAMPLE_APP, FAKE_APP } from "@/components/guide/app-icons";
 import {
   Card,
   GlassCircle,
@@ -129,177 +129,44 @@ function EditorHeader({
   );
 }
 
-/** Still's action card in the editor ("Pause before opening [App name]"). */
-function StillActionCard({
-  s,
-  top,
-  token,
-  tokenFaded,
-  tokenIcon,
-  menu,
-}: {
-  s: ReturnType<typeof useStrings>;
-  top: number;
-  token: string;
-  tokenFaded?: boolean;
-  tokenIcon?: ReactNode;
-  menu?: ReactNode;
-}) {
+/**
+ * Still's action in the editor once added from its app's tile: "Pause
+ * [Instagram]" on one line (measured on iOS 26.0, es-419).
+ */
+function StillPauseCard({ s, top }: { s: ReturnType<typeof useStrings>; top: number }) {
   return (
-    <>
-      <Card style={[at(16, top, 361, 87.7), { borderRadius: 28, boxShadow: "0 0.5px 10px rgba(0, 0, 0, 0.045)" }]}>
-        <AppIcon icon="still" radius={5.5} size={22} style={at(16.4, 16.5)} />
-        <Line baseline={34.4} size={20} weight="500" x={48.9}>
+    <Card style={[at(16, top, 361, 55.67), { borderRadius: 28, boxShadow: "0 0.5px 10px rgba(0, 0, 0, 0.045)" }]}>
+      <AppIcon icon="still" radius={5.5} size={22} style={at(16.4, 16.8)} />
+      <View style={[at(48.9, 14.5), { flexDirection: "row", alignItems: "center", gap: 8 }]}>
+        <IText size={20} weight="500">
           {s("stillSummaryPrefix")}
-        </Line>
-        <RemoveButton style={at(322.5, 16.5)} />
-        <View style={[at(16, 46.5), { flexDirection: "row", alignItems: "center", gap: 9.2 }]}>
-          <ActionToken faded={tokenFaded} icon={tokenIcon} label={token} />
-          {/* A 24.2-pt symbol draws the 20.7-pt ring. */}
-          <Sym color={IOS.blue} name="chevron.right.circle" size={24.2} />
-        </View>
-      </Card>
-      {menu}
-    </>
+        </IText>
+        <ActionToken label={EXAMPLE_APP.name} />
+        {/* A 24.2-pt symbol draws the 20.7-pt ring. */}
+        <Sym color={IOS.blue} name="chevron.right.circle" size={24.2} />
+      </View>
+      <RemoveButton style={at(322.5, 17)} />
+    </Card>
   );
 }
 
 /** A parameter token inside an editor action (20-pt, like the action text). */
-function ActionToken({
-  label,
-  faded = false,
-  icon,
-}: {
-  label: string;
-  faded?: boolean;
-  icon?: ReactNode;
-}) {
+function ActionToken({ label, faded = false }: { label: string; faded?: boolean }) {
   return (
     <View
       style={{
         height: 26.3,
-        paddingLeft: icon ? 4 : 6.4,
-        paddingRight: icon ? 7.9 : 6.4,
+        paddingHorizontal: 6.4,
         borderRadius: 7.5,
         borderCurve: "continuous",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 3.8,
+        justifyContent: "center",
         backgroundColor: "#EDF7FF",
       }}
     >
-      {icon}
       <IText color={faded ? "rgba(0, 136, 255, 0.4)" : IOS.blue} size={20} weight="500">
         {label}
       </IText>
     </View>
-  );
-}
-
-/** The fade that ends a selected placeholder cut by the end of a line. */
-const PICKED_FADE = 16.5;
-/** Room for the summary's first line, up to the remove button. */
-const SUMMARY_LINE = 268.8;
-
-/**
- * The menu of Still's App name placeholder hangs from the selected
- * placeholder. In English, "App" still fits after "Pause before opening": the
- * placeholder breaks across the two lines and the menu opens under the first
- * one, against the right edge. In Spanish, "Nombre" does not fit, so the whole
- * placeholder moves to the second line and the menu opens under it, against
- * the left edge, 77 pt below the card's top (measured in es-419).
- */
-function useNameMenu(top: number, englishY: number) {
-  const [split, setSplit] = useState(true);
-  const drop = split ? 0 : top + 77 - englishY;
-  return { split, onSplit: setSplit, x: split ? 135 : 8, y: englishY + drop, drop };
-}
-
-/**
- * Still's card while its App name placeholder is selected (a menu is open for
- * it), broken across the two lines or whole on the second (see useNameMenu).
- */
-function PickedNameCard({
-  s,
-  top,
-  split,
-  onSplit,
-  menu,
-}: {
-  s: ReturnType<typeof useStrings>;
-  top: number;
-  split: boolean;
-  onSplit: (split: boolean) => void;
-  menu: ReactNode;
-}) {
-  const [first, ...rest] = s("appNameParam").split(" ");
-  const picked = { backgroundColor: "#BFE1FF", height: 26.67, justifyContent: "center" } as const;
-  const pickedText = { color: "#73BDFF", size: 20, weight: "400" } as const;
-  return (
-    <>
-      <Card style={[at(16, top, 361, 87.7), { borderRadius: 28, boxShadow: "0 0.5px 10px rgba(0, 0, 0, 0.045)" }]}>
-        <AppIcon icon="still" radius={5.5} size={22} style={at(16.4, 16.5)} />
-        {split ? (
-          <View
-            style={[
-              at(48.9, 13.94, SUMMARY_LINE),
-              { flexDirection: "row", alignItems: "center", gap: 7.97, overflow: "hidden" },
-            ]}
-          >
-            <IText size={20} weight="500">
-              {s("stillSummaryPrefix")}
-            </IText>
-            <View
-              onLayout={(event) => {
-                const { x, width } = event.nativeEvent.layout;
-                onSplit(x + width - PICKED_FADE <= SUMMARY_LINE);
-              }}
-              style={{ flexDirection: "row" }}
-            >
-              <View
-                style={[
-                  picked,
-                  { paddingLeft: 6.47, paddingRight: 7.26, borderTopLeftRadius: 7.5, borderBottomLeftRadius: 7.5 },
-                ]}
-              >
-                <IText {...pickedText}>{first}</IText>
-              </View>
-              <View
-                style={[
-                  picked,
-                  {
-                    width: PICKED_FADE,
-                    experimental_backgroundImage: "linear-gradient(90deg, #BFE1FF 0%, #FFFFFF 100%)",
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        ) : (
-          <Line baseline={34.4} size={20} weight="500" x={48.9}>
-            {s("stillSummaryPrefix")}
-          </Line>
-        )}
-        <RemoveButton style={at(322.5, 16.5)} />
-        <View
-          style={[
-            at(split ? 0.33 : 16, 46.33),
-            { flexDirection: "row", alignItems: "center", gap: split ? 8.9 : 9.2 },
-          ]}
-        >
-          <View
-            style={[
-              picked,
-              { paddingLeft: split ? 15.8 : 6.47, paddingRight: 6.4, borderRadius: 7.5 },
-            ]}
-          >
-            <IText {...pickedText}>{split ? rest.join(" ") : s("appNameParam")}</IText>
-          </View>
-          <Sym color={IOS.blue} name="chevron.right.circle" size={24.2} />
-        </View>
-      </Card>
-      {menu}
-    </>
   );
 }
 
@@ -747,48 +614,43 @@ function SearchingLibrary({ s, y, text, fieldTap }: { s: ReturnType<typeof useSt
   );
 }
 
+/**
+ * One tile per app chosen in Still under its "Pause App" action: Shortcuts
+ * builds them from the App Shortcuts Still declares (StillPauseAppIntent.swift).
+ */
+function PauseTile({ x, label }: { x: number; label: string }) {
+  return (
+    <>
+      <View style={[at(x, 52, 56, 56), { borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#E6F3FF" }]}>
+        <Sym color="#0088FF" name="pause.circle" size={34.5} />
+      </View>
+      <Line baseline={127} size={13} style={{ textAlign: "center" }} width={96} x={x - 20}>
+        {label}
+      </Line>
+    </>
+  );
+}
+
 function AutoPickAction({ variant = systemVariant }: ScreenProps) {
   const s = useStrings(variant);
   return (
     <Replica width={WIDTH}>
-      <Band background="#F4F4F7" height={274}>
+      <Band background="#F4F4F7" height={366}>
         <SearchingLibrary s={s} text="Still" y={0} />
         <AppIcon icon="still" radius={10.8} size={48} style={at(24, 134.33)} />
         <Line baseline={164.67} size={17} weight="600" x={88}>
           Still
         </Line>
-        <Tap n={1} style={at(20, 209.33, 353, 52)}>
-          <ActionResultCard icon="still" label={s("stillAction")} />
-        </Tap>
-      </Band>
-    </Replica>
-  );
-}
-
-function AutoPickName({ variant = systemVariant }: ScreenProps) {
-  const s = useStrings(variant);
-  const menu = useNameMenu(9, 53.5);
-  return (
-    <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={148 + menu.drop}>
-        <PickedNameCard
-          menu={
-            <Popover style={at(menu.x, menu.y, 250, 120)}>
-              <Tap n={1} style={at(7, 10.5, 236, 42)}>
-                <Line baseline={26} size={17} x={20.33}>
-                  {EXAMPLE_APP.name}
-                </Line>
-              </Tap>
-              <Line baseline={78.5} size={17} x={27.33}>
-                {s("fitness")}
-              </Line>
-            </Popover>
-          }
-          onSplit={menu.onSplit}
-          s={s}
-          split={menu.split}
-          top={9}
-        />
+        <Card style={at(20, 209.33, 353, 144.33)}>
+          <AppIcon icon="still" radius={5.9} size={25.5} style={at(16.25, 13.17)} />
+          <Line baseline={32.33} size={17} weight="600" x={51.83}>
+            {s("stillAction")}
+          </Line>
+          <InfoButton style={at(315.67, 15)} />
+          <Tap n={1} style={at(5, 46, 84, 92)} />
+          <PauseTile label={EXAMPLE_APP.name} x={19} />
+          <PauseTile label={FAKE_APP.name} x={105.33} />
+        </Card>
       </Band>
     </Replica>
   );
@@ -798,10 +660,10 @@ function AutoSave({ variant = systemVariant }: ScreenProps) {
   const s = useStrings(variant);
   return (
     <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={182}>
+      <Band background={IOS.groupedBackground} height={150}>
         <SheetTop top={-3} />
         <EditorHeader confirmTap={1} title={s("whenOpened", { app: EXAMPLE_APP.name })} />
-        <StillActionCard s={s} token={EXAMPLE_APP.name} top={83} />
+        <StillPauseCard s={s} top={83} />
       </Band>
     </Replica>
   );
@@ -1017,127 +879,6 @@ function ReturnRename({ variant = systemVariant }: ScreenProps) {
   );
 }
 
-// ------------------------------------------------------- one automation for all
-
-function SingleCurrentApp({ variant = systemVariant }: ScreenProps) {
-  const s = useStrings(variant);
-  return (
-    <Replica width={WIDTH}>
-      <Band background="#F4F4F7" height={196}>
-        <SearchingLibrary fieldTap={1} s={s} text={s("getCurrentAppAction")} y={8} />
-        <Tap n={2} style={at(20, 133.33, 353, 52)}>
-          <ActionResultCard icon="currentApp" label={s("getCurrentAppAction")} />
-        </Tap>
-      </Band>
-    </Replica>
-  );
-}
-
-/** The "Variables…" row of the App name menu (coordinates inside its rim). */
-function VariablesRow({ expanded, top }: { expanded?: boolean; top: number }) {
-  return (
-    <>
-      <Line baseline={top + 36.66} size={17} weight={expanded ? "600" : "400"} x={27.6}>
-        Variables…
-      </Line>
-      {expanded ? (
-        <Sym name="chevron.down" size={12.8} style={at(218.33 - 6.4, top + 31.16 - 6.4)} weight="semibold" />
-      ) : (
-        <Sym name="chevron.right" size={13} style={at(218.16 - 6.5, top + 30.33 - 6.5)} weight="semibold" />
-      )}
-    </>
-  );
-}
-
-const menuSeparator = { height: 1, backgroundColor: "#E1E3E8" } as const;
-
-function SingleVariables({ variant = systemVariant }: ScreenProps) {
-  const s = useStrings(variant);
-  const menu = useNameMenu(8.67, 53.67);
-  return (
-    <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={134 + menu.drop}>
-        <PickedNameCard
-          menu={
-            <Popover style={at(menu.x, menu.y, 250, 160)}>
-              <Tap n={1} style={at(6.33, 9.66, 236, 42)} />
-              <VariablesRow top={0} />
-              <View style={[at(23.33, 61.33, 202), menuSeparator]} />
-            </Popover>
-          }
-          onSplit={menu.onSplit}
-          s={s}
-          split={menu.split}
-          top={8.67}
-        />
-      </Band>
-    </Replica>
-  );
-}
-
-function SinglePickCurrentApp({ variant = systemVariant }: ScreenProps) {
-  const s = useStrings(variant);
-  const menu = useNameMenu(8.67, 53.67);
-  return (
-    <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={116 + menu.drop}>
-        <PickedNameCard
-          menu={
-            <>
-              {/* The first menu, now behind the Variables submenu. */}
-              <Popover style={at(menu.x, menu.y, 250, 160)} />
-              <Popover
-                style={[at(menu.x, menu.y + 12, 250, 160), { boxShadow: "0 -1px 10px rgba(0, 0, 0, 0.05)" }]}
-              >
-                <VariablesRow expanded top={0} />
-              </Popover>
-            </>
-          }
-          onSplit={menu.onSplit}
-          s={s}
-          split={menu.split}
-          top={8.67}
-        />
-      </Band>
-      <BandGap />
-      <Band background={IOS.groupedBackground} height={88}>
-        <Popover style={at(menu.x, -99.67, 250, 180)}>
-          <View style={[at(23.33, 116.67, 202), { height: 1, backgroundColor: "#E3E4E7" }]} />
-          <Tap n={1} style={at(6.33, 127, 236, 44)} />
-          <AppIcon icon="currentApp" size={25} style={at(23, 136.33)} />
-          <Line baseline={154.66} size={17} x={59.3}>
-            {s("currentApp")}
-          </Line>
-        </Popover>
-      </Band>
-    </Replica>
-  );
-}
-
-function SingleResult({ variant = systemVariant }: ScreenProps) {
-  const s = useStrings(variant);
-  return (
-    <Replica width={WIDTH}>
-      <Band background={IOS.groupedBackground} height={172}>
-        <ParamCard
-          icon="currentApp"
-          sentence={s("getScopeApp", { scope: "\u0000" })}
-          token={s("currentScope")}
-          top={9}
-        />
-        {/* The line joining two actions of the shortcut. */}
-        <View style={[at(195.67, 64.67, 2, 10), { backgroundColor: "#A8A8AC" }]} />
-        <StillActionCard
-          s={s}
-          token={s("currentApp")}
-          tokenIcon={<AppIcon icon="currentApp" radius={4.6} size={20} />}
-          top={74.67}
-        />
-      </Band>
-    </Replica>
-  );
-}
-
 export const SHORTCUTS_SCREENS: Record<ShortcutsScreenId, (props: ScreenProps) => ReactNode> = {
   "auto-01-app-trigger": AutoAppTrigger,
   "auto-02-choose": AutoChoose,
@@ -1146,13 +887,8 @@ export const SHORTCUTS_SCREENS: Record<ShortcutsScreenId, (props: ScreenProps) =
   "auto-05-create-new": AutoCreateNew,
   "auto-06-search-actions": AutoSearchActions,
   "auto-07-pick-action": AutoPickAction,
-  "auto-08-pick-name": AutoPickName,
   "auto-09-save": AutoSave,
   "return-01-open-app": ReturnOpenApp,
   "return-02-choose-app": ReturnChooseApp,
   "return-03-rename": ReturnRename,
-  "single-01-current-app": SingleCurrentApp,
-  "single-02-variables": SingleVariables,
-  "single-03-pick-current-app": SinglePickCurrentApp,
-  "single-04-result": SingleResult,
 };

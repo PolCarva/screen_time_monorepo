@@ -66,11 +66,13 @@ describe("system strings", () => {
     ) as { strings: Record<string, { localizations?: { es?: { stringUnit?: { value?: string } } } }> };
     const spanish = (key: string) => catalog.strings[key]?.localizations?.es?.stringUnit?.value;
     for (const variant of ["es", "es-419"] as const) {
-      expect(spanish("Pause Before Opening")).toBe(shortcutsString(variant, "stillAction"));
-      expect(spanish("Pause before opening ${appName}")).toBe(
-        `${shortcutsString(variant, "stillSummaryPrefix")} \${appName}`,
+      expect(spanish("Pause App")).toBe(shortcutsString(variant, "stillAction"));
+      expect(spanish("Pause ${app}")).toBe(
+        `${shortcutsString(variant, "stillSummaryPrefix")} \${app}`,
       );
-      expect(spanish("App name")).toBe(shortcutsString(variant, "appNameParam"));
+      expect(spanish("Pause Before Opening")).toBe(
+        shortcutsString(variant, "legacyStillAction"),
+      );
     }
   });
 

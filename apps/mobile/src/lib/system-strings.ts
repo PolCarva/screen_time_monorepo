@@ -137,18 +137,19 @@ export const SHORTCUTS_STRINGS = {
     "es-419": "Automatización",
   },
   fitness: same("Fitness"),
-  /** Still's own action (D12), translated in ios/Still/Localizable.xcstrings. */
-  stillAction: {
+  /**
+   * Still's own action (D12), translated in ios/Still/Localizable.xcstrings:
+   * "Pause App", listed with one tile per chosen app, and once added "Pause
+   * Instagram" (StillPauseAppIntent.swift).
+   */
+  stillAction: { en: "Pause App", es: "Pausar app", "es-419": "Pausar app" },
+  stillSummaryPrefix: { en: "Pause", es: "Pausar", "es-419": "Pausar" },
+  /** The first version of the action, still what older automations show. */
+  legacyStillAction: {
     en: "Pause Before Opening",
     es: "Pausar antes de abrir",
     "es-419": "Pausar antes de abrir",
   },
-  stillSummaryPrefix: {
-    en: "Pause before opening",
-    es: "Pausar antes de abrir",
-    "es-419": "Pausar antes de abrir",
-  },
-  appNameParam: { en: "App name", es: "Nombre de la app", "es-419": "Nombre de la app" },
 } satisfies Record<string, Entry>;
 
 /** Android 14 Settings (Pixel), `values` / `values-es` / `values-es-rUS`. */

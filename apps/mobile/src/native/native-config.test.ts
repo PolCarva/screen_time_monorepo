@@ -193,6 +193,22 @@ describe("committed native production configuration", () => {
       "StillShortcutIntent.swift",
     );
 
+    // Still's action one sec style: "Pause <App>" ready made for each chosen
+    // app (an App Shortcut per app), refreshed whenever the choice changes.
+    const pauseAppIntent = nativeFile("ios/StillNative/StillPauseAppIntent.swift");
+    expect(pauseAppIntent).toContain("struct PauseAppIntent: AppIntent");
+    expect(pauseAppIntent).toContain("var app: StillAppEntity");
+    expect(pauseAppIntent).toContain("struct StillAppShortcuts: AppShortcutsProvider");
+    expect(pauseAppIntent).toContain('phrases: ["Pause \\(\\.$app) with \\(.applicationName)"]');
+    expect(shortcutIntent).toContain("StillAppShortcuts.updateAppShortcutParameters()");
+    // The first action stays for automations made with it, out of the library.
+    expect(shortcutIntent).toContain("static let isDiscoverable = false");
+    expect(project).toContain("StillPauseAppIntent.swift in Sources");
+    expect(project).toContain("AppShortcuts.strings in Resources");
+    expect(nativeFile("scripts/configure-ios-targets.rb")).toContain(
+      "StillPauseAppIntent.swift",
+    );
+
     // Pausa vía Atajos v2: targets chosen in Still, direct return, real health.
     expect(info).toContain("<key>LSApplicationQueriesSchemes</key>");
     expect(shortcutIntent).toContain("enum ShortcutTargetStore");
