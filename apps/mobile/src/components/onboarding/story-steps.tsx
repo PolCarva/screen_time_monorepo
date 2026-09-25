@@ -20,6 +20,7 @@ import { SteppedSlider } from "@/components/stepped-slider";
 import { Body } from "@/components/typography";
 import { locale, localize } from "@/i18n";
 import { openExternalBrowser } from "@/lib/external-browser";
+import { PRIVACY_POLICY_PATH, TERMS_PATH, webPageUrl } from "@/lib/web-pages";
 import {
   GUESS_STEPS_MINUTES,
   LIFE_HORIZON_YEARS,
@@ -460,7 +461,35 @@ export function HowStep({ onNext }: { onNext: () => void }) {
           )}
         </Text>
       </View>
+      <AcceptanceNote />
     </StoryLayout>
+  );
+}
+
+/** Setting Still up is when people accept the terms, so both are one tap away. */
+function AcceptanceNote() {
+  const open = (path: string) =>
+    void openExternalBrowser(webPageUrl(path)).catch(() => undefined);
+  return (
+    <Text style={styles.acceptance}>
+      {localize("By setting up Still you accept the ", "Al configurar Still aceptas los ")}
+      <Text
+        accessibilityRole="link"
+        onPress={() => open(TERMS_PATH)}
+        style={styles.acceptanceLink}
+      >
+        {localize("Terms of use", "Términos de uso")}
+      </Text>
+      {localize(" and the ", " y la ")}
+      <Text
+        accessibilityRole="link"
+        onPress={() => open(PRIVACY_POLICY_PATH)}
+        style={styles.acceptanceLink}
+      >
+        {localize("Privacy policy", "Política de privacidad")}
+      </Text>
+      .
+    </Text>
   );
 }
 
@@ -590,6 +619,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.brand,
     fontSize: 13,
     lineHeight: 19,
+  },
+  acceptance: {
+    color: colors.graphiteSoft,
+    fontFamily: fonts.brand,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  acceptanceLink: {
+    color: colors.graphite,
+    fontFamily: fonts.brandMedium,
+    textDecorationLine: "underline",
+    textDecorationColor: colors.mineralLight,
   },
   pressed: { opacity: 0.5 },
 });

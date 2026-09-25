@@ -17,7 +17,7 @@ const CONTACT_EMAIL = "pablocarvalhogimenez@gmail.com";
 const sections = [
   {
     title: "1. Desde la app",
-    body: "Abre Still y ve a Ajustes → Privacidad. Toca «Eliminar cuenta y datos» y confirma con «Eliminar definitivamente». La cuenta se borra en ese momento, en Android y en iPhone.",
+    body: "Abre Still y ve a Ajustes → Tus datos. Toca «Eliminar cuenta y datos» y confirma con «Eliminar definitivamente». La cuenta se borra en ese momento, en Android y en iPhone.",
   },
   {
     title: "2. Sin la app",

@@ -142,7 +142,7 @@ export const HOME_FAQ: FaqEntry[] = [
   {
     question: "¿Cómo dejo de usar Still?",
     answer:
-      "En iPhone, borra la automatización en Atajos. En Android, desactiva Still en Accesibilidad o desinstala la app. Puedes borrar tu cuenta y tus datos desde Ajustes → Privacidad.",
+      "En iPhone, borra la automatización en Atajos. En Android, desactiva Still en Accesibilidad o desinstala la app. Puedes borrar tu cuenta y tus datos desde Ajustes → Tus datos.",
     link: { href: "/eliminar-cuenta", label: "Cómo eliminar tu cuenta" },
   },
 ];

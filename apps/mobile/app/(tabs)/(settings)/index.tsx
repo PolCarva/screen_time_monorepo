@@ -40,7 +40,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import { getJson } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
-import { PRIVACY_POLICY_PATH, webPageUrl } from "@/lib/web-pages";
+import { PRIVACY_POLICY_PATH, TERMS_PATH, webPageUrl } from "@/lib/web-pages";
 import { type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
@@ -191,9 +191,9 @@ export default function SettingsScreen() {
     }
   }
 
-  async function openPrivacyPolicy() {
+  async function openWebPage(path: string) {
     try {
-      await openExternalBrowser(webPageUrl(PRIVACY_POLICY_PATH));
+      await openExternalBrowser(webPageUrl(path));
     } catch {
       void sheet.show({
         title: localize("The link didn't open", "No se abrió el enlace"),
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
           "Try again in a moment.",
           "Vuelve a intentarlo en un momento.",
         ),
-        actions: [retryAction(() => openPrivacyPolicy()), closeAction()],
+        actions: [retryAction(() => openWebPage(path)), closeAction()],
       });
     }
   }
@@ -579,7 +579,7 @@ export default function SettingsScreen() {
           dimTo={0.6}
           scaleTo={1}
           style={styles.textAction}
-          onPress={() => void openPrivacyPolicy()}
+          onPress={() => void openWebPage(PRIVACY_POLICY_PATH)}
         >
           <Text style={styles.actionLabel}>
             {localize("Privacy policy", "Política de privacidad")}
@@ -605,6 +605,30 @@ export default function SettingsScreen() {
         >
           <Text style={styles.dangerLabel}>
             {localize("Delete account and data", "Eliminar cuenta y datos")}
+          </Text>
+        </PressableScale>
+      </View>
+
+      <View style={styles.section}>
+        <Eyebrow>05 / {localize("TERMS", "TÉRMINOS")}</Eyebrow>
+        <Heading style={styles.sectionTitle}>
+          {localize("The rules, in plain words.", "Las reglas, en claro.")}
+        </Heading>
+        <Body style={styles.privacyBody}>
+          {localize(
+            "What Still offers, how going in with an ad works and how the fund is shared.",
+            "Qué ofrece Still, cómo se entra con un anuncio y cómo se reparte el fondo.",
+          )}
+        </Body>
+        <PressableScale
+          accessibilityRole="link"
+          dimTo={0.6}
+          scaleTo={1}
+          style={styles.textAction}
+          onPress={() => void openWebPage(TERMS_PATH)}
+        >
+          <Text style={styles.actionLabel}>
+            {localize("Terms of use", "Términos de uso")}
           </Text>
         </PressableScale>
       </View>

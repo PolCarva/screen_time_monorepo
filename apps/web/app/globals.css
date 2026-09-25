@@ -598,8 +598,11 @@ img {
   grid-template-columns: 0.65fr 1.35fr;
   gap: 70px;
 }
-.legal-contact .text-link {
+.legal-contact div > .text-link {
   margin-top: 26px;
+}
+.legal-grid section .text-link {
+  margin-top: 18px;
 }
 .button:disabled {
   cursor: wait;

@@ -21,7 +21,7 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: "/alternativa-one-sec", lastModified: "2026-09-24" },
   { path: "/calculadora-tiempo-de-pantalla", lastModified: "2026-09-24" },
   { path: "/soporte", lastModified: "2026-09-23" },
-  { path: "/privacy", lastModified: "2026-09-23" },
-  { path: "/terms", lastModified: "2026-09-23" },
-  { path: "/eliminar-cuenta", lastModified: "2026-09-23" },
+  { path: "/privacy", lastModified: "2026-09-25" },
+  { path: "/terms", lastModified: "2026-09-25" },
+  { path: "/eliminar-cuenta", lastModified: "2026-09-25" },
 ];
