@@ -750,7 +750,25 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun resetLocalData(promise: Promise) {
     preferences.edit().clear().apply()
+    SessionMinutes.clear(context)
     promise.resolve(null)
+  }
+
+  /**
+   * Minutes one skipped pause gives back per app, measured on the phone, for
+   * the pause screen's line (docs/real-savings-estimate-plan.md §3.1). Apps
+   * left out use the config's minutes.
+   */
+  @ReactMethod
+  fun syncSessionMinutes(minutes: ReadableMap, promise: Promise) {
+    val clean = minutes.toHashMap().mapNotNull { (packageName, value) ->
+      (value as? Number)?.toDouble()
+        ?.takeIf { it.isFinite() && it >= 0.0 }
+        ?.let { packageName to it.coerceAtMost(60.0) }
+    }.toMap()
+    runCatching { SessionMinutes.write(context, clean) }
+      .onSuccess { promise.resolve(null) }
+      .onFailure { promise.reject("session_minutes_failed", it.message, it) }
   }
 
   @ReactMethod fun addListener(eventName: String) = Unit

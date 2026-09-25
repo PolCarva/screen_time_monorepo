@@ -90,6 +90,7 @@ import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { restrictionEngine } from "@/native/restriction-engine";
 import { askForConsent, consentRequirement } from "@/native/ads-consent";
 import { useAppState } from "@/state/app-state";
+import { captureBaselineIfNeeded, rememberOnboardedAt } from "@/state/saved-time";
 import {
   clearOnboardingProgress,
   loadOnboardingProgress,
@@ -116,7 +117,9 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
   const [busy, setBusy] = useState(false);
   const [usagePermission, setUsagePermission] =
     useState<UsagePermissionState>("idle");
-  // Read once, held in memory, never stored (D4). Undefined while reading.
+  // The story's numbers: read, held in memory, never stored (D4). Only the
+  // per-app week before Still is kept, at the end (real-savings D7-D8).
+  // Undefined while reading.
   const [insights, setInsights] = useState<UsageInsights | null | undefined>();
   const [icons, setIcons] = useState<Record<string, string>>({});
 
@@ -177,8 +180,8 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
     [config, manufacturer, platform, progress, usageSource],
   );
 
-  // Once usage access is granted, read the week (again after a restart: it
-  // is never stored).
+  // Once usage access is granted, read the week (again after a restart: the
+  // story's numbers are never stored).
   const usageGranted = progress?.usage === "granted";
   useEffect(() => {
     if (!usageGranted || insights !== undefined) return;
@@ -421,7 +424,13 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
             ),
           });
         }
-        if (mode === "onboarding") await setOnboarded(true);
+        if (mode === "onboarding") {
+          // The day "before Still" is measured against, and that week's usage
+          // read now if access is on (docs/real-savings-estimate-plan.md, D7).
+          await rememberOnboardedAt();
+          await captureBaselineIfNeeded().catch(() => null);
+          await setOnboarded(true);
+        }
         await clearOnboardingProgress(mode);
         if (mode === "setup" && router.canGoBack()) router.back();
         else router.replace(route);

@@ -905,9 +905,11 @@ class InterventionActivity : Activity() {
         metric(StillRestrictionModule.METRIC_APP_UNLOCKS) -
         metric(StillRestrictionModule.METRIC_APP_REENTRIES)
       ).coerceAtLeast(0)
-    val minutesPerOpen =
-      preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
-    if (avoidedOpens <= 0) return ""
+    // What a session of this app usually lasts, measured on the phone, or the
+    // config's estimate (real-savings §6).
+    val minutesPerOpen = SessionMinutes.read(this, packageName)
+      ?: preferences.getFloat(StillRestrictionModule.KEY_ESTIMATED_MINUTES_PER_AVOIDED_OPEN, 0f)
+    if (avoidedOpens <= 0 || avoidedOpens * minutesPerOpen <= 0f) return ""
     val duration = formatSavedTime(avoidedOpens * minutesPerOpen)
     val times = when {
       spanish && avoidedOpens == 1 -> "1 vez"

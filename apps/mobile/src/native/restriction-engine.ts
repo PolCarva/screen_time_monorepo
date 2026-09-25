@@ -197,6 +197,11 @@ export interface RestrictionEngine {
   getUsageSummary?(): Promise<NativeUsageSummary>;
   /** Android only. Sessions, their median and time per day for every app used. */
   getUsageStats?(from: string, toExclusive: string | null): Promise<NativeUsageStats>;
+  /**
+   * Android only. Minutes one skipped pause gives back per app, measured on the
+   * phone, for the pause screen; apps left out use the config's minutes.
+   */
+  syncSessionMinutes?(minutes: Record<string, number>): Promise<void>;
   /** Android only. An installed app's icon as a PNG `data:` URI. */
   getAppIcon?(packageName: string, sizeDp: number): Promise<string | null>;
   /** Android only. The picker with the most used apps offered first, unticked. */

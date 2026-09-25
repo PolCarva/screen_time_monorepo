@@ -32,6 +32,7 @@ import {
 } from "@/lib/today-summary";
 import { secondsLeft, useAccessWindows } from "@/native/use-access-windows";
 import { useAppState } from "@/state/app-state";
+import { useSavedTime } from "@/state/saved-time";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, motion, radius, spacing } from "@/theme/tokens";
 
@@ -162,6 +163,9 @@ function LegendKey({ color, label }: { color: string; label: string }) {
 
 export default function TodayScreen() {
   const { stats, config, health } = useAppState();
+  // Keeps the week before Still, the last days' usage and the pause screen's
+  // minutes up to date (docs/real-savings-estimate-plan.md §3.2).
+  useSavedTime(config.estimatedMinutesPerAvoidedOpen);
   const { targets, health: shortcutHealth } = useShortcutTargets();
   const openWindows = useAccessWindows();
   const impactQuery = useQuery({

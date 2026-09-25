@@ -149,6 +149,15 @@ describe("committed native production configuration", () => {
     expect(intervention).toContain("StillRestrictionModule.recordEntryTrail(");
     expect(intervention).toContain("METRIC_APP_REENTRIES");
     expect(accessibilityService).toContain("outcomes(target) == outcomesAtLastOpen");
+    // The pause's per-app minutes are derived from usage: kept out of the
+    // preferences Android Auto Backup copies (real-savings D8).
+    const sessionMinutes = nativeFile(
+      "android/app/src/main/java/com/still/screentime/SessionMinutes.kt",
+    );
+    expect(sessionMinutes).toContain("context.noBackupFilesDir");
+    expect(sessionMinutes).not.toContain("getSharedPreferences");
+    expect(intervention).toContain("SessionMinutes.read(this, packageName)");
+    expect(restrictionModule).toContain("SessionMinutes.clear(context)");
     expect(accessibilityService).toContain("EXTRA_TARGET_ATTEMPTS");
     expect(accessibilityService).toContain(
       "StillSelfProtection.isOwnPackage(packageName, target)",
