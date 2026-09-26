@@ -21,9 +21,15 @@ function externalHttpsUrl(value: string) {
  */
 export async function openExternalBrowser(value: string): Promise<void> {
   const url = externalHttpsUrl(value);
-  await restrictionEngine.beginExternalAuthSession?.();
-  // An update never reloads before `finish` turns the pause back on.
+  // An update never reloads between lifting the pause for the browser and
+  // turning it back on in `finish`.
   const releaseOta = holdOtaReload();
+  try {
+    await restrictionEngine.beginExternalAuthSession?.();
+  } catch (error) {
+    releaseOta();
+    throw error;
+  }
 
   return new Promise((resolve, reject) => {
     let leftStill = false;
@@ -43,13 +49,14 @@ export async function openExternalBrowser(value: string): Promise<void> {
       finishing = true;
       clearTimeout(timeout);
       subscription.remove();
-      releaseOta();
       try {
         await restrictionEngine.endExternalAuthSession?.();
         if (error) reject(error);
         else resolve();
       } catch (restoreError) {
         reject(error ?? restoreError);
+      } finally {
+        releaseOta();
       }
     }
 

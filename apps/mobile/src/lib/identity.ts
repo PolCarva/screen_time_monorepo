@@ -157,9 +157,14 @@ export async function linkIdentity(provider: IdentityProvider) {
     scheme: "still",
     path: "auth/callback",
   });
-  await restrictionEngine.beginExternalAuthSession?.();
   // An update never reloads mid sign-in, before the pause is back on.
   const releaseOta = holdOtaReload();
+  try {
+    await restrictionEngine.beginExternalAuthSession?.();
+  } catch (error) {
+    releaseOta();
+    throw error;
+  }
   try {
     const { data, error } = await supabase.auth.linkIdentity({
       provider,
@@ -183,8 +188,8 @@ export async function linkIdentity(provider: IdentityProvider) {
       return await signInToExistingAccount(provider, redirectTo);
     }
   } finally {
-    releaseOta();
     await restrictionEngine.endExternalAuthSession?.().catch(() => undefined);
+    releaseOta();
   }
 }
 

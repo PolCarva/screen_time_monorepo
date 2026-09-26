@@ -543,21 +543,39 @@ function checkAab(aab) {
   if (problems.length) throw new Error(`the AAB is not ready for updates: ${problems.join("; ")}`);
 }
 
-function tagStoreBuild({ version, fingerprints, commit }, platform, build) {
-  const tag = storeTagName(platform, version, build);
-  execFileSync(
-    "git",
-    [
-      "tag",
-      "-a",
-      tag,
-      commit,
-      "-m",
-      formatStoreTagMessage({ runtime: version, fingerprint: fingerprints[platform], commit }),
-    ],
-    { cwd: MOBILE_DIR },
-  );
-  return tag;
+function storeTagArgs({ version, fingerprints, commit }, platform, build) {
+  return [
+    "tag",
+    "-a",
+    storeTagName(platform, version, build),
+    commit,
+    "-m",
+    formatStoreTagMessage({ runtime: version, fingerprint: fingerprints[platform], commit }),
+  ];
+}
+
+function tagStoreBuild(release, platform, build) {
+  const args = storeTagArgs(release, platform, build);
+  try {
+    execFileSync("git", args, { cwd: MOBILE_DIR, stdio: ["ignore", "ignore", "pipe"] });
+  } catch (error) {
+    // Uploaded but untagged: update:apps would not know this build.
+    throw new Error(
+      `uploaded, but tagging failed (${error.stderr?.toString().trim() || error.message}). Tag it with: git ${args.map((arg) => JSON.stringify(arg)).join(" ")}`,
+    );
+  }
+  return args[2];
+}
+
+/**
+ * An artifact kept after a failed upload, and how to finish by hand: upload
+ * it, then tag it so update:apps knows the build.
+ */
+function keptArtifactHelp(release, platform, path) {
+  const build = platform === "ios" ? "<build number>" : "<versionCode>";
+  return `Kept ${path}. After uploading it by hand, tag it: git ${storeTagArgs(release, platform, build)
+    .map((arg) => JSON.stringify(arg))
+    .join(" ")}`;
 }
 
 async function promoteAndReport(submit, failures) {
@@ -582,6 +600,8 @@ async function runLocal(release) {
   const work = mkdtempSync(join(tmpdir(), "still-deploy-"));
   const failures = [];
   const tags = [];
+  /** Artifacts whose upload failed, with how to finish by hand. */
+  const keep = [];
 
   if (platforms.includes("ios")) {
     const ipa = join(work, "still.ipa");
@@ -593,7 +613,12 @@ async function runLocal(release) {
       );
       await assertUnchanged(release, "ios");
       const build = checkIpa(ipa, work, version);
-      uploadToTestFlight(ipa, submit.ios);
+      try {
+        uploadToTestFlight(ipa, submit.ios);
+      } catch (error) {
+        keep.push(keptArtifactHelp(release, "ios", ipa));
+        throw error;
+      }
       const tag = tagStoreBuild(release, "ios", build);
       tags.push(tag);
       console.log(`TestFlight: ${version} (${build}) uploaded; the internal group gets it once Apple processes it. Tagged ${tag}.`);
@@ -615,10 +640,16 @@ async function runLocal(release) {
       );
       await assertUnchanged(release, "android");
       checkAab(aab);
-      const versionCode = await uploadToInternalTrack(
-        await googlePlay(submit.android),
-        readFileSync(aab),
-      );
+      let versionCode;
+      try {
+        versionCode = await uploadToInternalTrack(
+          await googlePlay(submit.android),
+          readFileSync(aab),
+        );
+      } catch (error) {
+        keep.push(keptArtifactHelp(release, "android", aab));
+        throw error;
+      }
       const tag = tagStoreBuild(release, "android", versionCode);
       tags.push(tag);
       console.log(`Play internal testing: ${version} (${versionCode}) live for testers who joined ${INTERNAL_OPT_IN}. Tagged ${tag}.`);
@@ -629,11 +660,9 @@ async function runLocal(release) {
   }
 
   if (tags.length) console.log(`Share the store tags: git push origin ${tags.join(" ")}`);
-  if (failures.length) {
-    // Keep what was built: a failed upload is retried, not rebuilt.
-    throw new Error(`${failures.join("\n")}\nArtifacts kept in ${work}`);
-  }
-  rmSync(work, { recursive: true, force: true });
+  // A failed upload keeps what was built, so it is uploaded, not rebuilt.
+  if (!keep.length) rmSync(work, { recursive: true, force: true });
+  if (failures.length) throw new Error([...failures, ...keep].join("\n"));
 }
 
 /** The same through EAS's cloud queue; its builds are checked and tagged too. */
@@ -665,6 +694,7 @@ async function runCloud(release) {
         await download(builds.ios.artifacts.buildUrl, ipa);
         const buildNumber = checkIpa(ipa, downloads, version);
         uploadToTestFlight(ipa, submit.ios);
+        await assertUnchanged(release, "ios");
         const tag = tagStoreBuild(release, "ios", buildNumber);
         tags.push(tag);
         console.log(
@@ -685,6 +715,7 @@ async function runCloud(release) {
           await googlePlay(submit.android),
           bundle,
         );
+        await assertUnchanged(release, "android");
         const tag = tagStoreBuild(release, "android", versionCode);
         tags.push(tag);
         console.log(
