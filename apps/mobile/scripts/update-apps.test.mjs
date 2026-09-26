@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  forbiddenIn,
+  missingHosts,
   parseArgs,
   platformsOf,
   refusal,
@@ -34,10 +34,14 @@ describe("update:apps", () => {
     expect(updateMessage("Arreglo", "ignored", "abc1234")).toBe("Arreglo (abc1234)");
   });
 
-  it("finds development hosts in a bundle", () => {
-    expect(forbiddenIn('fetch("https://get-still.app/api")')).toEqual([]);
-    expect(forbiddenIn('"http://localhost:3000"')).toEqual(["localhost:3000"]);
-    expect(forbiddenIn("http://10.0.2.2:8081")).toEqual(["10.0.2.2"]);
+  it("checks a bundle calls the production hosts", () => {
+    const hosts = ["api.example.app", "abc.supabase.co"];
+    // expo-router keeps "http://localhost:3000" in every iOS bundle: harmless.
+    const production = '"https://api.example.app"…"https://abc.supabase.co"…"http://localhost:3000"';
+    expect(missingHosts(production, hosts)).toEqual([]);
+    expect(missingHosts('"http://localhost:3000"…"https://abc.supabase.co"', hosts)).toEqual([
+      "api.example.app",
+    ]);
   });
 
   describe("refusing an update that is not JavaScript only", () => {

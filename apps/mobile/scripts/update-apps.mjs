@@ -29,8 +29,6 @@ const CHANNEL = "production";
 const DIST = join(MOBILE_DIR, "dist");
 const PROJECT_UPDATES_URL =
   "https://expo.dev/accounts/pablo-carvalhos-team/projects/still/updates";
-/** Hosts a production bundle must never call: a sign of a development env. */
-export const FORBIDDEN_BUNDLE_STRINGS = ["localhost:3000", "10.0.2.2", "127.0.0.1:"];
 
 export function parseArgs(args) {
   const options = { platform: "all", message: null, rollout: null, check: false, rollback: false };
@@ -62,9 +60,13 @@ export function updateMessage(message, subject, shortSha) {
   return `${(message ?? subject).trim()} (${shortSha})`;
 }
 
-/** Forbidden strings found in an exported bundle's text. */
-export function forbiddenIn(text) {
-  return FORBIDDEN_BUNDLE_STRINGS.filter((needle) => text.includes(needle));
+/**
+ * Production hosts missing from an exported bundle's text: a bundle made with
+ * a development env calls localhost instead. (Looking for "localhost" itself
+ * does not work: expo-router keeps it as a fallback in every iOS bundle.)
+ */
+export function missingHosts(text, hosts) {
+  return hosts.filter((host) => !text.includes(host));
 }
 
 /**
@@ -151,8 +153,19 @@ export function trailingJson(output) {
   return null;
 }
 
-/** Every exported bundle's text, to look for development hosts. */
-function scanExport(platforms) {
+/** The API and Supabase hosts of the EAS production env. */
+function productionHosts() {
+  const output = withProductionEnv(
+    `node -e 'console.log(JSON.stringify([process.env.EXPO_PUBLIC_API_URL, process.env.EXPO_PUBLIC_SUPABASE_URL].map((url) => new URL(url).host)))'`,
+    { capture: true },
+  );
+  const hosts = trailingJson(output);
+  if (!Array.isArray(hosts) || hosts.length !== 2) throw new Error("Could not read the production hosts.");
+  return hosts;
+}
+
+/** Checks every exported bundle was made with the production env. */
+function scanExport(platforms, hosts) {
   const metadata = JSON.parse(readFileSync(join(DIST, "metadata.json"), "utf8"));
   const problems = [];
   for (const platform of platforms) {
@@ -161,9 +174,9 @@ function scanExport(platforms) {
       problems.push(`The export has no ${platform} bundle.`);
       continue;
     }
-    const found = forbiddenIn(readFileSync(join(DIST, bundle)).toString("latin1"));
-    if (found.length)
-      problems.push(`The ${platform} bundle calls ${found.join(", ")}: it was built with a development env.`);
+    const missing = missingHosts(readFileSync(join(DIST, bundle)).toString("latin1"), hosts);
+    if (missing.length)
+      problems.push(`The ${platform} bundle lacks ${missing.join(", ")}: it was not built with the production env.`);
   }
   return problems;
 }
@@ -224,9 +237,10 @@ async function main() {
   withProductionEnv(
     `npx expo export --output-dir dist --dump-sourcemap --dump-assetmap --clear ${platforms.map((platform) => `--platform ${platform}`).join(" ")}`,
   );
-  const problems = scanExport(platforms);
+  const hosts = productionHosts();
+  const problems = scanExport(platforms, hosts);
   if (problems.length) throw new Error(problems.join("\n"));
-  console.log(`OK export: ${platforms.join(" + ")}, no development hosts`);
+  console.log(`OK export: ${platforms.join(" + ")}, calls ${hosts.join(" and ")}`);
 
   if (options.check) {
     console.log(`--check: nothing published. It would reach ${platforms.join(" and ")} store builds of ${version}.`);

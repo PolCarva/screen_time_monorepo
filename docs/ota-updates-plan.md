@@ -60,8 +60,9 @@ pnpm update:apps --rollback              # todos vuelven al JS de la build de ti
 
 Antes de publicar corre typecheck y tests. Exporta con el entorno de
 producción (`eas env:exec production`, `APP_VARIANT=production`,
-`EXPO_NO_DOTENV=1`) y revisa que el bundle no llame a `localhost:3000`,
-`10.0.2.2` ni `127.0.0.1`.
+`EXPO_NO_DOTENV=1`) y revisa que cada bundle contenga los hosts de
+producción de la API y de Supabase. Buscar «localhost» no sirve: expo-router
+lo deja como respaldo en todos los bundles de iOS.
 
 **Volver atrás:**
 
