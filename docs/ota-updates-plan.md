@@ -53,6 +53,10 @@ pnpm version:apps 0.3.6                  # sube la versión en app.config y en c
 
 **`update:apps` se niega si:**
 
+- `EXPO_PUBLIC_API_URL` (env de producción de EAS) + `/api/v1/config` no
+  responde 200 **sin redirección** (`apiUrlProblem` en `ota-guard.mjs`). Detrás
+  de una redirección a otro host los teléfonos pierden el token y todo lo
+  autenticado da 401 (app-store-review-plan §13);
 - hay cambios sin commitear (incluidos los archivos sin seguimiento);
 - HEAD no está en `main`;
 - no hay build de tienda de la versión actual («no le llegaría a nadie»);
@@ -65,6 +69,8 @@ pnpm version:apps 0.3.6                  # sube la versión en app.config y en c
 
 **`deploy:apps`:**
 
+- hace el mismo chequeo de la API antes de las llaves de las tiendas (también
+  con `--check`);
 - se niega si los archivos nativos no están en la versión de `app.config.ts`.
   La build los re-sincronizaría al vuelo y quedaría un binario con partes que
   no coinciden. Por eso la versión se sube con `version:apps`;
@@ -165,3 +171,33 @@ intentos locales.
 - Un teléfono que la aplicó muestra en Ajustes «Versión 0.3.5 · actualización
   01a0dbf0».
 - Queda por confirmar en dispositivos (F5).
+
+**OTA de la API en get-still.app (2026-09-26):**
+
+- `EXPO_PUBLIC_API_URL` de EAS (production y preview) pasó de
+  `https://screen-time-monorepo-web.vercel.app` a `https://get-still.app`.
+- Commits `78dd99c`, `7cfc5a5` y `c9ba5fb`, mergeados a `main`. Incluyen:
+  - Borrar y descargar datos distinguen «sin conexión», «sesión rechazada»
+    (401 o respuesta desde otro host) y «servidor».
+  - Ajustes dice «SIN SINCRONIZAR» si hay red pero el servidor falló.
+  - El onboarding ya no se traba en «Un momento…» después de borrar la cuenta.
+  - Un solo inicio de sesión anónimo a la vez.
+  - `expo/fetch` (el `fetch` global desde Expo 57) rechaza sin red con
+    `FetchError` («fetch failed: …»), no con `TypeError`. Ahora cuenta como
+    sin conexión.
+- `pnpm update:apps`:
+  - Guardián: API OK, «JavaScript only» desde `+18` y `+16`; el export llama a
+    `get-still.app`.
+  - Grupo `77dfc048-d345-4631-acf7-fac7d57cb409`, runtime 0.3.5.
+  - Ids: iOS `01a0dc7e-7458-7c3f-…`, Android `01a0dc7e-7458-7bd6-…`.
+  - Ajustes muestra «actualización 01a0dc7e».
+- El Xiaomi (vc16 de Play) la bajó al abrir Still (`DownloadComplete`,
+  `NEW_UPDATE_LOADED`); se aplica en el próximo arranque en frío.
+- Verificado antes de publicar, con un build de release de ese commit en el
+  emulador contra producción, usando la cuenta anónima que creó la app:
+  - Ajustes «ACTUALIZADO».
+  - «Descargar mis datos» abre el JSON.
+  - «Eliminar cuenta y datos» vuelve al onboarding sin hoja de error, y en la
+    base quedan 0 filas en `auth.users` y en `devices`.
+  - Sin red: «Revisa tu conexión y vuelve a intentarlo.».
+  - Después las cuentas de prueba se borraron desde la app.

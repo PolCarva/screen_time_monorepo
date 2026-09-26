@@ -731,7 +731,9 @@ Solo JS; lo nativo no cambia.
 - «Que Still siga activo»: dice qué pasa si el teléfono cierra Still. En Xiaomi
   pide «Inicio automático» y la batería «Sin restricciones» (los dos en la
   información de Still, cuyo botón pasa a secundario) y **fijar Still en
-  Recientes** con el candado, que MIUI nunca cierra.
+  Recientes** con el candado, que MIUI nunca cierra. (Falso en HyperOS 3: la
+  tarjeta fijada también se cierra al deslizarla; el consejo se quitó en 0.3.6,
+  ver §15.)
 - «¿No aparece la pausa?»: la primera causa pasa a ser «Apaga y vuelve a
   encender Still» cuando está activado sin servicio.
 
@@ -743,6 +745,8 @@ encender → Still vuelve solo y el paso queda en «Still está activado». Tamb
 verde.
 
 ### 13.3 Pendiente en el Xiaomi
+
+Resuelto en §15: el inicio automático alcanza y fijar en Recientes no sirve.
 
 Confirmar que con «Inicio automático» activado, y con Still fijado en
 Recientes, cerrarlo ya no deja la pausa apagada. Si con el inicio automático
@@ -782,3 +786,108 @@ el emulador dejó de responder. Typecheck y 291 tests en verde.
 
 **Pendiente en el Xiaomi:** que «Otros permisos» de MIUI (ventanas emergentes)
 abra en HyperOS, y que Recientes abra con la tarjeta de Still a mano.
+
+---
+
+## 15. Diagnóstico en el Xiaomi y arreglo: inicio automático, Recientes y arranque liviano (2026-09-26)
+
+Reporte: al cerrar Still deslizándolo en Recientes la pausa se pierde
+(interruptor activado, servicio muerto, «Still se detuvo»). El dueño decía que
+empeoró «cuando agregamos screen time» (0.3.0); el camino de arranque del
+servicio no había cambiado en esa época, así que se midió en el teléfono.
+
+### 15.1 Diagnóstico
+
+Teléfono: Xiaomi 2407FPN8EG (`rothko`), Android 16, HyperOS
+OS3.0.302.0.WNNMIXM. Still 0.3.5 vc16 de Play (`installer=com.android.vending`,
+no depurable), batería sin restricciones (lista blanca de `deviceidle`).
+
+- **Todas las muertes** en `dumpsys activity exit-info`: `reason=13 (OTHER KILLS
+  BY SYSTEM)`, `description=SwipeUpClean`, con importancia 125 (servicio
+  enlazado). El log: `ProcessSceneCleaner.handleSwipeKill → SwipeUpClean: kill
+  procName=com.still.screentime` (y también el proceso sandbox de WebView del
+  paquete). No hubo ANR ni crash.
+- **A, sin inicio automático** (`MIUIOP(10008): ignore` en `appops`): después
+  del `am_kill` no aparece ningún `am_schedule_service_restart`. El servicio
+  queda en `Crashed services` para siempre. Abrir Still no lo revive: el proceso
+  vivió ~1 h con el servicio caído.
+- **B, con inicio automático:** `SwipeUpClean` mata igual, pero a los 60 ms hay
+  `am_schedule_service_restart [StillAccessibilityService, 1000]` y al segundo
+  `am_proc_start … service`. El servicio vuelve a estar enlazado solo.
+- **C, fijado en Recientes (candado) sin inicio automático:** el candado se
+  aplica (`ProcessManager: promoteLockedApp`), pero deslizar la tarjeta fijada
+  la cierra y mata igual. Fijar **no** protege en HyperOS 3; solo evita
+  «cerrar todo».
+- Apagar el inicio automático en Seguridad hace **force-stop** de Still
+  (`Force stopping … from process:com.miui.securitycenter`), que además le
+  quita la accesibilidad.
+- `am crash` no hace nada en un build de release sin root.
+- Arranque solo para el servicio en el Xiaomi: SoLoader + `loadReactNative`
+  ~20 ms, y AdMob + WebView en el hilo principal hasta ~400 ms. Sin ANR.
+
+Conclusión: **H1**. El inicio automático es lo único que hace que Android
+relance el servicio tras `SwipeUpClean`. **H2** (arranque fallido) no se vio en
+el Xiaomi: el ANR del emulador era lentitud del emulador. **H3** no aplica (solo
+dev-client). Un proceso `:guard` no ayudaría: `SwipeUpClean` mata todos los
+procesos del paquete.
+
+### 15.2 Arreglo (0.3.6)
+
+- **Detectar el inicio automático.** `StillSetup.autostartState` lee el op 10008
+  de MIUI con `AppOpsManager.checkOpNoThrow` por reflexión (respaldo:
+  `android.miui.AppOpsUtils.getApplicationAutoStart`). Da `allowed`, `denied` o
+  `unknown`: `unknown` en otros fabricantes o si el teléfono no responde.
+  `getHealth` lo expone como `autostart` y lo registra en logcat (`StillSetup:
+  Autostart: …`) cuando cambia.
+- **Pedirlo.** Con `denied`, Hoy y Ajustes muestran «Activa el inicio
+  automático» (por qué y qué pasa sin él) y un botón a la información de Still,
+  donde está el interruptor. «¿No aparece la pausa?» lo pone como causa.
+  «Que Still siga activo» lo muestra como fila verificada, igual que la
+  batería. Se quitó el consejo de fijar Still en Recientes.
+- **Sin tarjeta que deslizar.** Con el inicio automático apagado, `MainActivity`
+  saca las tareas de Still de Recientes en `onStop`
+  (`AppTask.setExcludeFromRecents`, nunca la del escudo) y las devuelve en
+  `onStart`. El usuario pidió «lo que sea necesario»: al salir, Still no está
+  en Recientes; se vuelve con el ícono.
+- **Arranque liviano.** `MainApplication` ya no carga React Native en
+  `onCreate`: se carga al crear el React host o en `MainActivity`, antes de que
+  `ReactActivity` lea `fabricEnabled` en su constructor. Los listeners de
+  `ApplicationLifecycleDispatcher` que quedan (expo-updates, localization;
+  dev-launcher solo en debug) no necesitan RN.
+- **Servicio robusto.** Cada paso de `onServiceConnected`,
+  `onAccessibilityEvent` y los `Runnable` del handler van dentro de `guarded`
+  (try/catch con log `StillAccessibility`). Un crash ahí mataba el proceso, y
+  en un Xiaomi sin inicio automático ya no volvía.
+- **Anuncio fuera del arranque.** `onServiceConnected` no precarga. El anuncio
+  carga al encender o desbloquear la pantalla (`ACTION_SCREEN_ON` /
+  `ACTION_USER_PRESENT`), cuando se abre una app elegida (como antes) y 5 s
+  después de conectar si la pantalla está encendida. La rama `feat/ad-preload`
+  (otra sesión) reemplaza este receptor por el suyo en el rebase.
+
+**Verificado en el emulador API 34 (build de release, firmado con la debug
+keystore, env de producción):**
+- Arranque en frío desde el launcher: RN carga al crear la actividad.
+- Onboarding completo con el servicio activado por adb; la prueba en vivo
+  mostró el escudo.
+- Arranque solo para el servicio (servicio apagado, `am kill`, servicio
+  encendido): en ese proceso no hay `SoLoader` ni `BridgelessReact`. El escudo
+  apareció al abrir Calendario, con «Ver anuncio» listo; el anuncio empezó a
+  cargar ~6 s después del arranque.
+- Al abrir Still en ese mismo proceso, RN cargó en ese momento y Hoy se mostró
+  bien.
+- Sin crashes en el buffer.
+- No se pudo probar en el emulador, porque no es Xiaomi: la tarjeta de
+  inicio automático ni la salida de Recientes.
+
+### 15.3 Pendiente en el Xiaomi (build 0.3.6 de Play)
+
+1. Con el inicio automático **apagado**:
+   - Hoy y Ajustes muestran «Activa el inicio automático» y el botón abre la
+     información de Still.
+   - Al salir de Still, su tarjeta no está en Recientes.
+   - `adb logcat -s StillSetup` dice `Autostart: denied (mode 1)`.
+2. Con el inicio automático **encendido**:
+   - La tarjeta desaparece.
+   - Deslizar Still en Recientes 5 veces → abrir una app elegida → la pausa
+     aparece siempre.
+   - `dumpsys accessibility` dice `Crashed services:{}`.

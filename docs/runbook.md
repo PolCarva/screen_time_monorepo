@@ -39,6 +39,8 @@ Public values are bundled into clients and must never contain secrets.
 
 Use different high-entropy values for `REWARD_INTENT_SECRET`, `INTERNAL_JOB_SECRET`, `CRON_SECRET`, and preferably `WAITLIST_RATE_LIMIT_SECRET`. Vercel automatically sends `Authorization: Bearer $CRON_SECRET` to cron routes. The reconciliation route falls back to `INTERNAL_JOB_SECRET` only for non-Vercel deployments; the waitlist uses a domain-separated HMAC with `INTERNAL_JOB_SECRET` when no dedicated key exists.
 
+`EXPO_PUBLIC_API_URL` must be the final host, `https://get-still.app` in both EAS environments, never an address that redirects: on a redirect to another host phones drop the `Authorization` header and every signed-in call returns 401 (docs/app-store-review-plan.md §13). `pnpm deploy:apps` and `pnpm update:apps` refuse to run unless `${EXPO_PUBLIC_API_URL}/api/v1/config` answers 200 without a redirect. In Vercel, `NEXT_PUBLIC_APP_URL` is `https://get-still.app` as a **Config** variable (Vercel refuses a `NEXT_PUBLIC_` Secret, and a Secret can't become Config: delete and re-add it).
+
 `APP_VARIANT=production` is set by `eas.json`. Production config evaluation rejects HTTP endpoints, missing core values, and Google's sample AdMob identifiers. Sample IDs in `.env.example` are development-only.
 
 ## Database and storage
@@ -85,6 +87,8 @@ Every state-changing admin RPC writes `admin_audit_log`. Admin forms disable whi
 3. Deploy and verify `/`, `/impact`, `/privacy`, `/terms`, `/api/v1/config`, and `/api/v1/impact/current`.
 4. Call the reconciliation route once with the cron bearer token and confirm a JSON `{ "reconciled": number }` response.
 5. Configure AdMob SSV to `https://YOUR_HOST/api/webhooks/admob/rewarded` and verify a real test-device callback before enabling rewards.
+
+Domains (Vercel → project → Settings → Domains): `get-still.app` serves Production; `www.get-still.app` 308-redirects to it; `screen-time-monorepo-web.vercel.app` serves Production **without** a redirect, because store builds before the 2026-09-26 OTA call the API there. Its pages still move to `get-still.app` through `apps/web/proxy.ts`, which never touches `/api`, `app-ads.txt` or `.well-known`. Check with `curl -sI`: `…vercel.app/api/v1/config` → 200, `…vercel.app/privacy` → 308 to `get-still.app`, `www.get-still.app` → 308 to `get-still.app`.
 
 For the custom domain, set the Android rewarded unit's SSV callback in AdMob to `https://get-still.app/api/webhooks/admob/rewarded` and verify a signed test-device callback. European and US-state UMP messages are published. Google Auth Platform is in production mode with the public homepage, privacy, and terms URLs. Search Console verified the previous canonical property through the permanent production meta tag; verify the new domain property and submit its sitemap. Google's brand-review appeal is submitted and pending external review. The AdMob Reporting OAuth client and Vercel secrets are configured; an authenticated production run imported a real 14-day window as `admob_api`. Policy v3 enables the reward path for the closed Android beta; do not promote beyond the closed track until the Play association and signed-device SSV/consent run pass.
 

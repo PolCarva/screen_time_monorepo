@@ -369,13 +369,36 @@ Después: AirDrop del `.mov` a la Mac y pasar la ruta. Se comprime con
   - La misma URL con `/privacy` → 308 a `get-still.app` (lo hace el proxy).
   - El script del usuario anónimo desechable (`signup` en Supabase + `POST /api/v1/privacy/delete` en `…vercel.app`) → 200.
 
+### 13.1 Resuelto (2026-09-26)
+
+- **Vercel:** `screen-time-monorepo-web.vercel.app` pasó de «Redirect to
+  get-still.app» a «Connect to an environment: Production».
+  - `curl -sI …vercel.app/api/v1/config` → 200 (`x-matched-path:
+    /api/v1/config`); `www.get-still.app` → 308 a `get-still.app`.
+  - `NEXT_PUBLIC_APP_URL` era la URL de vercel.app y de tipo Secret. Se borró
+    y se volvió a crear como Config = `https://get-still.app` (Production y
+    Preview). Con eso los canonical y el sitemap dejan de apuntar a vercel.app,
+    y el proxy redirige las páginas de vercel.app a `get-still.app` desde el
+    deploy de `main` que siguió.
+- **EAS:** `EXPO_PUBLIC_API_URL=https://get-still.app` en production y
+  preview.
+- **OTA** `77dfc048` («actualización 01a0dc7e»): las 0.3.5 llaman a
+  `get-still.app`. Además, borrar y descargar datos distinguen «sin conexión»
+  de «sesión rechazada» y de «servidor». Detalle en
+  docs/ota-updates-plan.md §5.
+- `update:apps` y `deploy:apps` fallan si la API redirige.
+- **Verificado contra producción** (emulador, build de release, cuenta anónima
+  creada por la app): descarga OK; borrado → onboarding sin hoja, con 0 filas
+  en `auth.users` y en `devices`.
+- Las builds anteriores a 0.3.5 (incluida la 0.3.1 (13) en revisión) funcionan
+  por el arreglo de Vercel.
+
 ## 14. Prompt para retomar
 
 > Retoma `docs/app-store-review-plan.md` (worktree `../screen_time-app-review`, rama `fix/ios-app-review`).
 > No reabras A1–A8. Estado: M1–M4 aplicados en ASC (0.3.1 build 13, capturas 6.9", notas); el envío
 > `ad546c6a…` sigue en `UNRESOLVED_ISSUES`. Lee §12 y §13.
-> 1. Verifica que Vercel ya no redirige la API (§13, «Verificación»). Si todavía da 308, para y
->    pídeme el cambio de dominio en Vercel.
+> 1. Vercel ya no redirige la API (§13.1, 2026-09-26). Solo confirma con curl que sigue en 200.
 > 2. Si ya cargué `APPLE_SIGN_IN_KEY_ID` y `APPLE_SIGN_IN_PRIVATE_KEY` en Vercel, redespliega
 >    (push a `main`) y confirma que el deploy tomó las variables.
 > 3. Pídeme el clip de login y borrado (Settings → Continue with Apple → Delete account and data →
