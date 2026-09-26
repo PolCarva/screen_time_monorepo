@@ -17,6 +17,7 @@
     "deploy:apps": "node apps/mobile/scripts/deploy-apps.mjs",
     "deploy:apps:ios": "node apps/mobile/scripts/deploy-apps.mjs ios",
     "deploy:apps:android": "node apps/mobile/scripts/deploy-apps.mjs android",
+    "version:apps": "node apps/mobile/scripts/bump-version.mjs",
     "update:apps": "node apps/mobile/scripts/update-apps.mjs",
     "update:apps:ios": "node apps/mobile/scripts/update-apps.mjs ios",
     "update:apps:android": "node apps/mobile/scripts/update-apps.mjs android"

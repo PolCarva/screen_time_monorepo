@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   GUARD_IGNORE_PATHS,
   formatStoreTagMessage,
+  nativeVersionProblems,
   guardOptions,
   parseStoreTagMessage,
   readAppVersion,
@@ -43,5 +44,25 @@ describe("ota guard", () => {
     expect(options.sourceSkips).toBe(7);
     expect(options.ignorePaths).toEqual(["**/Pods/**", ...GUARD_IGNORE_PATHS]);
     expect(GUARD_IGNORE_PATHS).toContain("eas.json");
+  });
+
+  it("finds native files left on another version or runtime", () => {
+    const texts = {
+      gradle: 'versionCode 1\n        versionName "0.3.5"',
+      strings: '<string name="expo_runtime_version">0.3.5</string>',
+      pbxproj: "MARKETING_VERSION = 0.3.5;\nMARKETING_VERSION = 0.3.5;",
+      infoPlist: "<key>CFBundleShortVersionString</key>\n\t<string>0.3.5</string>",
+      expoPlist: "<key>EXUpdatesRuntimeVersion</key>\n    <string>0.3.5</string>",
+    };
+    expect(nativeVersionProblems(texts, "0.3.5")).toEqual([]);
+    expect(
+      nativeVersionProblems(
+        { ...texts, pbxproj: "MARKETING_VERSION = 0.3.5;\nMARKETING_VERSION = 0.3.4;", expoPlist: "" },
+        "0.3.5",
+      ),
+    ).toEqual([
+      "ios/Still.xcodeproj/project.pbxproj: 0.3.4, not 0.3.5",
+      "ios/Still/Supporting/Expo.plist: no version found",
+    ]);
   });
 });

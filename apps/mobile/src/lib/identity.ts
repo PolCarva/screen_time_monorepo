@@ -144,7 +144,15 @@ export async function linkIdentity(provider: IdentityProvider) {
   if (!supabase) throw new Error("Supabase is not configured");
   if (!isIdentityProviderEnabled(provider))
     throw new Error(`${provider}_identity_provider_disabled`);
-  if (provider === "apple") return linkAppleIdentity();
+  if (provider === "apple") {
+    // No browser here, but Apple's sheet can sit open while an update waits.
+    const releaseOta = holdOtaReload();
+    try {
+      return await linkAppleIdentity();
+    } finally {
+      releaseOta();
+    }
+  }
   const redirectTo = makeRedirectUri({
     scheme: "still",
     path: "auth/callback",
@@ -160,7 +168,7 @@ export async function linkIdentity(provider: IdentityProvider) {
     if (error) {
       if (!belongsToExistingAccount(error)) throw error;
       if (await refreshIfProviderIsAlreadyLinked(provider)) return true;
-      return signInToExistingAccount(provider, redirectTo);
+      return await signInToExistingAccount(provider, redirectTo);
     }
     if (!data.url) throw new Error("Identity provider did not return a URL");
 
@@ -172,7 +180,7 @@ export async function linkIdentity(provider: IdentityProvider) {
       // local error so the next render reflects the server-side success.
       if (await refreshIfProviderIsAlreadyLinked(provider)) return true;
       if (!belongsToExistingAccount(linkError)) throw linkError;
-      return signInToExistingAccount(provider, redirectTo);
+      return await signInToExistingAccount(provider, redirectTo);
     }
   } finally {
     releaseOta();

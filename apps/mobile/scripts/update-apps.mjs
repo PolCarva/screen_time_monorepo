@@ -8,7 +8,9 @@
 //
 //   pnpm update:apps [all|ios|android] [--message "..."] [--rollout 1-99]
 //   pnpm update:apps --check      checks and exports, publishes nothing
-//   pnpm update:apps --rollback   everyone back to the store build's JavaScript
+//   pnpm update:apps --rollback [--runtime x.y.z]
+//                                 everyone on that version (default: the current
+//                                 one) back to its store build's JavaScript
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
@@ -18,7 +20,9 @@ import { pathToFileURL } from "node:url";
 import {
   MOBILE_DIR,
   currentAppVersion,
+  currentNativeVersionProblems,
   dirtyFiles,
+  installFromLockfile,
   isAncestor,
   listStoreTags,
   nativeDiff,
@@ -31,13 +35,21 @@ const PROJECT_UPDATES_URL =
   "https://expo.dev/accounts/pablo-carvalhos-team/projects/still/updates";
 
 export function parseArgs(args) {
-  const options = { platform: "all", message: null, rollout: null, check: false, rollback: false };
+  const options = {
+    platform: "all",
+    message: null,
+    rollout: null,
+    runtime: null,
+    check: false,
+    rollback: false,
+  };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--check") options.check = true;
     else if (arg === "--rollback") options.rollback = true;
     else if (arg === "--message") options.message = args[++index] ?? null;
     else if (arg === "--rollout") options.rollout = Number(args[++index]);
+    else if (arg === "--runtime") options.runtime = args[++index] ?? "";
     else if (["all", "ios", "android"].includes(arg)) options.platform = arg;
     else throw new Error(`Unknown argument "${arg}".`);
   }
@@ -48,6 +60,10 @@ export function parseArgs(args) {
     (!Number.isInteger(options.rollout) || options.rollout < 1 || options.rollout > 99)
   )
     throw new Error("--rollout takes a whole percentage from 1 to 99.");
+  if (options.runtime !== null) {
+    if (!options.rollback) throw new Error("--runtime is for --rollback; updates always target the current version.");
+    if (!/^\d+\.\d+\.\d+$/.test(options.runtime)) throw new Error("--runtime takes a version like 0.3.5.");
+  }
   return options;
 }
 
@@ -84,7 +100,7 @@ export function refusal({ platform, version, store, fingerprint, ancestor, chang
   if (store.fingerprint !== fingerprint)
     return [
       `Native code changed since ${store.tag}: an update cannot ship it.`,
-      "Bump VERSION in app.config.ts and run pnpm deploy:apps.",
+      "Ship it in a store build: pnpm version:apps <next version>, commit, pnpm deploy:apps.",
       ...(changed.length ? ["Changed:", ...changed.map((file) => `  ${file}`)] : []),
     ].join("\n");
   return null;
@@ -216,19 +232,23 @@ async function main() {
   const platforms = platformsOf(options.platform);
   const version = currentAppVersion();
 
-  if (options.rollback) return rollBack(platforms, version);
+  if (options.rollback) return rollBack(platforms, options.runtime ?? version);
 
   const dirty = dirtyFiles();
   if (dirty.length)
     throw new Error(`Commit or remove these first; the update would ship them:\n${dirty.join("\n")}`);
   if (!isAncestor("HEAD", "main"))
     throw new Error("HEAD is not in main: merge it first, so main always has what phones run.");
+  const versionProblems = currentNativeVersionProblems(version);
+  if (versionProblems.length)
+    throw new Error(`The native files are not on version ${version}:\n${versionProblems.join("\n")}\nRun pnpm version:apps ${version}.`);
 
+  // The fingerprint hashes installed native modules: install what the lockfile says.
+  installFromLockfile();
   await guard(platforms, version);
 
   console.log("Typecheck and tests…");
   const root = git(["rev-parse", "--show-toplevel"]);
-  run("pnpm", ["install", "--frozen-lockfile"], { cwd: root });
   run("pnpm", ["--filter", "mobile", "typecheck"], { cwd: root });
   run("pnpm", ["--filter", "mobile", "test"], { cwd: root });
 

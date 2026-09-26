@@ -36,7 +36,7 @@ Device and Network Abuse):
 | D3 | Etiquetas `store/<plataforma>/<versión>+<build>` | `deploy:apps` las crea en cada build de tienda local, con `runtime=`, `fingerprint=` y `commit=`. `update:apps` compara contra la más nueva de la versión actual |
 | D4 | Canales: `production` (builds de tienda) y `preview`; ninguno en `development` | EAS escribe el canal en la copia temporal del build, también con `--local`. Nunca queda commiteado, así que un build local de QA no recibe OTA de producción |
 | D5 | Al arrancar: buscar sin esperar a la red (`ON_LOAD`, espera 0) | Nunca se demora un arranque. La OTA se aplica en el siguiente arranque en frío |
-| D6 | Hook `useOtaUpdates`: al volver, busca (como mucho cada hora) y aplica una OTA bajada solo en una pestaña, tras 5 min fuera | En Android el proceso vive días junto al servicio de accesibilidad. Nunca aplica durante una pausa, la configuración, el selector, una pausa de Atajos pendiente o un navegador o inicio de sesión abierto (`holdOtaReload`) |
+| D6 | Hook `useOtaUpdates`: al volver, busca (cada hora, y siempre antes de aplicar) y aplica una OTA bajada solo en una pestaña, tras 5 min en segundo plano y en los 3 s siguientes a volver | En Android el proceso vive días junto al servicio de accesibilidad, y cerrar Still desde Recientes desmonta la pantalla sin un chequeo nuevo. Por eso el estado vive en el módulo, no en el árbol. Volver a preguntar antes de aplicar deja que un rollback o un arreglo más nuevo reemplace a la OTA bajada. Nunca aplica durante una pausa, la configuración, el selector o una pausa de Atajos pendiente. Tampoco con un navegador, inicio de sesión, hoja de Apple o borrado de cuenta en curso (`holdOtaReload`). Las hojas del sistema de iOS («inactive») no cuentan como tiempo fuera |
 | D7 | Ajustes muestra «Versión 0.3.5 · de la tienda» o «· actualización xxxxxxxx» | Soporte y QA saben qué JavaScript corre cada teléfono |
 | D8 | Sentry: etiquetas `expo-update-id`, `expo-channel` y `expo-runtime-version` | Hoy no hacen nada: no hay DSN en producción. Prender Sentry va por build de tienda, con los formularios de privacidad actualizados. Para simbolizar una OTA, agregar `metro.config.js` con `getSentryExpoConfig` y subir los mapas del export |
 
@@ -47,6 +47,8 @@ pnpm update:apps --check                 # guardián + typecheck + tests + expor
 pnpm update:apps --message "Arreglo de textos de la pausa"
 pnpm update:apps android --rollout 10    # a un 10 % de los teléfonos
 pnpm update:apps --rollback              # todos vuelven al JS de la build de tienda
+pnpm update:apps --rollback --runtime 0.3.5   # lo mismo para una versión anterior
+pnpm version:apps 0.3.6                  # sube la versión en app.config y en cada archivo nativo
 ```
 
 **`update:apps` se niega si:**
@@ -55,8 +57,23 @@ pnpm update:apps --rollback              # todos vuelven al JS de la build de ti
 - HEAD no está en `main`;
 - no hay build de tienda de la versión actual («no le llegaría a nadie»);
 - HEAD no contiene el commit de esa build;
-- cambió código nativo desde esa build. En ese caso lista los archivos: hay
-  que subir `VERSION` y correr `deploy:apps`.
+- los archivos nativos no están en la versión de `app.config.ts`;
+- cambió código nativo desde esa build. La huella se calcula después de
+  instalar desde el lockfile, porque mide los módulos nativos instalados. En
+  ese caso lista los archivos (incluido el lockfile): hay que correr
+  `pnpm version:apps <siguiente>`, commitear y correr `deploy:apps`.
+
+**`deploy:apps`:**
+
+- se niega si los archivos nativos no están en la versión de `app.config.ts`.
+  La build los re-sincronizaría al vuelo y quedaría un binario con partes que
+  no coinciden. Por eso la versión se sube con `version:apps`;
+- antes de cada build y antes de etiquetar vuelve a comprobar el commit, que
+  no haya cambios y la huella;
+- revisa cada IPA/AAB: actualizaciones activas, runtime, canal `production`,
+  `app.manifest` y, en iOS, la versión visible;
+- `--cloud` también revisa y etiqueta;
+- si falla una subida, conserva el artefacto y dice dónde está.
 
 Antes de publicar corre typecheck y tests. Exporta con el entorno de
 producción (`eas env:exec production`, `APP_VARIANT=production`,

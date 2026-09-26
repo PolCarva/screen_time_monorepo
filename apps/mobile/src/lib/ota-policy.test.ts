@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  OTA_APPLY_WINDOW_MS,
   OTA_CHECK_INTERVAL_MS,
   OTA_MIN_BACKGROUND_MS,
   canApplyUpdate,
   holdOtaReload,
   isOtaReloadHeld,
   shouldCheckForUpdate,
+  shouldCheckOnReturn,
   type ApplyContext,
 } from "./ota-policy";
 
@@ -16,6 +18,7 @@ const safe: ApplyContext = {
   hydrated: true,
   onboarded: true,
   backgroundMs: OTA_MIN_BACKGROUND_MS,
+  sinceReturnMs: 0,
   pendingShortcut: false,
   held: false,
 };
@@ -26,6 +29,16 @@ describe("checking for an update on return", () => {
     expect(shouldCheckForUpdate(OTA_CHECK_INTERVAL_MS - 1, 0)).toBe(false);
     expect(shouldCheckForUpdate(OTA_CHECK_INTERVAL_MS, 0)).toBe(true);
   });
+
+  it("asks again before applying a downloaded update, for a rollback published since", () => {
+    const base = { now: 60_000, lastCheckAt: 0, updatePending: true, awayMs: OTA_MIN_BACKGROUND_MS };
+    expect(shouldCheckOnReturn(base)).toBe(true);
+    expect(shouldCheckOnReturn({ ...base, awayMs: OTA_MIN_BACKGROUND_MS - 1 })).toBe(false);
+    expect(shouldCheckOnReturn({ ...base, updatePending: false })).toBe(false);
+    expect(
+      shouldCheckOnReturn({ ...base, updatePending: false, now: OTA_CHECK_INTERVAL_MS }),
+    ).toBe(true);
+  });
 });
 
 describe("applying a downloaded update", () => {
@@ -35,8 +48,10 @@ describe("applying a downloaded update", () => {
     expect(canApplyUpdate({ ...safe, segments: ["(tabs)", "impact"] })).toBe(true);
   });
 
-  it("never reloads a quick switch or in the background", () => {
+  it("never reloads a quick switch, in the background or once the user is back at it", () => {
     expect(canApplyUpdate({ ...safe, backgroundMs: OTA_MIN_BACKGROUND_MS - 1 })).toBe(false);
+    expect(canApplyUpdate({ ...safe, sinceReturnMs: OTA_APPLY_WINDOW_MS })).toBe(true);
+    expect(canApplyUpdate({ ...safe, sinceReturnMs: OTA_APPLY_WINDOW_MS + 1 })).toBe(false);
     expect(canApplyUpdate({ ...safe, appState: "background" })).toBe(false);
     expect(canApplyUpdate({ ...safe, appState: "inactive" })).toBe(false);
   });

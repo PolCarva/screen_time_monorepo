@@ -40,6 +40,15 @@ export function guardOptions(platform, fingerprint = require("expo/fingerprint")
   };
 }
 
+/**
+ * node_modules exactly as the lockfile says, as the build's fresh install will
+ * be: the fingerprint hashes the installed native modules, not the lockfile.
+ */
+export function installFromLockfile() {
+  const root = git(["rev-parse", "--show-toplevel"]);
+  execFileSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit" });
+}
+
 /** The fingerprint of `platform`'s native code in the working tree (about 1 s). */
 export async function nativeFingerprint(platform) {
   const fingerprint = require("expo/fingerprint");
@@ -59,6 +68,48 @@ export function readAppVersion(appConfigText) {
 
 export function currentAppVersion() {
   return readAppVersion(readFileSync(join(MOBILE_DIR, "app.config.ts"), "utf8"));
+}
+
+/** The committed native files that carry the version or the update runtime. */
+export const NATIVE_VERSION_FILES = {
+  gradle: "android/app/build.gradle",
+  strings: "android/app/src/main/res/values/strings.xml",
+  pbxproj: "ios/Still.xcodeproj/project.pbxproj",
+  infoPlist: "ios/Still/Info.plist",
+  expoPlist: "ios/Still/Supporting/Expo.plist",
+};
+
+/**
+ * Native files whose version or runtime is not `version`, from their texts
+ * keyed as NATIVE_VERSION_FILES. A build would otherwise re-sync the runtime
+ * on the fly and ship a binary whose parts disagree.
+ */
+export function nativeVersionProblems(texts, version) {
+  const found = {
+    [NATIVE_VERSION_FILES.gradle]: [/versionName "([^"]+)"/g],
+    [NATIVE_VERSION_FILES.strings]: [/<string name="expo_runtime_version">([^<]+)<\/string>/g],
+    [NATIVE_VERSION_FILES.pbxproj]: [/MARKETING_VERSION = ([^;]+);/g],
+    [NATIVE_VERSION_FILES.infoPlist]: [/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/g],
+    [NATIVE_VERSION_FILES.expoPlist]: [/<key>EXUpdatesRuntimeVersion<\/key>\s*<string>([^<]+)<\/string>/g],
+  };
+  const problems = [];
+  for (const [key, file] of Object.entries(NATIVE_VERSION_FILES)) {
+    const values = found[file].flatMap((pattern) => [...(texts[key] ?? "").matchAll(pattern)].map((m) => m[1]));
+    if (!values.length) problems.push(`${file}: no version found`);
+    for (const value of new Set(values))
+      if (value !== version) problems.push(`${file}: ${value}, not ${version}`);
+  }
+  return problems;
+}
+
+export function currentNativeVersionProblems(version = currentAppVersion()) {
+  const texts = Object.fromEntries(
+    Object.entries(NATIVE_VERSION_FILES).map(([key, file]) => [
+      key,
+      readFileSync(join(MOBILE_DIR, file), "utf8"),
+    ]),
+  );
+  return nativeVersionProblems(texts, version);
 }
 
 export function storeTagName(platform, version, build) {
@@ -140,6 +191,10 @@ export function nativeDiff(commit) {
     ":(exclude)assets",
     ":(exclude)scripts",
     ":(exclude)*.test.*",
+    // A lockfile change moves native modules' paths, which the fingerprint hashes.
+    ":(top)pnpm-lock.yaml",
+    ":(top)pnpm-workspace.yaml",
+    ":(top)patches",
   ]);
   return output ? output.split("\n") : [];
 }

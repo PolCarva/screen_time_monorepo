@@ -19,6 +19,9 @@ describe("update:apps", () => {
       rollout: 10,
     });
     expect(parseArgs(["--rollback", "android"])).toMatchObject({ platform: "android", rollback: true });
+    expect(parseArgs(["--rollback", "--runtime", "0.3.5"])).toMatchObject({ runtime: "0.3.5" });
+    expect(() => parseArgs(["--runtime", "0.3.5"])).toThrow("--runtime is for --rollback");
+    expect(() => parseArgs(["--rollback", "--runtime", "latest"])).toThrow("like 0.3.5");
     expect(() => parseArgs(["web"])).toThrow('Unknown argument "web"');
     expect(() => parseArgs(["--rollout", "100"])).toThrow("1 to 99");
     expect(() => parseArgs(["--rollout", "5.5"])).toThrow("1 to 99");
@@ -68,7 +71,7 @@ describe("update:apps", () => {
         changed: ["android/app/src/main/java/com/still/screentime/StillSetup.kt"],
       });
       expect(problem).toContain("Native code changed since store/android/0.3.5+13");
-      expect(problem).toContain("Bump VERSION");
+      expect(problem).toContain("pnpm version:apps");
       expect(problem).toContain("StillSetup.kt");
     });
 

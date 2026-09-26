@@ -39,6 +39,7 @@ import {
   linkIdentity,
   type IdentityProvider,
 } from "@/lib/identity";
+import { holdOtaReload } from "@/lib/ota-policy";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import { getJson } from "@/lib/storage";
@@ -231,6 +232,9 @@ export default function SettingsScreen() {
   }
 
   async function deleteAccount() {
+    // An update never reloads between the server deleting the account and
+    // this phone forgetting it.
+    const releaseOta = holdOtaReload();
     try {
       // With an Apple ID linked, Apple confirms first so the server can revoke
       // Still's access to it before deleting the account.
@@ -290,6 +294,8 @@ export default function SettingsScreen() {
         ),
         actions: [retryAction(() => deleteAccount()), closeAction()],
       });
+    } finally {
+      releaseOta();
     }
   }
 
