@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Linking, Platform } from "react-native";
 
 import { gotItAction, useStillSheet } from "@/components/still-sheet";
 import { localize } from "@/i18n";
@@ -16,7 +17,21 @@ export async function reopenAccessibility(): Promise<boolean> {
   return (await restrictionEngine.openAccessibilitySettings?.().catch(() => false)) ?? false;
 }
 
+/**
+ * MIUI / HyperOS Security's Autostart list. HyperOS 3 has no Autostart switch
+ * in the app info, only this list (docs/android-parity-plan.md §15), and the
+ * Security app is visible to every app, so a plain intent opens it.
+ */
+const MIUI_AUTOSTART_ACTION = "miui.intent.action.OP_AUTO_START";
+
 async function openKeepAliveTarget(target: KeepAliveTarget): Promise<boolean> {
+  if (target === "autostart" && Platform.OS === "android") {
+    const opened = await Linking.sendIntent(MIUI_AUTOSTART_ACTION).then(
+      () => true,
+      () => false,
+    );
+    if (opened) return true;
+  }
   if (restrictionEngine.openKeepAliveSetting) {
     return restrictionEngine.openKeepAliveSetting(target).catch(() => false);
   }

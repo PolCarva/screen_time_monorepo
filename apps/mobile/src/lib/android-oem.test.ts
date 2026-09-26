@@ -42,9 +42,9 @@ describe("oemGuidance", () => {
   });
 
   it("takes every tip to the screen where it is done", () => {
-    // Autostart and battery live in Still's app info on Xiaomi.
+    // On Xiaomi, Autostart is in Security's list and the battery in the app info.
     expect(oemGuidance("Xiaomi").tips.map((tip) => tip.opens)).toEqual([
-      "appInfo",
+      "autostart",
       "appInfo",
       "popups",
     ]);

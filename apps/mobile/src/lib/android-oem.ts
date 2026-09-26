@@ -47,16 +47,17 @@ const GENERIC_TIP: OemTip = {
 const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: OemTip[] }> = {
   xiaomi: {
     name: "Xiaomi",
-    // Both switches are in Still's app info. Without Autostart, closing Still
-    // from Recents leaves the pause off until its switch goes off and on; with
-    // it, Android brings Still back in a second. Locking Still in Recents does
-    // not help: HyperOS still closes a locked card that is swiped
-    // (docs/android-parity-plan.md §13, §15).
+    // Autostart is in Security's list (HyperOS 3 dropped it from the app
+    // info); the battery saver is in Still's app info. Without Autostart,
+    // closing Still from Recents leaves the pause off until its switch goes
+    // off and on; with it, Android brings Still back in a second. Locking
+    // Still in Recents does not help: HyperOS still closes a locked card that
+    // is swiped (docs/android-parity-plan.md §13, §15).
     tips: [
       {
-        en: "In Still's app info, turn on Autostart.",
-        es: "En la información de Still, activa «Inicio automático».",
-        opens: "appInfo",
+        en: "Turn on «Autostart» for Still: find Still in the list and switch it on.",
+        es: "Activa «Inicio automático» para Still: búscalo en la lista y enciende su interruptor.",
+        opens: "autostart",
         reported: "autostart",
       },
       {
@@ -184,16 +185,16 @@ export type AutostartState = "allowed" | "denied" | "unknown";
 
 /**
  * What Still says when a Xiaomi has Autostart off: it is required, not a tip.
- * The button opens Still's app info, where the switch is.
+ * The button opens Security's Autostart list, where Still has its switch.
  */
 export const AUTOSTART_NEEDED = {
   title: { en: "Turn on Autostart", es: "Activa el inicio automático" },
   body: {
-    en: "Without it, if you close Still from Recents, your Xiaomi won't let it come back and the pause stops showing until you turn Still on again. With it on, Still comes back by itself in a second. Tap the button and turn on «Autostart».",
-    es: "Sin él, si cierras Still desde Recientes, tu Xiaomi no lo deja volver y la pausa deja de aparecer hasta que lo vuelvas a encender. Activado, Still vuelve solo en un segundo. Toca el botón y activa «Inicio automático».",
+    en: "Without it, if you close Still from Recents, your Xiaomi won't let it come back and the pause stops showing until you turn Still on again. With it on, Still comes back by itself in a second. Tap the button, find Still in the list and switch it on.",
+    es: "Sin él, si cierras Still desde Recientes, tu Xiaomi no lo deja volver y la pausa deja de aparecer hasta que lo vuelvas a encender. Activado, Still vuelve solo en un segundo. Toca el botón, busca Still en la lista y enciende su interruptor.",
   },
   action: { en: "Turn on Autostart", es: "Activar inicio automático" },
-  opens: "appInfo" as KeepAliveTarget,
+  opens: "autostart" as KeepAliveTarget,
 } as const;
 
 /** True when the phone says Autostart is off, so Still must ask for it. */

@@ -294,7 +294,7 @@ export function KeepAliveStep({
                   "Inicio automático: desactivado. Sin él, cerrar Still apaga la pausa",
                 )
           }
-          onPress={autostart === "allowed" ? undefined : () => onOpenTip("appInfo")}
+          onPress={autostart === "allowed" ? undefined : () => onOpenTip("autostart")}
           state={autostart === "allowed" ? "verified" : "pending"}
         />
       ) : null}
