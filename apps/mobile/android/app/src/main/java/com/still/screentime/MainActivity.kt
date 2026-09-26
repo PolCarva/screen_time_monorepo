@@ -19,6 +19,18 @@ class MainActivity : ReactActivity() {
     super.onCreate(null)
   }
 
+  override fun onStart() {
+    super.onStart()
+    StillSetup.updateRecentsPresence(this, onScreen = true)
+  }
+
+  override fun onStop() {
+    super.onStop()
+    // On Xiaomi without Autostart, swiping Still off Recents stops the pause
+    // for good; while Still is not on screen its card is not there to swipe.
+    StillSetup.updateRecentsPresence(this, onScreen = false)
+  }
+
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule
    * rendering of the component.
@@ -30,6 +42,9 @@ class MainActivity : ReactActivity() {
    * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate {
+    // Called from ReactActivity's constructor: React Native has to be loaded
+    // before `fabricEnabled` is read below (MainApplication loads it lazily).
+    MainApplication.ensureReactNativeLoaded()
     return ReactActivityDelegateWrapper(
           this,
           BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,

@@ -14,7 +14,13 @@ import {
 } from "@/components/setup/setup-bits";
 import { Body } from "@/components/typography";
 import { androidSys, localize } from "@/i18n";
-import type { KeepAliveTarget, LocalizedTip, OemTip } from "@/lib/android-oem";
+import {
+  tipsToShow,
+  type AutostartState,
+  type KeepAliveTarget,
+  type LocalizedTip,
+  type OemTip,
+} from "@/lib/android-oem";
 import { colors, fonts, spacing } from "@/theme/tokens";
 
 const pick = (tip: LocalizedTip) => localize(tip.en, tip.es);
@@ -226,14 +232,15 @@ export function AndroidAppsStep({
 
 /**
  * §4.3 13A — makers that kill background apps. Battery is read from the
- * phone; autostart and pop-ups have no API, so they are the user's own tick,
- * and the live test that follows proves them. Every line opens the screen
- * where it is done.
+ * phone, and so is Autostart on Xiaomi (android-parity-plan §15); the rest has
+ * no API, so it is the user's own tick, and the live test that follows proves
+ * it. Every line opens the screen where it is done.
  */
 export function KeepAliveStep({
   makerName,
   tips,
   batteryOk,
+  autostart,
   confirmed,
   onOpenBattery,
   onOpenTip,
@@ -244,6 +251,8 @@ export function KeepAliveStep({
   makerName: string;
   tips: OemTip[];
   batteryOk: boolean;
+  /** Xiaomi's Autostart as the phone reports it; other phones leave it out. */
+  autostart?: AutostartState;
   confirmed: boolean;
   onOpenBattery: () => void;
   onOpenTip: (target: KeepAliveTarget) => void;
@@ -275,8 +284,22 @@ export function KeepAliveStep({
         onPress={batteryOk ? undefined : onOpenBattery}
         state={batteryOk ? "verified" : "pending"}
       />
+      {autostart === "allowed" || autostart === "denied" ? (
+        <CheckRow
+          label={
+            autostart === "allowed"
+              ? localize("Autostart: on", "Inicio automático: activado")
+              : localize(
+                  "Autostart: off. Without it, closing Still stops the pause",
+                  "Inicio automático: desactivado. Sin él, cerrar Still apaga la pausa",
+                )
+          }
+          onPress={autostart === "allowed" ? undefined : () => onOpenTip("appInfo")}
+          state={autostart === "allowed" ? "verified" : "pending"}
+        />
+      ) : null}
       <View style={styles.tips}>
-        {tips.map((tip, index) => (
+        {tipsToShow(tips, autostart).map((tip, index) => (
           <NumberedLine
             action={keepAliveAction(tip.opens)}
             index={index + 1}

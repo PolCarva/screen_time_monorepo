@@ -19,9 +19,11 @@ import {
 import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { reopenAccessibility } from "@/components/setup/android-settings";
+import { AutostartNotice } from "@/components/setup/autostart-notice";
 import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { locale, localize } from "@/i18n";
 import { apiFetch } from "@/lib/api";
+import { needsAutostart } from "@/lib/android-oem";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { activeTargets } from "@/lib/shortcut-targets";
 import {
@@ -444,6 +446,12 @@ export default function TodayScreen() {
               : localize("Continue setup", "Continuar la configuración")}
           </PrimaryButton>
         </View>
+      ) : null}
+      {Platform.OS === "android" &&
+      pausesEnabled &&
+      health.authorization === "authorized" &&
+      needsAutostart(health.autostart) ? (
+        <AutostartNotice />
       ) : null}
       {status.kind === "choose" ? null : (
         <View style={styles.hero}>

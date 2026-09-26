@@ -647,6 +647,7 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
       case "keep-alive":
         return (
           <KeepAliveStep
+            autostart={android.health?.autostart}
             batteryOk={signals.batteryUnrestricted}
             confirmed={signals.keepAliveConfirmed}
             makerName={android.oem.name}

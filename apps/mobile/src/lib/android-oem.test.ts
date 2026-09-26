@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { accessibilityPathTip, isAggressiveOem, oemGuidance } from "./android-oem";
+import {
+  accessibilityPathTip,
+  isAggressiveOem,
+  needsAutostart,
+  oemGuidance,
+  tipsToShow,
+} from "./android-oem";
 
 describe("oemGuidance", () => {
   it("maps Xiaomi sub-brands to Xiaomi guidance", () => {
@@ -11,11 +17,28 @@ describe("oemGuidance", () => {
     }
   });
 
-  it("asks Xiaomi users for Autostart and to lock Still in Recents", () => {
-    // Without them, closing Still from Recents leaves the pause off.
-    const tips = oemGuidance("Xiaomi").tips.map((tip) => tip.es);
-    expect(tips[0]).toContain("Inicio automático");
-    expect(tips.some((tip) => tip.includes("Recientes"))).toBe(true);
+  it("asks Xiaomi users for Autostart first, and not to lock Still in Recents", () => {
+    // Without Autostart, closing Still from Recents leaves the pause off; a
+    // locked card is closed all the same (android-parity-plan §15).
+    const tips = oemGuidance("Xiaomi").tips;
+    expect(tips[0]!.es).toContain("Inicio automático");
+    expect(tips[0]!.reported).toBe("autostart");
+    expect(tips.some((tip) => tip.es.includes("Recientes"))).toBe(false);
+  });
+
+  it("drops the Autostart tip once the phone reports it", () => {
+    const tips = oemGuidance("Xiaomi").tips;
+    expect(tipsToShow(tips, "allowed")).toHaveLength(tips.length - 1);
+    expect(tipsToShow(tips, "denied").some((tip) => tip.reported)).toBe(false);
+    expect(tipsToShow(tips, "unknown")).toEqual(tips);
+    expect(tipsToShow(tips, undefined)).toEqual(tips);
+  });
+
+  it("asks for Autostart only when the phone says it is off", () => {
+    expect(needsAutostart("denied")).toBe(true);
+    expect(needsAutostart("allowed")).toBe(false);
+    expect(needsAutostart("unknown")).toBe(false);
+    expect(needsAutostart(undefined)).toBe(false);
   });
 
   it("takes every tip to the screen where it is done", () => {
@@ -23,7 +46,6 @@ describe("oemGuidance", () => {
     expect(oemGuidance("Xiaomi").tips.map((tip) => tip.opens)).toEqual([
       "appInfo",
       "appInfo",
-      "recents",
       "popups",
     ]);
     expect(oemGuidance("Google").tips[0]!.opens).toBe("battery");

@@ -25,7 +25,11 @@ export type LocalizedTip = { en: string; es: string };
  */
 export type KeepAliveTarget = "appInfo" | "battery" | "autostart" | "popups" | "recents";
 
-export type OemTip = LocalizedTip & { opens: KeepAliveTarget };
+export type OemTip = LocalizedTip & {
+  opens: KeepAliveTarget;
+  /** The phone reports this one itself (Xiaomi's Autostart): shown as a check, not a tip. */
+  reported?: "autostart";
+};
 
 export type OemGuidance = {
   key: OemKey;
@@ -44,23 +48,21 @@ const OEM_TIPS: Record<Exclude<OemKey, "generic">, { name: string; tips: OemTip[
   xiaomi: {
     name: "Xiaomi",
     // Both switches are in Still's app info. Without Autostart, closing Still
-    // from Recents leaves the pause off until its switch goes off and on
-    // (docs/android-parity-plan.md §13); a locked card is never closed.
+    // from Recents leaves the pause off until its switch goes off and on; with
+    // it, Android brings Still back in a second. Locking Still in Recents does
+    // not help: HyperOS still closes a locked card that is swiped
+    // (docs/android-parity-plan.md §13, §15).
     tips: [
       {
         en: "In Still's app info, turn on Autostart.",
         es: "En la información de Still, activa «Inicio automático».",
         opens: "appInfo",
+        reported: "autostart",
       },
       {
         en: "Set its battery saver to No restrictions.",
         es: "Pon su ahorro de batería en «Sin restricciones».",
         opens: "appInfo",
-      },
-      {
-        en: "Lock Still in Recents: press and hold its card and tap the lock.",
-        es: "Fija Still en Recientes: mantén pulsada su tarjeta y toca el candado.",
-        opens: "recents",
       },
       {
         en: "Allow it to show pop-up windows while running in the background.",
@@ -172,4 +174,38 @@ const ACCESSIBILITY_PATHS: Record<Exclude<OemKey, "generic">, LocalizedTip> = {
 export function accessibilityPathTip(manufacturer: string): LocalizedTip | null {
   const key = oemGuidance(manufacturer).key;
   return key === "generic" ? null : ACCESSIBILITY_PATHS[key];
+}
+
+/**
+ * Xiaomi's Autostart as the phone reports it (StillSetup.autostartState):
+ * "unknown" on other makers or when the phone does not say.
+ */
+export type AutostartState = "allowed" | "denied" | "unknown";
+
+/**
+ * What Still says when a Xiaomi has Autostart off: it is required, not a tip.
+ * The button opens Still's app info, where the switch is.
+ */
+export const AUTOSTART_NEEDED = {
+  title: { en: "Turn on Autostart", es: "Activa el inicio automático" },
+  body: {
+    en: "Without it, if you close Still from Recents, your Xiaomi won't let it come back and the pause stops showing until you turn Still on again. With it on, Still comes back by itself in a second. Tap the button and turn on «Autostart».",
+    es: "Sin él, si cierras Still desde Recientes, tu Xiaomi no lo deja volver y la pausa deja de aparecer hasta que lo vuelvas a encender. Activado, Still vuelve solo en un segundo. Toca el botón y activa «Inicio automático».",
+  },
+  action: { en: "Turn on Autostart", es: "Activar inicio automático" },
+  opens: "appInfo" as KeepAliveTarget,
+} as const;
+
+/** True when the phone says Autostart is off, so Still must ask for it. */
+export function needsAutostart(autostart: AutostartState | undefined): boolean {
+  return autostart === "denied";
+}
+
+/**
+ * The keep-alive tips still worth showing: once the phone reports Autostart,
+ * its tip gives way to that state (a check, or the notice asking for it).
+ */
+export function tipsToShow(tips: OemTip[], autostart: AutostartState | undefined): OemTip[] {
+  const reported = autostart === "allowed" || autostart === "denied";
+  return reported ? tips.filter((tip) => tip.reported !== "autostart") : tips;
 }

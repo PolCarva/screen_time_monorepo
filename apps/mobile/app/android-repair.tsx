@@ -13,7 +13,15 @@ import {
 import { NumberedLine } from "@/components/setup/setup-bits";
 import { Body, Eyebrow, Heading } from "@/components/typography";
 import { androidSys, localize } from "@/i18n";
-import { oemGuidance, type KeepAliveTarget, type OemTip } from "@/lib/android-oem";
+import {
+  AUTOSTART_NEEDED,
+  needsAutostart,
+  oemGuidance,
+  tipsToShow,
+  type AutostartState,
+  type KeepAliveTarget,
+  type OemTip,
+} from "@/lib/android-oem";
 import {
   restrictionEngine,
   type InstallEnvironment,
@@ -36,6 +44,7 @@ export default function AndroidRepairScreen() {
   const openKeepAlive = useOpenKeepAlive();
   const [authorized, setAuthorized] = useState(true);
   const [stopped, setStopped] = useState(false);
+  const [autostart, setAutostart] = useState<AutostartState | undefined>();
   const [env, setEnv] = useState<InstallEnvironment>(DEFAULT_ENV);
 
   const load = useCallback(async () => {
@@ -45,6 +54,7 @@ export default function AndroidRepairScreen() {
       setAuthorized(health.authorization === "authorized");
       // On in Settings but not running: the phone closed Still (§13).
       setStopped(health.authorization === "authorized" && health.serviceRunning === false);
+      setAutostart(health.autostart);
     }
     const environment = await restrictionEngine.getInstallEnvironment?.().catch(
       () => DEFAULT_ENV,
@@ -98,6 +108,15 @@ export default function AndroidRepairScreen() {
         />
       ) : null}
 
+      {needsAutostart(autostart) ? (
+        <Cause
+          title={localize(AUTOSTART_NEEDED.title.en, AUTOSTART_NEEDED.title.es)}
+          body={localize(AUTOSTART_NEEDED.body.en, AUTOSTART_NEEDED.body.es)}
+          action={localize(AUTOSTART_NEEDED.action.en, AUTOSTART_NEEDED.action.es)}
+          onPress={() => void openKeepAlive(AUTOSTART_NEEDED.opens)}
+        />
+      ) : null}
+
       {!authorized ? (
         <Cause
           title={localize("Turn Still back on", "Vuelve a activar Still")}
@@ -138,7 +157,7 @@ export default function AndroidRepairScreen() {
                 "Si la pausa llega tarde o no aparece, deja que Still funcione con libertad:",
               )
         }
-        tips={oem.tips}
+        tips={tipsToShow(oem.tips, autostart)}
         onTip={(target) => void openKeepAlive(target)}
       />
 

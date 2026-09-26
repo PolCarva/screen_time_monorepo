@@ -1,6 +1,6 @@
 import { NativeEventEmitter, NativeModules, Platform } from "react-native";
 
-import type { KeepAliveTarget } from "@/lib/android-oem";
+import type { AutostartState, KeepAliveTarget } from "@/lib/android-oem";
 import type { SignedRewardIntent } from "@/lib/reward-intent-buffer";
 import type { NativeShortcutTarget } from "@/lib/shortcut-targets";
 import type { SavingsHistory } from "@/lib/savings";
@@ -82,6 +82,12 @@ export type RestrictionHealth = {
   mode?: "managed" | "shortcuts";
   lastRestoredAt?: string;
   issue?: string;
+  /**
+   * Android, Xiaomi only: MIUI / HyperOS "Autostart". Without it, closing Still
+   * from Recents stops the pause until its switch goes off and on
+   * (docs/android-parity-plan.md §15). Older builds leave it out.
+   */
+  autostart?: AutostartState;
 };
 /** An access window running right now, so Still can show when it really ends. */
 export type AccessWindow = {

@@ -1,12 +1,16 @@
 package com.still.screentime
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -31,29 +35,56 @@ class StillAccessibilityService : AccessibilityService() {
    * the window list still shows the launcher or a shield that is closing, and
    * a warm reopen may send nothing more once the app is in front.
    */
-  private val settleCheck = Runnable { enforce(eventPackage = null) }
+  private val settleCheck = Runnable { guarded("settle check") { enforce(eventPackage = null) } }
   /** The last shield launched, checked once it had time to come up. */
   private var launched: Launch? = null
   /** Launches in a row whose shield never came to the front. */
   private var unshownLaunches = 0
-  private val verifyShield = Runnable { verifyLaunch() }
+  private val verifyShield = Runnable { guarded("shield check") { verifyLaunch() } }
   /** One pending timer per app with a live access window, keyed by package. */
   private val armedWindows = mutableMapOf<String, Runnable>()
+  /**
+   * Loads the rewarded ad the moment the screen comes on or the phone is
+   * unlocked, usually seconds before an app opens, so the shield can show it
+   * the instant the user taps.
+   */
+  private val screenReceiver = object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+      guarded("screen ${intent.action}") {
+        when (intent.action) {
+          Intent.ACTION_SCREEN_ON -> StillRewardedAdManager.preload(context, "screen-on")
+          Intent.ACTION_USER_PRESENT -> StillRewardedAdManager.preload(context, "unlocked")
+        }
+      }
+    }
+  }
+  private var screenReceiverRegistered = false
+  private val adWarmUp = Runnable {
+    guarded("ad warm-up") { StillRewardedAdManager.preload(applicationContext, "service-idle") }
+  }
 
   override fun onServiceConnected() {
     super.onServiceConnected()
     active = this
-    StillSelfProtection.sanitizePreferences(preferences, packageName)
-    // Keep a rewarded ad ready in this process so the shield can show it the
-    // instant the user taps, with no jump to another screen.
-    StillRewardedAdManager.preload(applicationContext, "service-connected")
+    // Each step on its own: one that fails is logged and the rest still run,
+    // so the service never dies on its way up (docs/android-parity-plan.md §15).
+    guarded("sanitize preferences") {
+      StillSelfProtection.sanitizePreferences(preferences, packageName)
+    }
+    // No ad loads here: when Android restarts Still just for this service
+    // (after the phone closed it), that start has to be quick. The ad loads
+    // when the screen comes on, when a chosen app opens, or a few seconds
+    // from now if the screen is already on.
+    guarded("ad refill triggers") { startAdRefillTriggers() }
     // Windows granted before this service (re)started are honoured from here:
     // anything already past its deadline is closed on the spot.
-    armAccessWindows()
+    guarded("access windows") { armAccessWindows() }
     // The user just switched Still on from the onboarding: take them back to
     // it, where the step checks the switch itself (docs/onboarding-v2-plan §6.2).
-    if (StillSetup.consumeAwaiting(preferences, StillSetup.AWAITING_ACCESSIBILITY)) {
-      StillSetup.bringStillToFront(this)
+    guarded("return to setup") {
+      if (StillSetup.consumeAwaiting(preferences, StillSetup.AWAITING_ACCESSIBILITY)) {
+        StillSetup.bringStillToFront(this)
+      }
     }
   }
 
@@ -61,6 +92,7 @@ class StillAccessibilityService : AccessibilityService() {
     if (active === this) active = null
     expiryHandler.removeCallbacksAndMessages(null)
     armedWindows.clear()
+    stopAdRefillTriggers()
     return super.onUnbind(intent)
   }
 
@@ -68,7 +100,30 @@ class StillAccessibilityService : AccessibilityService() {
     if (active === this) active = null
     expiryHandler.removeCallbacksAndMessages(null)
     armedWindows.clear()
+    stopAdRefillTriggers()
     super.onDestroy()
+  }
+
+  private fun startAdRefillTriggers() {
+    if (!screenReceiverRegistered) {
+      val filter = IntentFilter().apply {
+        addAction(Intent.ACTION_SCREEN_ON)
+        addAction(Intent.ACTION_USER_PRESENT)
+      }
+      // Only system broadcasts, so no exported flag is needed.
+      screenReceiverRegistered = runCatching { registerReceiver(screenReceiver, filter) }
+        .onFailure { Log.w(TAG, "screen receiver not registered", it) }
+        .isSuccess
+    }
+    val screenOn = getSystemService(PowerManager::class.java)?.isInteractive == true
+    if (screenOn) expiryHandler.postDelayed(adWarmUp, AD_WARM_UP_DELAY_MS)
+  }
+
+  private fun stopAdRefillTriggers() {
+    if (screenReceiverRegistered) {
+      runCatching { unregisterReceiver(screenReceiver) }
+      screenReceiverRegistered = false
+    }
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -79,12 +134,28 @@ class StillAccessibilityService : AccessibilityService() {
       return
     }
     // Close any Picture-in-Picture window a chosen app slipped above the shield.
-    closeLockedAppPictureInPicture()
+    guarded("picture-in-picture sweep") { closeLockedAppPictureInPicture() }
 
-    if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) return
+    guarded("enforce") {
+      if (!preferences.getBoolean(StillRestrictionModule.KEY_RESTRICTIONS_ENABLED, false)) {
+        return@guarded
+      }
+      enforce(event.packageName?.toString())
+      scheduleSettleCheck(SETTLE_CHECK_MS)
+    }
+  }
 
-    enforce(event.packageName?.toString())
-    scheduleSettleCheck(SETTLE_CHECK_MS)
+  /**
+   * Runs one step of a system callback. An exception here would kill the
+   * process, and on a Xiaomi without Autostart Android would not bring the
+   * service back (§15): it is logged instead and the next step still runs.
+   */
+  private inline fun guarded(step: String, block: () -> Unit) {
+    try {
+      block()
+    } catch (error: Exception) {
+      Log.e(TAG, "$step failed", error)
+    }
   }
 
   private fun scheduleSettleCheck(delayMs: Long) {
@@ -248,7 +319,7 @@ class StillAccessibilityService : AccessibilityService() {
       unshownLaunches = 0
       runCatching { performGlobalAction(GLOBAL_ACTION_HOME) }
       expiryHandler.postDelayed(
-        { launchShield(launch.target, launch.attempts, launch.setupProbe) },
+        { guarded("shield relaunch") { launchShield(launch.target, launch.attempts, launch.setupProbe) } },
         SHIELD_AFTER_HOME_MS,
       )
       return
@@ -358,7 +429,7 @@ class StillAccessibilityService : AccessibilityService() {
         expireAccessWindow(target)
         continue
       }
-      val task = Runnable { expireAccessWindow(target) }
+      val task = Runnable { guarded("access window end") { expireAccessWindow(target) } }
       armedWindows[target] = task
       expiryHandler.postDelayed(task, deadline - now)
     }
@@ -424,10 +495,15 @@ class StillAccessibilityService : AccessibilityService() {
     launchShield(target, attempts)
 
     expiryHandler.postDelayed({
-      // Anything other than the target in front means the shield came up.
-      if (currentForegroundApp() != target || isTemporarilyUnlocked(target)) return@postDelayed
-      runCatching { performGlobalAction(GLOBAL_ACTION_HOME) }
-      expiryHandler.postDelayed({ launchShield(target, attempts) }, SHIELD_AFTER_HOME_MS)
+      guarded("reshield check") {
+        // Anything other than the target in front means the shield came up.
+        if (currentForegroundApp() != target || isTemporarilyUnlocked(target)) return@guarded
+        runCatching { performGlobalAction(GLOBAL_ACTION_HOME) }
+        expiryHandler.postDelayed(
+          { guarded("shield relaunch") { launchShield(target, attempts) } },
+          SHIELD_AFTER_HOME_MS,
+        )
+      }
     }, RESHIELD_VERIFY_MS)
   }
 
@@ -482,6 +558,9 @@ class StillAccessibilityService : AccessibilityService() {
   )
 
   companion object {
+    private const val TAG = "StillAccessibility"
+    /** The ad loads this long after the service starts with the screen on. */
+    private const val AD_WARM_UP_DELAY_MS = 5_000L
     private val CLOSE_LABELS = listOf("close", "cerrar", "descartar", "dismiss")
     /** A shield launched this recently for the same app is not launched again. */
     private const val LAUNCH_SETTLE_MS = 1_200L

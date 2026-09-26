@@ -463,6 +463,9 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
       putBoolean("serviceRunning", accessibilityEnabled && StillAccessibilityService.isRunning)
       putBoolean("engineActive", restrictionsEnabled && accessibilityEnabled && selected > 0)
       putInt("selectedCount", selected)
+      // Xiaomi only: without Autostart, closing Still from Recents stops the
+      // pause until the switch goes off and on (docs/android-parity-plan.md §15).
+      putString("autostart", StillSetup.autostartState(context))
       preferences.getString(KEY_LAST_RESTORED, null)?.let { putString("lastRestoredAt", it) }
       if (!restrictionsEnabled) putString("issue", "restrictions_disabled")
       else if (!accessibilityEnabled) putString("issue", "accessibility_disabled")

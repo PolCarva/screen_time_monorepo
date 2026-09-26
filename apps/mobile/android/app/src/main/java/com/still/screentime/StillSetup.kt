@@ -1,12 +1,17 @@
 package com.still.screentime
 
+import android.app.ActivityManager
+import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
+import android.util.Log
 
 /**
  * What the onboarding's verified setup needs from the native side
@@ -167,6 +172,75 @@ object StillSetup {
     }
     return attempts.any { intent -> runCatching { starter(intent) }.isSuccess }
   }
+
+  /**
+   * MIUI / HyperOS "Autostart" for Still: "allowed", "denied", or "unknown" on
+   * other makers or when the phone does not say. Without it, closing Still
+   * from Recents (SwipeUpClean) kills it and Android never restarts the
+   * accessibility service; with it the service is back in about a second
+   * (docs/android-parity-plan.md §15). No public API reads it: this asks for
+   * MIUI's app op 10008, the value `adb shell appops get` shows as MIUIOP(10008).
+   */
+  fun autostartState(context: Context): String {
+    if (!isXiaomi()) return AUTOSTART_UNKNOWN
+    val mode = runCatching {
+      val appOps = context.getSystemService(AppOpsManager::class.java)
+      val check = AppOpsManager::class.java.getMethod(
+        "checkOpNoThrow",
+        Int::class.javaPrimitiveType,
+        Int::class.javaPrimitiveType,
+        String::class.java,
+      )
+      check.invoke(appOps, OP_MIUI_AUTOSTART, Process.myUid(), context.packageName) as Int
+    }.recoverCatching {
+      // Older MIUI: its own helper answers 0 when Autostart is on.
+      val utils = Class.forName("android.miui.AppOpsUtils")
+      val get = utils.getMethod("getApplicationAutoStart", Context::class.java, String::class.java)
+      if (get.invoke(null, context, context.packageName) as Int == 0) AppOpsManager.MODE_ALLOWED
+      else AppOpsManager.MODE_IGNORED
+    }.onFailure { Log.w(TAG, "Autostart state unavailable", it) }
+      .getOrNull()
+    val state = when (mode) {
+      AppOpsManager.MODE_ALLOWED -> AUTOSTART_ALLOWED
+      AppOpsManager.MODE_IGNORED, AppOpsManager.MODE_ERRORED -> AUTOSTART_DENIED
+      else -> AUTOSTART_UNKNOWN
+    }
+    if (state != lastAutostartLogged) {
+      Log.i(TAG, "Autostart: $state (mode $mode)")
+      lastAutostartLogged = state
+    }
+    return state
+  }
+
+  /**
+   * Keeps Still's tasks out of Recents while Autostart is off, so the card
+   * that would kill it for good is not there to swipe (§15); back in Recents
+   * the moment Still is on screen again. Other phones are left alone.
+   */
+  fun updateRecentsPresence(context: Context, onScreen: Boolean) {
+    val hide = !onScreen && autostartState(context) == AUTOSTART_DENIED
+    val manager = context.getSystemService(ActivityManager::class.java) ?: return
+    runCatching {
+      manager.appTasks.forEach { task ->
+        // The shield's own task never shows in Recents.
+        val base = runCatching { task.taskInfo.baseIntent.component?.className }.getOrNull()
+        if (base != InterventionActivity::class.java.name) task.setExcludeFromRecents(hide)
+      }
+    }.onFailure { Log.w(TAG, "Recents presence not updated", it) }
+  }
+
+  private fun isXiaomi(): Boolean {
+    val maker = "${Build.MANUFACTURER} ${Build.BRAND}".lowercase()
+    return XIAOMI_BRANDS.any { maker.contains(it) }
+  }
+
+  const val AUTOSTART_ALLOWED = "allowed"
+  const val AUTOSTART_DENIED = "denied"
+  const val AUTOSTART_UNKNOWN = "unknown"
+  private const val OP_MIUI_AUTOSTART = 10008
+  @Volatile private var lastAutostartLogged: String? = null
+  private val XIAOMI_BRANDS = listOf("xiaomi", "redmi", "poco")
+  private const val TAG = "StillSetup"
 
   private fun appInfo(context: Context) =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)

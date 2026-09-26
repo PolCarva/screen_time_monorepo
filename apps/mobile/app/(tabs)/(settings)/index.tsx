@@ -19,6 +19,7 @@ import { IdentityButtons } from "@/components/identity-buttons";
 import { Breathing, PressableScale } from "@/components/motion";
 import { Screen } from "@/components/screen";
 import { reopenAccessibility } from "@/components/setup/android-settings";
+import { AutostartNotice } from "@/components/setup/autostart-notice";
 import {
   closeAction,
   gotItAction,
@@ -30,6 +31,7 @@ import { formatDayAndTime, localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
 import { requestFailure } from "@/lib/api-error";
+import { needsAutostart } from "@/lib/android-oem";
 import { openExternalBrowser } from "@/lib/external-browser";
 import {
   appleAuthorizationForDeletion,
@@ -533,6 +535,12 @@ export default function SettingsScreen() {
                 ? localize("Connect Shortcuts", "Conectar Atajos")
                 : localize("Finish connecting", "Terminar de conectar")}
           </PrimaryButton>
+        ) : null}
+        {!shortcutMode &&
+        restrictionsEnabled &&
+        health.authorization === "authorized" &&
+        needsAutostart(health.autostart) ? (
+          <AutostartNotice />
         ) : null}
         <View style={styles.syncRow}>
           <Mono>{syncLabel}</Mono>
