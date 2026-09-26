@@ -65,9 +65,13 @@ export function requestFailure(error: unknown): RequestFailure {
     if (error.status === 401 || error.code === API_REDIRECTED) return "session";
     return "server";
   }
-  // fetch rejects with a TypeError when there is no network, and Supabase's
-  // auth client wraps that same failure in AuthRetryableFetchError.
+  // With no network, expo/fetch (the global fetch since Expo 57) rejects with
+  // a FetchError, "fetch failed: …"; React Native's own fetch rejects with a
+  // TypeError; Supabase's auth client wraps either in AuthRetryableFetchError.
   if (error instanceof TypeError) return "offline";
+  if (error instanceof Error && error.message.startsWith("fetch failed")) {
+    return "offline";
+  }
   const name =
     typeof error === "object" && error !== null && "name" in error
       ? String(error.name)

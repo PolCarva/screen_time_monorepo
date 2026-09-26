@@ -13,6 +13,12 @@ describe("request failures", () => {
     expect(requestFailure(new TypeError("Network request failed"))).toBe(
       "offline",
     );
+    // expo/fetch's FetchError, the global fetch since Expo 57.
+    expect(
+      requestFailure(
+        new Error("fetch failed: Unable to resolve host \"get-still.app\""),
+      ),
+    ).toBe("offline");
     expect(
       requestFailure(new ApiError(0, "request_timeout", "timed out")),
     ).toBe("offline");
