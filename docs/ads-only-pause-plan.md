@@ -47,7 +47,7 @@ Rama: `fix/ads-wait-before-pause` (worktree `../screen_time-ads-fix`). Escrito e
 
 | # | Decisión |
 |---|---|
-| D1 | **La pausa ofrece solo el anuncio.** Pantalla: "Volver" (principal) y "Ver anuncio"; mientras carga, "Preparando el anuncio…" (hasta 12 s). Sin anuncio (no carga, sin conexión, anuncios apagados) queda la respiración de 15 s → 5 min. Una respiración empezada nunca se cambia por el anuncio (§2). **Cambio 2026-09-25 (usuario):** tras la respiración también se elige la duración con el mismo slider que tras el anuncio; ya no hay ventana fija de 5 min. |
+| D1 | **La pausa ofrece solo el anuncio.** Pantalla: "Volver" (principal) y "Ver anuncio"; mientras carga, "Preparando el anuncio…" (hasta 12 s). Sin anuncio (no carga, sin conexión, anuncios apagados) queda la respiración de 15 s → 5 min. Una respiración empezada nunca se cambia por el anuncio (§2). **Cambio 2026-09-25 (usuario):** tras la respiración también se elige la duración con el mismo slider que tras el anuncio; ya no hay ventana fija de 5 min. **Cambio 2026-09-26 (usuario):** hay 2 anuncios precargados y la espera baja de 12 s a 3 s como máximo (`docs/ad-preload-plan.md`, P5). |
 | D2 | **No existen los pases.** No se guardan, no se usan, no se muestran. Ver el anuncio y no entrar no guarda nada. Se borra "Usar 1 pase de emergencia", la pestaña Pases y todo lo que proyecta una billetera local. |
 | D3 | **Sin tope de anuncios**: fuera `maxRewardedAdsPerUtcDay` y la preferencia `max_rewarded_ads_per_utc_day` del servidor y de la app. Si algún día hace falta, se usa el tope de frecuencia de AdMob. |
 | D4 | **Sin "Pases diarios"**: fuera `daily_pass_limit` del servidor y de Ajustes. |

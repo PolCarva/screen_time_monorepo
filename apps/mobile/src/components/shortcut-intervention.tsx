@@ -49,7 +49,6 @@ import { useRewardAd } from "@/state/reward-ad-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, motion, spacing } from "@/theme/tokens";
 
-
 const claimSchema = z.object({
   intentId: z.string().uuid(),
   status: z.enum(["provisional", "verified"]),
