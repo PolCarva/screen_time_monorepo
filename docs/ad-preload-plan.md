@@ -281,21 +281,31 @@ abajo). Sin push, sin builds de tienda, sin OTA.
 - Un anuncio de prueba se reclamó contra la API de producción desde el
   dispositivo de desarrollo del simulador, como en los QA anteriores.
 
+### Rebase sobre `main` 0.3.6 y salida en 0.3.7 (2026-09-26)
+
+- `main` 0.3.6 (sesión «borrar datos y autenticación») reescribió el arranque de
+  `StillAccessibilityService`: cada paso en `guarded`, nada de anuncios en
+  `onServiceConnected` y una precarga `service-idle` 5 s después si la pantalla
+  está encendida. Quedó esa versión más lo de este plan: `SCREEN_OFF` en el
+  receptor y el callback de red. Como Android llama a `onAvailable` apenas se
+  registra el callback, la red ahora pasa por
+  `StillRewardedAdManager.onNetworkAvailable`, que solo recarga si antes falló
+  una carga. Así el arranque sigue liviano.
+- En el emulador, con el APK rebaseado: al conectar el servicio no se carga
+  nada; la primera carga sale a los 5 s y hay 2 listos a los 7 s. Sin red, la
+  carga falla, los reintentos salen a los 30 s y a los 60 s, y al volver la red
+  el aviso llega; si el último intento tiene menos de 30 s, espera al reintento
+  (P4).
+- Checks en verde después del rebase: contracts 30, web 83, mobile 372 y 35
+  tests JVM.
+- Las notas de App Review y la descripción de la App Store pasaron a «3
+  seconds» y a «eliges cuánto tiempo entrar» (`docs/store-listing.md`).
+- Sale en la 0.3.7 junto con todo `main`.
+
 ### Pendiente para el usuario
 
-- **Rebase sobre `main`** cuando entre el 0.3.6 de la sesión «borrar datos y
-  autenticación». Toca `StillAccessibilityService.kt`: agrega su propio receptor
-  de pantalla con los mismos nombres y saca el precargado de
-  `onServiceConnected` a pedido del usuario. En el conflicto conviene quedarse con
-  esta versión (suma `SCREEN_OFF` y la red) sin la línea
-  `preload(..., "service-connected")`. El aviso de red se dispara al
-  registrarse, así que el pool igual arranca apenas conecta el servicio, pero
-  fuera de `onServiceConnected`.
-- Las notas para App Review de `docs/store-listing.md` dicen «12 seconds»; hay
-  que pasarlas a «3 seconds» en el próximo envío. No se tocaron acá porque la otra
-  sesión tiene cambios sin commitear en ese archivo.
-- Probar en el iPhone (iOS 27) y en el Xiaomi (§6), y decidir la versión (0.3.6
-  junto con la otra sesión, o 0.3.7).
+- Probar en el iPhone y en el Xiaomi (§6), sobre todo abrir una app bloqueada
+  después de más de una hora sin usar el teléfono.
 
 ## 8. Prompt para `/goal`
 

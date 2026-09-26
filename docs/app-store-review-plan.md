@@ -282,7 +282,7 @@ confirma antes con el usuario.
 ### 11.1 Respuesta a App Review (se pega en «Reply to App Review», con el vídeo adjunto)
 
 ```text
-Thank you. Here is the information you asked for; the same text is in the Notes of App Review Information. Version 0.3.1 includes every feature. The attached recording (iPhone, iOS 27) starts by launching the app and includes Sign in with Apple and account deletion; its last part uses the Simulator to show the ad path (see 2d).
+Thank you. Here is the information you asked for; the same text is in the Notes of App Review Information. Version 0.3.7 includes every feature. The attached recording (iPhone, iOS 27) starts by launching the app and includes Sign in with Apple and account deletion; its last part uses the Simulator to show the ad path (see 2d).
 
 1. PURPOSE AND AUDIENCE
 Still is for adults (18+) who open some apps on reflex and want a moment to decide. The user chooses apps; each time one of them opens, Still shows a short pause first. Still shows how many times each app was opened today and the time given back. It does not block, hide or restrict any app.
@@ -292,9 +292,9 @@ No login is needed: Still creates an anonymous session by itself.
 a) Open Still, go through the onboarding and confirm you are 18+.
 b) Choose Calendar or Maps (both are on every iPhone).
 c) Follow the in-app guide: Shortcuts > Automation > + > App > Choose > Calendar > blue checkmark > Run Immediately > Next > Create New Shortcut > Search Actions: "Still" > tap "Calendar" under "Pause App" (the ready-made action "Pause Calendar") > blue checkmark. Back in Still, tap Test.
-d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad loads within 12 seconds, a 15-second breathing pause lets the user in for 5 minutes.
+d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad is ready within 3 seconds, a 15-second breathing pause comes first, and then the user picks how long the same way.
 The target app is visible for a moment before Still appears: iOS runs the automation after the app opens.
-Ads are not being served to the iOS app on real devices yet, so on a device "Watch ad" shows "Preparing the ad..." for up to 12 seconds and then the 15-second pause. The last part of the recording uses the iOS Simulator with the same build, where Google serves its test ads, to show the rewarded-ad path.
+Ads are not being served to the iOS app on real devices yet, so on a device the pause shows "Preparing the ad…" for up to 3 seconds and then the 15-second breathing pause. The recording was made with an earlier build, where that wait was up to 12 seconds. Its last part uses the iOS Simulator, where Google serves its test ads, to show the rewarded-ad path.
 e) Optional account: Settings > Account > Sign in with Apple (or Google). It is only used to vote for the weekly project (Impact tab) and to recover the account on a new phone.
 f) Account deletion: Settings > Your data > "Delete account and data". With an Apple ID linked, Apple asks to confirm and our server revokes the token (Sign in with Apple REST API) before deleting. The privacy policy is in Settings > Your data.
 

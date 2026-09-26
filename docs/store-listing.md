@@ -47,7 +47,7 @@ PRIVADO POR DISEÑO
 Los nombres de las apps que eliges y tu historial detallado se quedan en el iPhone. Still no crea ni lee tus automatizaciones, y no usa Tiempo en pantalla.
 
 NUNCA QUEDAS BLOQUEADO
-Si no hay un anuncio disponible, una pausa de 15 segundos te deja entrar 5 minutos. Y puedes borrar la automatización en Atajos cuando quieras.
+Si no hay un anuncio disponible, tras una pausa de 15 segundos eliges cuánto tiempo entrar. Y puedes borrar la automatización en Atajos cuando quieras.
 
 Still es para personas de 18 años o más.
 
@@ -80,7 +80,7 @@ PRIVATE BY DESIGN
 The names of the apps you choose and your detailed history stay on your iPhone. Still never creates or reads your automations, and it doesn't use Screen Time.
 
 NEVER LOCKED OUT
-If no ad is available, a 15-second pause lets you in for 5 minutes. And you can delete the automation in Shortcuts at any time.
+If no ad is available, after a 15-second pause you choose how long to go in. And you can delete the automation in Shortcuts at any time.
 
 Still is for people 18 and older.
 
@@ -88,9 +88,9 @@ Still is for people 18 and older.
 
 ### App Review notes
 
-Paste into App Store Connect → App Review Information → Notes (limit 4000 characters; this is about 3735) and attach the screen recording. The longer reply to App Review is in `docs/app-store-review-plan.md` §11.
+Paste into App Store Connect → App Review Information → Notes (limit 4000 characters; this is about 3820) and attach the screen recording. The longer reply to App Review is in `docs/app-store-review-plan.md` §11.
 
-> Information requested under Guideline 2.1 for version 0.3.1. A screen recording made on an iPhone with iOS 27 is attached here and in our reply in App Review.
+> Information requested under Guideline 2.1 for version 0.3.7. A screen recording made on an iPhone with iOS 27 is attached here and in our reply in App Review.
 >
 > 1. PURPOSE AND AUDIENCE
 > Still is for adults (18+) who open some apps on reflex and want a moment to decide. The user chooses apps; each time one of them opens, Still shows a short pause first. Still shows how many times each app was opened today and the time given back. It does not block, hide or restrict any app.
@@ -100,9 +100,9 @@ Paste into App Store Connect → App Review Information → Notes (limit 4000 ch
 > a) Open Still, go through the onboarding and confirm you are 18+.
 > b) Choose Calendar or Maps (both are on every iPhone).
 > c) Follow the in-app guide: Shortcuts > Automation > + > App > Choose > Calendar > blue checkmark > Run Immediately > Next > Create New Shortcut > Search Actions: "Still" > tap "Calendar" under "Pause App" (the ready-made action "Pause Calendar") > blue checkmark. Back in Still, tap Test.
-> d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad loads within 12 seconds, a 15-second breathing pause lets the user in for 5 minutes.
+> d) Open Calendar. Still comes to the front with "I don't want to go in anymore" or "Watch ad". The rewarded ad only starts after "Watch ad"; afterwards the user picks how long (1 minute to the rest of the day) and Still reopens Calendar through its public URL scheme. If no ad is ready within 3 seconds, a 15-second breathing pause comes first, and then the user picks how long the same way.
 > The target app is visible for a moment before Still appears: iOS runs the automation after the app opens.
-> Ads are not being served to the iOS app on real devices yet, so on a device "Watch ad" shows "Preparing the ad..." for up to 12 seconds and then the 15-second pause. The last part of the recording uses the iOS Simulator with the same build, where Google serves its test ads, to show the rewarded-ad path.
+> Ads are not being served to the iOS app on real devices yet, so on a device the pause shows "Preparing the ad…" for up to 3 seconds and then the 15-second breathing pause. The recording was made with an earlier build, where that wait was up to 12 seconds. Its last part uses the iOS Simulator, where Google serves its test ads, to show the rewarded-ad path.
 > e) Optional account: Settings > Account > Sign in with Apple (or Google). It is only used to vote for the weekly project (Impact tab) and to recover the account on a new phone.
 > f) Account deletion: Settings > Your data > "Delete account and data". With an Apple ID linked, Apple asks to confirm and our server revokes the token (Sign in with Apple REST API) before deleting. The privacy policy is in Settings > Your data.
 >
@@ -134,10 +134,6 @@ CÓMO FUNCIONA
 
 and "se quedan en el iPhone. Still no crea ni lee tus automatizaciones, y no usa Tiempo en pantalla." with "se quedan en tu teléfono.", and "Y puedes borrar la automatización en Atajos cuando quieras." with "Y puedes desactivar Still en Ajustes cuando quieras.". English: same substitutions.
 
-## Pending for 0.3.2 (both stores)
+## Breathing pause and ad wait (applied for 0.3.7)
 
-From 0.3.2 the breathing pause no longer gives a fixed 5 minutes: after it the user picks how long with the same slider as after an ad. Keep the 0.3.1 text above while 0.3.1 (13) is the build under review; when 0.3.2 goes to review or production, replace:
-
-- "Si no hay un anuncio disponible, una pausa de 15 segundos te deja entrar 5 minutos." → "Si no hay un anuncio disponible, tras una pausa de 15 segundos eliges cuánto tiempo entrar."
-- "If no ad is available, a 15-second pause lets you in for 5 minutes." → "If no ad is available, after a 15-second pause you choose how long to go in."
-- Review notes, step d): "a 15-second breathing pause lets the user in for 5 minutes." → "a 15-second breathing pause comes first, and then the user picks how long the same way."
+From 0.3.2 the breathing pause no longer gives a fixed 5 minutes: after it the user picks how long with the same slider as after an ad. From 0.3.7 the pause waits at most 3 seconds for an ad (it was 12), because two ads are kept loaded (docs/ad-preload-plan.md). The App Store description and the review notes above say both since 2026-09-26, when the review version moved to 0.3.7. The Play listing still says "te deja entrar 5 minutos" / "lets you in for 5 minutes" until someone replaces those lines there with the App Store wording above.
