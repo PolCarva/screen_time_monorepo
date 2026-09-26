@@ -90,6 +90,8 @@ class InterventionActivity : Activity() {
   private var gateOpenedWith: AdOffer? = null
   private var gateOpenedAt = 0L
   private var gateLogged = false
+  /** Which open this shield is: the app and its count of opens today. */
+  private var gateOpenKey = ""
 
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
@@ -152,6 +154,11 @@ class InterventionActivity : Activity() {
       ),
     ]
 
+    // The service can bring the shield up again for the same open, which
+    // recreates it: that open's gate is already recorded.
+    gateOpenKey = "${targetPackage.orEmpty()}:$attempts"
+    gateLogged = savedInstanceState?.getString(STATE_GATE_LOGGED_FOR) == gateOpenKey
+
     // Starts the load at once when no ad is ready or on its way, so the gate
     // below can wait for it instead of settling for the pause.
     StillRewardedAdManager.preload(this, "shield")
@@ -173,9 +180,14 @@ class InterventionActivity : Activity() {
     if (gate.nothingLeft) renderPause() else renderShield()
   }
 
+  override fun onSaveInstanceState(outState: Bundle) {
+    super.onSaveInstanceState(outState)
+    if (gateLogged) outState.putString(STATE_GATE_LOGGED_FOR, gateOpenKey)
+  }
+
   /**
-   * Records once what the gate met on opening and what it offered once any
-   * wait was over (docs/ad-preload-plan.md, P9).
+   * Records once per open what the gate met on opening and what it offered
+   * once any wait was over (docs/ad-preload-plan.md, P9).
    */
   private fun noteGate(gate: Gate) {
     if (gateLogged) return
@@ -973,5 +985,6 @@ class InterventionActivity : Activity() {
     // new attempt.
     private const val PAUSE_RESUME_GRACE_SECONDS = 75L
     private const val STATE_PAUSE_STARTED_AT = "shield_pause_started_at"
+    private const val STATE_GATE_LOGGED_FOR = "gate_logged_for"
   }
 }
