@@ -1,5 +1,5 @@
 <resources>
   <string name="app_name">Still</string>
-  <string name="expo_runtime_version">0.3.6</string>
+  <string name="expo_runtime_version">0.3.7</string>
   <string name="accessibility_service_description">Pauses only the apps you select, and closes a floating video that would cover the pause. Still does not collect, store, or share your screen content, what you type, or your app history.</string>
 </resources>

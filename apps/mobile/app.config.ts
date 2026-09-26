@@ -6,7 +6,7 @@ import type { ExpoConfig } from "expo/config";
  * store build and only then; `pnpm update:apps` refuses to publish when native
  * code changed since the store build (docs/ota-updates-plan.md).
  */
-const VERSION = "0.3.6";
+const VERSION = "0.3.7";
 /** Fixed, not from env, so every evaluation writes the same update URL. */
 const EAS_PROJECT_ID = "0dffe42d-253f-40f4-9f70-5870276707ff";
 
