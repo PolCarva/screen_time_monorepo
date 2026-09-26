@@ -236,6 +236,8 @@ object StillRewardedAdManager {
   private fun loadFailed(appContext: Context) {
     loading = false
     failures += 1
+    // The retry wait counts from the failure: a load can take a minute to fail.
+    lastAttemptAtElapsed = SystemClock.elapsedRealtime()
     settleWaiters(ready = isAdReady())
     schedule(appContext)
   }

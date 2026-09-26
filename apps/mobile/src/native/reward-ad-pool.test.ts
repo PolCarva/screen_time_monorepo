@@ -158,6 +158,20 @@ describe("RewardAdPool", () => {
     expect(pool.status).toBe("ready");
   });
 
+  it("counts the retry wait from the failure, not from the start of a slow load", async () => {
+    const { pool, loads } = setup();
+    pool.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(90_000);
+    await loads.answer(false);
+
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(loads.pending).toHaveLength(0);
+    expect(pool.trigger()).toBe("unavailable");
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(loads.pending).toHaveLength(1);
+  });
+
   it("lets a trigger through once the last attempt is 30 s old", async () => {
     const { pool, loads } = setup();
     pool.start();

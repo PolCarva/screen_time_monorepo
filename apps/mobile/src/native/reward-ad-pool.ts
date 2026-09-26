@@ -215,6 +215,8 @@ export class RewardAdPool<Ad> {
       return;
     }
     this.failures += 1;
+    // The retry wait counts from the failure: a load can take a minute to fail.
+    this.lastAttemptAt = this.now();
     this.update();
     this.schedule();
   }
