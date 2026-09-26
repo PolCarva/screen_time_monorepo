@@ -392,6 +392,13 @@ Después: AirDrop del `.mov` a la Mac y pasar la ruta. Se comprime con
   en `auth.users` y en `devices`.
 - Las builds anteriores a 0.3.5 (incluida la 0.3.1 (13) en revisión) funcionan
   por el arreglo de Vercel.
+- **App Store Connect** (por API): privacidad (es-MX y en-US), soporte y
+  marketing de la versión 0.3.1 pasaron a `get-still.app`.
+- **Supabase Auth:** Site URL `https://get-still.app`, y se sumó el redirect
+  `https://get-still.app/auth/callback`.
+- **Google:** la marca de Google Auth Platform pasó a `get-still.app`
+  (verificado en Search Console por DNS) y quedó verificada. Eso afecta a
+  «Continuar con Google» en el iPhone.
 
 ## 14. Prompt para retomar
 

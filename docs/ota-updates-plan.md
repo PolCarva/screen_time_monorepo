@@ -201,3 +201,18 @@ intentos locales.
     base quedan 0 filas en `auth.users` y en `devices`.
   - Sin red: «Revisa tu conexión y vuelve a intentarlo.».
   - Después las cuentas de prueba se borraron desde la app.
+
+**0.3.6 (2026-09-26):**
+
+- **Builds de tienda** (local, `pnpm deploy:apps`, commit `8dfbf21`):
+  - iOS 0.3.6 (19) en TestFlight, `store/ios/0.3.6+19`.
+  - Android 0.3.6 (17) en Play interno y enviada a revisión en alpha,
+    `store/android/0.3.6+17`.
+  - La API de Play confirma internal = 17 y alpha = 17.
+- **OTA** `34dc8d96-c329-4799-82c8-eb62fbcf30dc` (runtime 0.3.6, commit
+  `4930aa5`):
+  - En Xiaomi, el botón y el consejo del inicio automático abren la lista de
+    Seguridad (`miui.intent.action.OP_AUTO_START`); HyperOS 3 no tiene ese
+    interruptor en la información de la app.
+  - Ids: iOS `01a0de83-8bcf-76b4-…`, Android `01a0de83-8bcf-758c-…`.
+  - Ajustes muestra «actualización 01a0de83».

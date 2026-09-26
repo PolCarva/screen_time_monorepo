@@ -840,8 +840,9 @@ procesos del paquete.
   `getHealth` lo expone como `autostart` y lo registra en logcat (`StillSetup:
   Autostart: …`) cuando cambia.
 - **Pedirlo.** Con `denied`, Hoy y Ajustes muestran «Activa el inicio
-  automático» (por qué y qué pasa sin él) y un botón a la información de Still,
-  donde está el interruptor. «¿No aparece la pausa?» lo pone como causa.
+  automático» (por qué y qué pasa sin él) y un botón a la lista de inicio
+  automático de Seguridad (la build abría la información de Still; la OTA
+  `34dc8d96` lo corrigió, §15.3). «¿No aparece la pausa?» lo pone como causa.
   «Que Still siga activo» lo muestra como fila verificada, igual que la
   batería. Se quitó el consejo de fijar Still en Recientes.
 - **Sin tarjeta que deslizar.** Con el inicio automático apagado, `MainActivity`
@@ -879,15 +880,34 @@ keystore, env de producción):**
 - No se pudo probar en el emulador, porque no es Xiaomi: la tarjeta de
   inicio automático ni la salida de Recientes.
 
-### 15.3 Pendiente en el Xiaomi (build 0.3.6 de Play)
+### 15.3 Verificado en el Xiaomi con 0.3.6 (vc17) de Play (2026-09-26)
 
-1. Con el inicio automático **apagado**:
-   - Hoy y Ajustes muestran «Activa el inicio automático» y el botón abre la
-     información de Still.
-   - Al salir de Still, su tarjeta no está en Recientes.
-   - `adb logcat -s StillSetup` dice `Autostart: denied (mode 1)`.
-2. Con el inicio automático **encendido**:
-   - La tarjeta desaparece.
-   - Deslizar Still en Recientes 5 veces → abrir una app elegida → la pausa
-     aparece siempre.
-   - `dumpsys accessibility` dice `Crashed services:{}`.
+- **Detección:** `StillSetup: Autostart: allowed (mode 0)` con el inicio
+  automático encendido y `denied (mode 1)` con el apagado. La reflexión
+  funciona en HyperOS 3 / Android 16.
+- **Con el inicio automático apagado:** Hoy muestra «Activa el inicio
+  automático». Al salir de Still su tarjeta ya no está en Recientes.
+- **HyperOS 3 no tiene «Inicio automático» en la información de la app.**
+  Solo tiene almacenamiento, red, batería, permisos, otros permisos,
+  notificaciones y ajustes avanzados; el interruptor está solo en la lista de
+  Seguridad. El botón, el consejo y la fila del paso ahora abren esa lista con
+  `miui.intent.action.OP_AUTO_START` vía `Linking.sendIntent`. Seguridad
+  (`com.miui.securitycenter`) es `forceQueryable`, así que la resolución pasa.
+  Salió como OTA `34dc8d96` (runtime 0.3.6); ver docs/ota-updates-plan.md §5.
+- **Con el inicio automático encendido, cierres espaciados (>60 s):** cada
+  `SwipeUpClean` se recupera en 1 s y el escudo aparece
+  (13:04:41→13:04:43, 13:06:15→13:06:16, escudo a las 13:06:22).
+- **Cinco cierres seguidos en un minuto:** Android aplica su backoff de
+  reinicio de servicios. Las esperas fueron 1 s, 10 s, 41 s… hasta 146 s, y
+  durante esa espera la pausa no aparece. El backoff vuelve a 1 s cuando el
+  servicio corre ≥60 s. **Abrir Still levanta en el acto el reinicio
+  pendiente** (a las 13:02:14 faltaban 38 s; a las 13:02:19 ya estaba
+  enlazado). Es comportamiento de Android, no de Still. Si hiciera falta
+  cubrir también eso, la opción es una tarea de JobScheduler que arranque el
+  proceso poco después de salir de Still, con su costo de batería. No se hizo.
+
+### 15.4 Pendiente en el Xiaomi
+
+- Cuando la OTA `34dc8d96` se aplique (Ajustes muestra «actualización
+  01a0de83»), confirmar que «Activar inicio automático» abre la lista de
+  Seguridad.
