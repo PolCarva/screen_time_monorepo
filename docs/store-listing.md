@@ -6,10 +6,10 @@ Copy for App Store Connect and Google Play. Spanish (Mexico / Latin America) is 
 
 | Field | URL |
 | --- | --- |
-| Marketing / website | https://screen-time-monorepo-web.vercel.app |
-| Support | https://screen-time-monorepo-web.vercel.app/soporte |
-| Privacy policy | https://screen-time-monorepo-web.vercel.app/privacy |
-| Account deletion (Play) | https://screen-time-monorepo-web.vercel.app/eliminar-cuenta |
+| Marketing / website | https://get-still.app |
+| Support | https://get-still.app/soporte |
+| Privacy policy | https://get-still.app/privacy |
+| Account deletion (Play) | https://get-still.app/eliminar-cuenta |
 | Contact email | pablocarvalhogimenez@gmail.com |
 
 ## App Store (iOS) — `app.still.ios`, Apple ID 6815465306

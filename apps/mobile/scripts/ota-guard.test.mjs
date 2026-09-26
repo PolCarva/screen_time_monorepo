@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GUARD_IGNORE_PATHS,
+  apiUrlProblem,
   formatStoreTagMessage,
   nativeVersionProblems,
   guardOptions,
@@ -64,5 +65,44 @@ describe("ota guard", () => {
       "ios/Still.xcodeproj/project.pbxproj: 0.3.4, not 0.3.5",
       "ios/Still/Supporting/Expo.plist: no version found",
     ]);
+  });
+});
+
+describe("production API check", () => {
+  const answering = (status, headers = {}) => async (url, init) => {
+    expect(init.redirect).toBe("manual");
+    return new Response(null, { status, headers });
+  };
+
+  it("passes an API that answers /api/v1/config itself", async () => {
+    await expect(apiUrlProblem("https://get-still.app", answering(200))).resolves.toBeNull();
+  });
+
+  it("refuses a redirect, which would drop the sign-in", async () => {
+    const problem = await apiUrlProblem(
+      "https://screen-time-monorepo-web.vercel.app",
+      answering(308, { location: "https://get-still.app/api/v1/config" }),
+    );
+    expect(problem).toContain("redirects (308 to https://get-still.app/api/v1/config)");
+    expect(problem).toContain("401");
+  });
+
+  it("refuses a missing, plain-http, failing or silent address", async () => {
+    expect(await apiUrlProblem(null, answering(200))).toContain("not set");
+    expect(await apiUrlProblem("http://localhost:3000", answering(200))).toContain("https");
+    expect(await apiUrlProblem("https://get-still.app", answering(500))).toContain("answered 500");
+    const silent = async () => {
+      throw new Error("getaddrinfo ENOTFOUND");
+    };
+    expect(await apiUrlProblem("https://get-still.app", silent)).toContain("did not answer");
+  });
+
+  it("joins the path the way the app does", async () => {
+    const asked = [];
+    await apiUrlProblem("https://get-still.app", async (url) => {
+      asked.push(url);
+      return new Response(null, { status: 200 });
+    });
+    expect(asked).toEqual(["https://get-still.app/api/v1/config"]);
   });
 });

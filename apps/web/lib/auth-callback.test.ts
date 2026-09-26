@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { authCallbackUrl } from "./auth-callback";
 
-const production = "https://screen-time-monorepo-web.vercel.app";
+const production = "https://get-still.app";
 
 describe("email sign-in callback", () => {
   it("returns to this computer when the link was asked for locally", () => {

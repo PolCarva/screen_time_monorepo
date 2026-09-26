@@ -30,6 +30,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  apiUrlProblem,
   currentAppVersion,
   currentNativeVersionProblems,
   dirtyFiles,
@@ -37,6 +38,7 @@ import {
   installFromLockfile,
   listStoreTags,
   nativeFingerprint,
+  productionEnvValues,
   storeTagName,
 } from "./ota-guard.mjs";
 
@@ -447,6 +449,12 @@ async function run() {
     throw new Error(
       `The native files are not on version ${version}:\n${versionProblems.join("\n")}\nRun pnpm version:apps ${version} and commit.`,
     );
+
+  // The build bakes in this address: behind a redirect every signed-in call fails.
+  const [apiUrl] = productionEnvValues(["EXPO_PUBLIC_API_URL"]);
+  const apiProblem = await apiUrlProblem(apiUrl);
+  if (apiProblem) throw new Error(apiProblem);
+  console.log(`OK API (${apiUrl}/api/v1/config answers 200 without a redirect)`);
 
   if (platforms.includes("ios"))
     console.log(

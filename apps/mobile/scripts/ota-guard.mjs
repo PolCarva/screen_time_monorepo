@@ -5,7 +5,7 @@
 // refused when the native code of the commit it ships differs from that
 // build's. Shared by deploy-apps.mjs and update-apps.mjs.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -220,4 +220,70 @@ export function dirtyFiles() {
     { cwd: root, encoding: "utf8" },
   ).trim();
   return output ? output.split("\n") : [];
+}
+
+/** The JSON a command printed after any log lines, or null. */
+export function trailingJson(output) {
+  for (let index = 0; index < output.length; index += 1) {
+    const char = output[index];
+    if ((char !== "[" && char !== "{") || (index > 0 && output[index - 1] !== "\n")) continue;
+    try {
+      return JSON.parse(output.slice(index));
+    } catch {
+      // A log line that starts with a bracket; keep looking.
+    }
+  }
+  return null;
+}
+
+/**
+ * The EAS production env's values for `names` (null when unset), read the way
+ * builds and updates see them: a production app config with `.env` files off.
+ */
+export function productionEnvValues(names) {
+  const script = `console.log(JSON.stringify(${JSON.stringify(names)}.map((name) => process.env[name] ?? null)))`;
+  const result = spawnSync(
+    "eas",
+    [
+      "env:exec",
+      "production",
+      `APP_VARIANT=production EXPO_NO_DOTENV=1 node -e '${script}'`,
+      "--non-interactive",
+    ],
+    { cwd: MOBILE_DIR, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(`eas env:exec production failed (exit ${result.status}).`);
+  const values = trailingJson(result.stdout ?? "");
+  if (!Array.isArray(values) || values.length !== names.length)
+    throw new Error("Could not read the EAS production env.");
+  return values;
+}
+
+/**
+ * Why phones could not use the API at `apiUrl`, or null. It must answer
+ * `/api/v1/config` itself with a 200: phones drop the sign-in token when a
+ * redirect changes host, so behind one every signed-in call fails with 401
+ * (docs/app-store-review-plan.md §13). The URL is joined the way the app
+ * joins it (src/lib/api.ts).
+ */
+export async function apiUrlProblem(apiUrl, fetchImpl = globalThis.fetch) {
+  if (!apiUrl) return "EXPO_PUBLIC_API_URL is not set in the EAS production env.";
+  if (!apiUrl.startsWith("https://"))
+    return `EXPO_PUBLIC_API_URL must be an https address, not ${apiUrl}.`;
+  const url = `${apiUrl}/api/v1/config`;
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    return `${url} did not answer (${error?.message ?? error}).`;
+  }
+  if (response.status >= 300 && response.status < 400)
+    return `${url} redirects (${response.status} to ${response.headers.get("location") ?? "?"}). Phones drop the sign-in on a redirect to another host, so every signed-in call would fail with 401: point EXPO_PUBLIC_API_URL at the final address or remove the redirect.`;
+  if (response.status !== 200) return `${url} answered ${response.status}, not 200.`;
+  return null;
 }

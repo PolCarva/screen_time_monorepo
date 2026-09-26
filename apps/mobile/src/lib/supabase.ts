@@ -32,3 +32,10 @@ export async function ensureAnonymousSession() {
   if (error) throw error;
   return data.session;
 }
+
+/** A fresh access token for a session the server just refused, or null. */
+export async function refreshSessionAfterRefusal() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.refreshSession();
+  return error ? null : data.session;
+}

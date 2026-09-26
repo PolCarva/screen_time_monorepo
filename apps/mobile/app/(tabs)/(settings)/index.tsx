@@ -29,6 +29,7 @@ import { Body, Eyebrow, Heading, Mono } from "@/components/typography";
 import { formatDayAndTime, localize } from "@/i18n";
 import { setAnalyticsCollectionEnabled } from "@/lib/analytics";
 import { apiRequest } from "@/lib/api";
+import { requestFailure } from "@/lib/api-error";
 import { openExternalBrowser } from "@/lib/external-browser";
 import {
   appleAuthorizationForDeletion,
@@ -49,6 +50,30 @@ import { type RestrictionHealth } from "@/native/restriction-engine";
 import { useAppState } from "@/state/app-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, radius, spacing } from "@/theme/tokens";
+
+/**
+ * What to say under a failed request's title. A session the server refused is
+ * not the connection, so it never says «check your connection» for it.
+ */
+function requestFailureMessage(error: unknown) {
+  switch (requestFailure(error)) {
+    case "offline":
+      return localize(
+        "Check your connection and try again.",
+        "Revisa tu conexión y vuelve a intentarlo.",
+      );
+    case "session":
+      return localize(
+        "The server didn't accept this phone's session. It isn't your connection: try again in a few minutes.",
+        "El servidor no aceptó la sesión de este teléfono. No es tu conexión: vuelve a intentarlo en unos minutos.",
+      );
+    default:
+      return localize(
+        "The server didn't answer. Try again in a few minutes.",
+        "El servidor no respondió. Vuelve a intentarlo en unos minutos.",
+      );
+  }
+}
 
 function authorizationLabel(
   status: RestrictionHealth["authorization"] | undefined,
@@ -183,13 +208,13 @@ export default function SettingsScreen() {
         message: JSON.stringify(payload, null, 2),
         title: "Still data export",
       });
-    } catch {
+    } catch (error) {
       void sheet.show({
         title: localize(
           "Your data wasn't downloaded",
           "No se descargaron tus datos",
         ),
-        message: localize("Check your connection.", "Revisa tu conexión."),
+        message: requestFailureMessage(error),
         actions: [retryAction(() => exportData()), closeAction()],
       });
     }
@@ -282,16 +307,19 @@ export default function SettingsScreen() {
           actions: [gotItAction()],
         });
       }
-    } catch {
+    } catch (error) {
       void sheet.show({
         title: localize(
           "Your account wasn't deleted",
           "No se eliminó tu cuenta",
         ),
-        message: localize(
-          "Your data is as it was.",
-          "Tus datos siguen como estaban.",
-        ),
+        message: [
+          localize(
+            "Your data is as it was.",
+            "Tus datos siguen como estaban.",
+          ),
+          requestFailureMessage(error),
+        ].join(" "),
         actions: [retryAction(() => deleteAccount()), closeAction()],
       });
     } finally {
@@ -361,9 +389,11 @@ export default function SettingsScreen() {
       ? localize("UP TO DATE", "ACTUALIZADO")
       : syncStatus === "syncing"
         ? localize("UPDATING", "ACTUALIZANDO")
-        : localize("OFFLINE", "SIN CONEXIÓN");
+        : syncStatus === "unsynced"
+          ? localize("NOT SYNCED", "SIN SINCRONIZAR")
+          : localize("OFFLINE", "SIN CONEXIÓN");
   const syncDetail =
-    syncStatus === "offline"
+    syncStatus === "offline" || syncStatus === "unsynced"
       ? localize(
           "Your pauses keep working.",
           "Tus pausas siguen funcionando.",

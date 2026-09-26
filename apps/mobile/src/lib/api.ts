@@ -1,7 +1,15 @@
 import { z } from "zod";
 
-import { ApiError, apiErrorFromResponse } from "@/lib/api-error";
-import { ensureAnonymousSession } from "@/lib/supabase";
+import {
+  API_REDIRECTED,
+  ApiError,
+  answeredFromAnotherHost,
+  apiErrorFromResponse,
+} from "@/lib/api-error";
+import {
+  ensureAnonymousSession,
+  refreshSessionAfterRefusal,
+} from "@/lib/supabase";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -52,17 +60,38 @@ export async function apiRequest(
     // Authentication is part of the request deadline too. A slow session
     // refresh must not leave the UI waiting forever before fetch even starts.
     const session = await Promise.race([ensureAnonymousSession(), aborted]);
-    const response = await fetch(`${API_URL}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        accept: "application/json",
-        ...(init?.body ? { "content-type": "application/json" } : {}),
-        ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
-        ...init?.headers,
-      },
-    });
-    if (!response.ok) throw await apiErrorFromResponse(response);
+    const url = `${API_URL}${path}`;
+    const send = (accessToken: string | undefined) =>
+      fetch(url, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          accept: "application/json",
+          ...(init?.body ? { "content-type": "application/json" } : {}),
+          ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+          ...init?.headers,
+        },
+      });
+    let response = await send(session?.access_token);
+    const redirected = answeredFromAnotherHost(url, response.url);
+    if (response.status === 401 && session && !redirected) {
+      // A token the server refused is refreshed once; the server rejects the
+      // request before doing anything, so asking again is safe.
+      const refreshed = await Promise.race([
+        refreshSessionAfterRefusal(),
+        aborted,
+      ]);
+      if (refreshed) response = await send(refreshed.access_token);
+    }
+    if (!response.ok) {
+      if (redirected)
+        throw new ApiError(
+          response.status,
+          API_REDIRECTED,
+          "The API answered from another address",
+        );
+      throw await apiErrorFromResponse(response);
+    }
     return response;
   } catch (error) {
     if (controller.signal.aborted && !(error instanceof ApiError)) {

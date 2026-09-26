@@ -29,6 +29,7 @@ import { z } from "zod";
 
 import { adValueFromMicros } from "@/lib/ad-value";
 import { apiFetch, apiRequest, ApiError } from "@/lib/api";
+import { requestFailure, type RequestFailure } from "@/lib/api-error";
 import { applyDevConfigOverrides } from "@/lib/dev-config";
 import {
   intentsNeeded,
@@ -63,7 +64,11 @@ type LocalStats = {
   /** The last seven local days, oldest first (see lib/today-summary). */
   history: DayMetrics[];
 };
-type SyncStatus = "syncing" | "online" | "offline";
+/**
+ * `unsynced`: the phone is online but the server refused or failed a call (a
+ * 401 is not «offline», see lib/api-error).
+ */
+type SyncStatus = "syncing" | "online" | "offline" | "unsynced";
 type AppStateValue = {
   ready: boolean;
   /** The first sync finished (or failed and fell back to the cache). */
@@ -368,6 +373,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     let registrationSynced = false;
     let configSynced = false;
     let preferencesSynced = false;
+    const failures: RequestFailure[] = [];
     setHealth(await restrictionEngine.getHealth().catch(() => defaultHealth));
     let pendingUnlocksAwaitingReport: PendingUnlockEvent[] = [];
     let installationId = await getJson<string | null>("installationId", null);
@@ -396,7 +402,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       registrationSynced = true;
       setDeviceId(registered.deviceId);
       await setJson("deviceId", registered.deviceId);
-    } catch {
+    } catch (error) {
+      failures.push(requestFailure(error));
       activeDeviceId = await getJson<string | null>("deviceId", null);
       setDeviceId(activeDeviceId);
     }
@@ -408,7 +415,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       setConfig(withDevOverrides(nextConfig));
       // The cache keeps the server's answer; overrides are applied on read.
       await setJson("remoteConfig", nextConfig);
-    } catch {
+    } catch (error) {
+      failures.push(requestFailure(error));
       setConfig(withDevOverrides(activeConfig));
     }
     let activePreferences = await getJson(
@@ -425,7 +433,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       activePreferences = nextPreferences;
       setPreferences(nextPreferences);
       await setJson("userPreferences", nextPreferences);
-    } catch {
+    } catch (error) {
+      failures.push(requestFailure(error));
       setPreferences(activePreferences);
     }
 
@@ -475,6 +484,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
               .catch(() => undefined);
             continue;
           }
+          failures.push(requestFailure(error));
           remaining.push(event);
         }
       }
@@ -522,7 +532,13 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       configSynced &&
       preferencesSynced &&
       pendingUnlocksAwaitingReport.length === 0;
-    setSyncStatus(fullySynced ? "online" : "offline");
+    setSyncStatus(
+      fullySynced
+        ? "online"
+        : failures.every((failure) => failure === "offline")
+          ? "offline"
+          : "unsynced",
+    );
     if (fullySynced) {
       const syncedAt = new Date().toISOString();
       setLastSyncedAt(syncedAt);

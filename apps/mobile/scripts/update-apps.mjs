@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   MOBILE_DIR,
+  apiUrlProblem,
   currentAppVersion,
   currentNativeVersionProblems,
   dirtyFiles,
@@ -27,7 +28,11 @@ import {
   listStoreTags,
   nativeDiff,
   nativeFingerprint,
+  productionEnvValues,
+  trailingJson,
 } from "./ota-guard.mjs";
+
+export { trailingJson };
 
 const CHANNEL = "production";
 const DIST = join(MOBILE_DIR, "dist");
@@ -155,30 +160,6 @@ function run(command, args, options = {}) {
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed.`);
 }
 
-/** The JSON a command printed after any log lines, or null. */
-export function trailingJson(output) {
-  for (let index = 0; index < output.length; index += 1) {
-    const char = output[index];
-    if ((char !== "[" && char !== "{") || (index > 0 && output[index - 1] !== "\n")) continue;
-    try {
-      return JSON.parse(output.slice(index));
-    } catch {
-      // A log line that starts with a bracket; keep looking.
-    }
-  }
-  return null;
-}
-
-/** The API and Supabase hosts of the EAS production env. */
-function productionHosts() {
-  const output = withProductionEnv(
-    `node -e 'console.log(JSON.stringify([process.env.EXPO_PUBLIC_API_URL, process.env.EXPO_PUBLIC_SUPABASE_URL].map((url) => new URL(url).host)))'`,
-    { capture: true },
-  );
-  const hosts = trailingJson(output);
-  if (!Array.isArray(hosts) || hosts.length !== 2) throw new Error("Could not read the production hosts.");
-  return hosts;
-}
 
 /** Checks every exported bundle was made with the production env. */
 function scanExport(platforms, hosts) {
@@ -243,6 +224,12 @@ async function main() {
   if (versionProblems.length)
     throw new Error(`The native files are not on version ${version}:\n${versionProblems.join("\n")}\nRun pnpm version:apps ${version}.`);
 
+  // Phones must reach the API without a redirect, or every signed-in call fails.
+  const productionUrls = productionEnvValues(["EXPO_PUBLIC_API_URL", "EXPO_PUBLIC_SUPABASE_URL"]);
+  const apiProblem = await apiUrlProblem(productionUrls[0]);
+  if (apiProblem) throw new Error(apiProblem);
+  console.log(`OK API: ${productionUrls[0]}/api/v1/config answers 200 without a redirect`);
+
   // The fingerprint hashes installed native modules: install what the lockfile says.
   installFromLockfile();
   await guard(platforms, version);
@@ -257,7 +244,7 @@ async function main() {
   withProductionEnv(
     `npx expo export --output-dir dist --dump-sourcemap --dump-assetmap --clear ${platforms.map((platform) => `--platform ${platform}`).join(" ")}`,
   );
-  const hosts = productionHosts();
+  const hosts = productionUrls.map((url) => new URL(url).host);
   const problems = scanExport(platforms, hosts);
   if (problems.length) throw new Error(problems.join("\n"));
   console.log(`OK export: ${platforms.join(" + ")}, calls ${hosts.join(" and ")}`);
