@@ -155,4 +155,13 @@ intentos locales.
 - typecheck y 324 tests en verde;
 - el export llama a la API y a Supabase de producción.
 
-La primera OTA real queda para F5, con la app instalada desde las tiendas.
+**Primera OTA (prueba), 2026-09-26:**
+
+- Mismo JavaScript que la build de tienda, desde `b56187a`, publicado con
+  `pnpm update:apps --message "Prueba OTA: …"`.
+- Grupo `c7962d5a-0b25-443b-9a70-b29db5d947c5`, canal `production`,
+  runtime 0.3.5.
+- Ids: iOS `01a0dbf0-ff3c-7444-…`, Android `01a0dbf0-ff3c-7027-…`.
+- Un teléfono que la aplicó muestra en Ajustes «Versión 0.3.5 · actualización
+  01a0dbf0».
+- Queda por confirmar en dispositivos (F5).
