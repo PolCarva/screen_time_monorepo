@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-// Ships the production apps to testers with one command. EAS only builds;
-// the uploads happen here, because EAS's free submission queue can hold a
-// finished build for an hour while the upload itself takes seconds:
+// Ships the production apps to testers with one command. The builds run on
+// this Mac (`eas build --local`; `--cloud` uses EAS's queue instead) and the
+// uploads happen here, because EAS's free queues can hold a build or a
+// submission for an hour while the upload itself takes seconds:
 // - iOS goes to TestFlight with altool, and the internal group gets every
 //   build once Apple processes it;
 // - Android goes to Play's internal testing track through the Play API, and
@@ -10,6 +11,10 @@
 //   so testers who only joined the closed test update too (after review).
 // Both store keys are checked before building, so a missing permission fails
 // in seconds, not after the builds; `--check` stops right after those checks.
+// Every local build is checked for over-the-air updates (on, runtime = the
+// version, channel production) and leaves a git tag store/<platform>/<version>+
+// <build> with its native fingerprint, which `pnpm update:apps` needs to know
+// an update is JavaScript only (docs/ota-updates-plan.md).
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createPrivateKey, createSign } from "node:crypto";
@@ -24,6 +29,15 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  currentAppVersion,
+  dirtyFiles,
+  formatStoreTagMessage,
+  listStoreTags,
+  nativeFingerprint,
+  storeTagName,
+} from "./ota-guard.mjs";
+
 const MOBILE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ANDROID_PACKAGE = "com.still.screentime";
 const INTERNAL_TRACK = "internal";
@@ -33,6 +47,8 @@ const INTERNAL_OPT_IN =
 const PLATFORMS = ["all", "ios", "android"];
 // EAS stamps builds with its own clock; allow for drift against this Mac's.
 const CLOCK_SKEW_MS = 2 * 60_000;
+const UPDATES_URL = "https://u.expo.dev/0dffe42d-253f-40f4-9f70-5870276707ff";
+const UPDATES_CHANNEL = "production";
 
 export function parsePlatform(args) {
   const platform = args.find((arg) => !arg.startsWith("--")) ?? "all";
@@ -96,6 +112,46 @@ export function releaseToPromote(internalTrack, closedTrack) {
     status: "completed",
     ...(newest.releaseNotes ? { releaseNotes: newest.releaseNotes } : {}),
   };
+}
+
+/**
+ * What an IPA's Expo.plist must say for over-the-air updates to reach it;
+ * returns the problems, empty when it is right.
+ */
+export function iosUpdatesProblems(expoPlist, entries, version) {
+  const problems = [];
+  if (expoPlist?.EXUpdatesEnabled !== true) problems.push("EXUpdatesEnabled is not true");
+  if (expoPlist?.EXUpdatesURL !== UPDATES_URL) problems.push(`EXUpdatesURL is not ${UPDATES_URL}`);
+  if (expoPlist?.EXUpdatesRuntimeVersion !== version)
+    problems.push(`EXUpdatesRuntimeVersion is ${expoPlist?.EXUpdatesRuntimeVersion}, not ${version}`);
+  if (expoPlist?.EXUpdatesRequestHeaders?.["expo-channel-name"] !== UPDATES_CHANNEL)
+    problems.push(`the channel is not ${UPDATES_CHANNEL}`);
+  if (!entries.some((entry) => /\/EXUpdates\.bundle\/app\.manifest$/.test(entry)))
+    problems.push("the embedded update (EXUpdates.bundle/app.manifest) is missing");
+  return problems;
+}
+
+/**
+ * The same for an AAB: its compiled manifest keeps these strings as text, and
+ * the embedded update is an asset. The runtime is the string resource, checked
+ * against the source by native-config.test.ts.
+ */
+export function androidUpdatesProblems(manifestText, entries) {
+  const problems = [];
+  if (!manifestText.includes(UPDATES_URL)) problems.push(`the update URL is not ${UPDATES_URL}`);
+  if (!manifestText.includes("expo-channel-name") || !manifestText.includes(UPDATES_CHANNEL))
+    problems.push(`the channel is not ${UPDATES_CHANNEL}`);
+  if (!entries.includes("base/assets/app.manifest"))
+    problems.push("the embedded update (assets/app.manifest) is missing");
+  return problems;
+}
+
+/**
+ * A store build of this version with different native code: its phones would
+ * get updates made for other native code. Returns that tag, or null.
+ */
+export function conflictingStoreBuild(tags, fingerprint) {
+  return tags.find((tag) => tag.fingerprint && tag.fingerprint !== fingerprint) ?? null;
 }
 
 function base64url(value) {
@@ -376,8 +432,15 @@ async function run() {
     .submit.production;
   const withIos = platform !== "android";
   const withAndroid = platform !== "ios";
+  const cloud = args.includes("--cloud");
 
   assertCleanWorkingTree();
+  if (!cloud) {
+    // A local build copies untracked files too.
+    const dirty = dirtyFiles();
+    if (dirty.length)
+      throw new Error(`Commit or remove these first; the build would ship them:\n${dirty.join("\n")}`);
+  }
   if (withIos)
     console.log(
       `OK App Store Connect (${await checkAppStoreConnect(submit.ios)})`,
@@ -387,8 +450,141 @@ async function run() {
     await checkGooglePlay(play);
     console.log(`OK Google Play (${play.email})`);
   }
+
+  const version = currentAppVersion();
+  const fingerprints = {};
+  for (const target of ["ios", "android"].filter((p) => platform === "all" || p === platform)) {
+    fingerprints[target] = await nativeFingerprint(target);
+    const conflict = conflictingStoreBuild(listStoreTags(target, version), fingerprints[target]);
+    if (conflict)
+      throw new Error(
+        `${conflict.tag} has other native code under the same version ${version}: its phones would get updates made for this build. Bump VERSION in app.config.ts first.`,
+      );
+  }
+  console.log(`OK version ${version}: no store build of it has other native code`);
   if (args.includes("--check")) return;
 
+  if (cloud) return runCloud(platform, submit);
+  return runLocal({ withIos, withAndroid, submit, version, fingerprints });
+}
+
+/** Runs `command` with the EAS production env; throws when it fails. */
+function easProduction(command, env = {}) {
+  const result = spawnSync(
+    "eas",
+    ["env:exec", "production", command, "--non-interactive"],
+    { cwd: MOBILE_DIR, stdio: "inherit", env: { ...process.env, ...env } },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`eas build exited with ${result.status}.`);
+}
+
+function zipEntries(file) {
+  return execFileSync("unzip", ["-Z1", file], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+    .split("\n")
+    .filter(Boolean);
+}
+
+function zipEntry(file, entry) {
+  return execFileSync("unzip", ["-p", file, entry], { maxBuffer: 64 * 1024 * 1024 });
+}
+
+function plistJson(bytes, dir, name) {
+  const path = join(dir, name);
+  writeFileSync(path, bytes);
+  return JSON.parse(execFileSync("plutil", ["-convert", "json", "-o", "-", path], { encoding: "utf8" }));
+}
+
+function tagStoreBuild(platform, version, build, fingerprint, commit) {
+  const tag = storeTagName(platform, version, build);
+  execFileSync(
+    "git",
+    ["tag", "-a", tag, commit, "-m", formatStoreTagMessage({ runtime: version, fingerprint, commit })],
+    { cwd: MOBILE_DIR },
+  );
+  return tag;
+}
+
+/** Builds on this Mac, checks each artifact, uploads it and tags it. */
+async function runLocal({ withIos, withAndroid, submit, version, fingerprints }) {
+  const commit = git(["rev-parse", "HEAD"]);
+  const work = mkdtempSync(join(tmpdir(), "still-deploy-"));
+  const failures = [];
+  const tags = [];
+  try {
+    if (withIos) {
+      try {
+        const ipa = join(work, "still.ipa");
+        easProduction(
+          `eas build --platform ios --profile production --local --non-interactive --output ${ipa}`,
+          { LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" },
+        );
+        assertCleanWorkingTree();
+        const entries = zipEntries(ipa);
+        const app = entries.find((entry) => /^Payload\/[^/]+\.app\/Info\.plist$/.test(entry));
+        if (!app) throw new Error("the IPA has no app Info.plist");
+        const appDir = app.slice(0, -"Info.plist".length);
+        const info = plistJson(zipEntry(ipa, app), work, "Info.plist");
+        const expo = plistJson(zipEntry(ipa, `${appDir}Expo.plist`), work, "Expo.plist");
+        const problems = iosUpdatesProblems(expo, entries, version);
+        if (problems.length) throw new Error(`the IPA is not ready for updates: ${problems.join("; ")}`);
+        uploadToTestFlight(ipa, submit.ios);
+        const tag = tagStoreBuild("ios", version, info.CFBundleVersion, fingerprints.ios, commit);
+        tags.push(tag);
+        console.log(`TestFlight: ${version} (${info.CFBundleVersion}) uploaded; the internal group gets it once Apple processes it. Tagged ${tag}.`);
+      } catch (error) {
+        failures.push(`iOS: ${error.message}`);
+      }
+    }
+
+    if (withAndroid) {
+      try {
+        const aab = join(work, "still.aab");
+        easProduction(
+          `eas build --platform android --profile production --local --non-interactive --output ${aab}`,
+          {
+            JAVA_HOME: process.env.JAVA_HOME ?? "/opt/homebrew/opt/openjdk@17",
+            ANDROID_HOME: process.env.ANDROID_HOME ?? join(homedir(), "Library/Android/sdk"),
+          },
+        );
+        assertCleanWorkingTree();
+        const problems = androidUpdatesProblems(
+          zipEntry(aab, "base/manifest/AndroidManifest.xml").toString("latin1"),
+          zipEntries(aab),
+        );
+        if (problems.length) throw new Error(`the AAB is not ready for updates: ${problems.join("; ")}`);
+        const versionCode = await uploadToInternalTrack(
+          await googlePlay(submit.android),
+          readFileSync(aab),
+        );
+        const tag = tagStoreBuild("android", version, versionCode, fingerprints.android, commit);
+        tags.push(tag);
+        console.log(`Play internal testing: ${version} (${versionCode}) live for testers who joined ${INTERNAL_OPT_IN}. Tagged ${tag}.`);
+      } catch (error) {
+        failures.push(`Android: ${error.message}`);
+      }
+      try {
+        const promoted = await promoteToClosedTrack(await googlePlay(submit.android));
+        console.log(
+          promoted
+            ? `Play closed test "${CLOSED_TRACK}": versionCode ${promoted.versionCodes.join(", ")} sent to Google review.`
+            : `Play closed test "${CLOSED_TRACK}" already has the newest internal build.`,
+        );
+      } catch (error) {
+        failures.push(`Android closed test: ${error.message}`);
+      }
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+
+  if (tags.length) console.log(`Share the store tags: git push origin ${tags.join(" ")}`);
+  if (failures.length) throw new Error(failures.join("\n"));
+}
+
+async function runCloud(platform, submit) {
+  const withIos = platform !== "android";
+  const withAndroid = platform !== "ios";
   const commit = git(["rev-parse", "HEAD"]);
   const since = Date.now() - CLOCK_SKEW_MS;
   const build = spawnSync(

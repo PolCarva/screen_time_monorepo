@@ -16,7 +16,10 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "deploy:apps": "node apps/mobile/scripts/deploy-apps.mjs",
     "deploy:apps:ios": "node apps/mobile/scripts/deploy-apps.mjs ios",
-    "deploy:apps:android": "node apps/mobile/scripts/deploy-apps.mjs android"
+    "deploy:apps:android": "node apps/mobile/scripts/deploy-apps.mjs android",
+    "update:apps": "node apps/mobile/scripts/update-apps.mjs",
+    "update:apps:ios": "node apps/mobile/scripts/update-apps.mjs ios",
+    "update:apps:android": "node apps/mobile/scripts/update-apps.mjs android"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
