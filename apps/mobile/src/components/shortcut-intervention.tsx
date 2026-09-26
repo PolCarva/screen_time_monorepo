@@ -24,6 +24,7 @@ import {
   openedTodayHeadline,
   pauseDeclineLabel,
 } from "@/lib/pause-copy";
+import { AD_GATE_WAIT_MS } from "@/lib/ad-pool";
 import { capture } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import {
@@ -48,12 +49,6 @@ import { useRewardAd } from "@/state/reward-ad-state";
 import { useShortcutTargets } from "@/state/shortcut-targets";
 import { colors, fonts, motion, spacing } from "@/theme/tokens";
 
-/**
- * How long a fresh ad attempt has to start after the pause opens on a failed
- * one. It starts on the next render, so only a retry that never began (the ad
- * stopped being eligible meanwhile) runs this out.
- */
-const FRESH_AD_START_MS = 2_000;
 
 const claimSchema = z.object({
   intentId: z.string().uuid(),
@@ -118,19 +113,23 @@ export function ShortcutIntervention({
   const { status: adStatus, showPrepared, retry } = useRewardAd();
   // Opened on a failed attempt: ask for a fresh ad and wait for it, rather
   // than breathing now and having the ad turn up once the pause has begun.
+  // When the retry is held (the last attempt is under 30 s old), nothing is
+  // coming and the pause starts at once.
   const [awaitingFreshAd, setAwaitingFreshAd] = useState(
     () => adStatus === "unavailable",
   );
   useEffect(() => {
     if (!awaitingFreshAd) return;
-    if (adStatus !== "unavailable") {
+    if (adStatus !== "unavailable" || retry() === "unavailable")
       setAwaitingFreshAd(false);
-      return;
-    }
-    retry();
-    const timer = setTimeout(() => setAwaitingFreshAd(false), FRESH_AD_START_MS);
-    return () => clearTimeout(timer);
   }, [adStatus, awaitingFreshAd, retry]);
+  // Two ads are kept ready ahead of time; with none, the gate waits for one
+  // at most AD_GATE_WAIT_MS, then the user breathes (docs/ad-preload-plan.md).
+  const [gateWaitOver, setGateWaitOver] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setGateWaitOver(true), AD_GATE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
   const { targets, disableScheme } = useShortcutTargets();
   // The first state arrives with the screen; each later one (the pause, the
   // choice of time) fades in on its own.
@@ -145,9 +144,28 @@ export function ShortcutIntervention({
     supportsDirectAd: true,
     hasDevice: Boolean(deviceId),
     rewardProvider: config.rewardProvider,
-    rewardStatus: rewardStatusForGate(adStatus, awaitingFreshAd),
+    rewardStatus: rewardStatusForGate(adStatus, awaitingFreshAd, gateWaitOver),
   });
   const offeredAd = offer?.ad ?? "none";
+  // What the gate met on opening and what it offered once any wait was over,
+  // recorded once (P9): how often the pause still waits for an ad.
+  const gateOpened = useRef<{ ad: InterventionGate["ad"]; at: number } | null>(
+    null,
+  );
+  const gateLogged = useRef(false);
+  useEffect(() => {
+    if (isSetupTest || gateLogged.current) return;
+    const now = Date.now();
+    gateOpened.current ??= { ad: offeredAd, at: now };
+    if (offeredAd === "preparing") return;
+    gateLogged.current = true;
+    capture("pause_ad_gate", {
+      platform: "ios",
+      ad: gateOpened.current.ad,
+      offered: offeredAd,
+      waitedMs: now - gateOpened.current.at,
+    });
+  }, [isSetupTest, offeredAd]);
   // Stable between renders, so the gate only changes when what it offers does.
   const gate = useMemo<InterventionGate>(
     () => ({ ad: offeredAd }),

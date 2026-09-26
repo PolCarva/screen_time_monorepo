@@ -60,11 +60,16 @@ export function getInterventionOptions({
  * The ad status the gate reads. A pause that opens on a failed attempt (which
  * may be minutes old) asks for a fresh one and treats it as preparing until
  * that attempt starts, so the breathing pause never begins on a stale failure.
+ * Once the pause has waited AD_GATE_WAIT_MS (`gateWaitOver`), anything but a
+ * ready ad means no ad: the user breathes (docs/ad-preload-plan.md, P5).
  */
 export function rewardStatusForGate(
   status: InterventionRewardStatus,
   awaitingFreshAttempt: boolean,
+  gateWaitOver = false,
 ): InterventionRewardStatus {
+  if (status === "ready") return status;
+  if (gateWaitOver) return "unavailable";
   return awaitingFreshAttempt && status === "unavailable" ? "preparing" : status;
 }
 

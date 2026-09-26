@@ -26,10 +26,16 @@ export type RewardResult =
       adValue?: AdValue;
     }
   | { status: "dismissed" | "unavailable" | "failed"; code?: string };
+/** A rewarded ad loaded with its intent's server-side verification. */
+export type LoadedRewardAd = {
+  intent: RewardIntent;
+  ad: ReturnType<typeof createAd>;
+};
 export interface RewardProvider {
   prepare(): Promise<"ready" | "unavailable">;
-  preload(intent: RewardIntent): Promise<"ready" | "unavailable">;
-  show(intent: RewardIntent): Promise<RewardResult>;
+  /** Loads one ad for `intent`; null when none arrived in time. */
+  load(intent: RewardIntent): Promise<LoadedRewardAd | null>;
+  show(loaded: LoadedRewardAd): Promise<RewardResult>;
 }
 
 const configuredAdUnit = Platform.select({
@@ -45,13 +51,21 @@ export const androidRewardedAdUnitId = __DEV__
   ? TestIds.REWARDED
   : (process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID ?? "");
 let initialization: Promise<"ready" | "unavailable"> | null = null;
-let loadedAd: { intentId: string; ad: ReturnType<typeof createAd> } | null =
-  null;
-let loadingAd: {
-  intentId: string;
-  promise: Promise<"ready" | "unavailable">;
-} | null = null;
-export const REWARD_AD_LOAD_TIMEOUT_MS = 12_000;
+/**
+ * How long a load may take before it counts as failed. The pause waits far
+ * less (AD_GATE_WAIT_MS); this only frees a load that never calls back, so a
+ * slow one still fills the pool for the next pause (docs/ad-preload-plan.md, P5).
+ */
+export const REWARD_AD_LOAD_TIMEOUT_MS = 30_000;
+
+const consentWithdrawnListeners = new Set<() => void>();
+/** Called when a consent refresh says ads may no longer be requested (P7). */
+export function onConsentWithdrawn(listener: () => void): () => void {
+  consentWithdrawnListeners.add(listener);
+  return () => {
+    consentWithdrawnListeners.delete(listener);
+  };
+}
 
 function createAd(intent?: RewardIntent) {
   return RewardedAd.createForAdRequest(
@@ -70,38 +84,50 @@ function createAd(intent?: RewardIntent) {
   );
 }
 
-function loadAd(intent: RewardIntent): Promise<"ready" | "unavailable"> {
-  if (loadedAd?.intentId === intent.id) return Promise.resolve("ready");
-  if (loadingAd?.intentId === intent.id) return loadingAd.promise;
-
+function loadAd(intent: RewardIntent): Promise<LoadedRewardAd | null> {
   const ad = createAd(intent);
-  const promise = new Promise<"ready" | "unavailable">((resolve) => {
+  return new Promise((resolve) => {
     let settled = false;
     const cleanups: Array<() => void> = [];
-    const timeout = setTimeout(
-      () => finish("unavailable"),
-      REWARD_AD_LOAD_TIMEOUT_MS,
-    );
-    const finish = (result: "ready" | "unavailable") => {
+    const timeout = setTimeout(() => finish(false), REWARD_AD_LOAD_TIMEOUT_MS);
+    const finish = (loaded: boolean) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       cleanups.splice(0).forEach((unsubscribe) => unsubscribe());
-      if (result === "ready") loadedAd = { intentId: intent.id, ad };
-      resolve(result);
+      resolve(loaded ? { intent, ad } : null);
     };
     cleanups.push(
-      ad.addAdEventListener(RewardedAdEventType.LOADED, () => finish("ready")),
+      ad.addAdEventListener(RewardedAdEventType.LOADED, () => finish(true)),
     );
     cleanups.push(
-      ad.addAdEventListener(AdEventType.ERROR, () => finish("unavailable")),
+      ad.addAdEventListener(AdEventType.ERROR, () => finish(false)),
     );
     ad.load();
-  }).finally(() => {
-    if (loadingAd?.intentId === intent.id) loadingAd = null;
   });
-  loadingAd = { intentId: intent.id, promise };
-  return promise;
+}
+
+/**
+ * Whether ads may be requested now. Consent from an earlier session is enough
+ * to start at once, and the refresh runs alongside (P7, Google's recommended
+ * pattern); without it, the refresh (and its form, if one is required) comes
+ * first, as before.
+ */
+async function consentAllowsAds(): Promise<boolean> {
+  const options = { tagForUnderAgeOfConsent: false };
+  const previous = await AdsConsent.getConsentInfo().catch(() => null);
+  if (previous?.canRequestAds) {
+    void AdsConsent.gatherConsent(options)
+      .then((consent) => {
+        if (consent.canRequestAds) return;
+        initialization = null;
+        consentWithdrawnListeners.forEach((listener) => listener());
+      })
+      .catch(() => undefined);
+    return true;
+  }
+  const consent = await AdsConsent.gatherConsent(options);
+  return consent.canRequestAds;
 }
 
 export const admobRewardProvider: RewardProvider = {
@@ -109,12 +135,7 @@ export const admobRewardProvider: RewardProvider = {
     if (!configuredAdUnit && !__DEV__) return "unavailable";
     initialization ??= (async () => {
       try {
-        if (!__DEV__) {
-          const consent = await AdsConsent.gatherConsent({
-            tagForUnderAgeOfConsent: false,
-          });
-          if (!consent.canRequestAds) return "unavailable";
-        }
+        if (!__DEV__ && !(await consentAllowsAds())) return "unavailable";
         if (__DEV__) {
           await mobileAds().setRequestConfiguration({
             testDeviceIdentifiers: ["EMULATOR"],
@@ -130,19 +151,11 @@ export const admobRewardProvider: RewardProvider = {
     if (result !== "ready") initialization = null;
     return result;
   },
-  async preload(intent) {
-    if ((await this.prepare()) !== "ready") return "unavailable";
+  async load(intent) {
+    if ((await this.prepare()) !== "ready") return null;
     return loadAd(intent);
   },
-  async show(intent) {
-    if (
-      loadedAd?.intentId !== intent.id &&
-      (await this.preload(intent)) !== "ready"
-    ) {
-      return { status: "unavailable" };
-    }
-    const ad = loadedAd!.ad;
-    loadedAd = null;
+  async show({ ad }) {
     return new Promise((resolve) => {
       let earned = false;
       let closed = false;

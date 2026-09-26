@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createForAdRequest: vi.fn(),
   gatherConsent: vi.fn(),
+  getConsentInfo: vi.fn(),
   initialize: vi.fn(),
   mobileAds: vi.fn(),
   setRequestConfiguration: vi.fn(),
@@ -13,7 +14,10 @@ vi.mock("react-native-google-mobile-ads", () => ({
     initialize: mocks.initialize,
     setRequestConfiguration: mocks.setRequestConfiguration,
   })),
-  AdsConsent: { gatherConsent: mocks.gatherConsent },
+  AdsConsent: {
+    gatherConsent: mocks.gatherConsent,
+    getConsentInfo: mocks.getConsentInfo,
+  },
   AdEventType: { CLOSED: "closed", ERROR: "error", PAID: "paid" },
   RewardedAd: { createForAdRequest: mocks.createForAdRequest },
   RewardedAdEventType: { EARNED_REWARD: "earned", LOADED: "loaded" },
@@ -32,6 +36,7 @@ describe("AdMob reward provider initialization", () => {
     process.env.EXPO_PUBLIC_ADMOB_REWARDED_ANDROID =
       "ca-app-pub-1234567890123456/1234567890";
     mocks.gatherConsent.mockResolvedValue({ canRequestAds: true });
+    mocks.getConsentInfo.mockResolvedValue({ canRequestAds: false });
     mocks.initialize.mockResolvedValue(undefined);
   });
 
@@ -55,6 +60,41 @@ describe("AdMob reward provider initialization", () => {
     expect(mocks.initialize).toHaveBeenCalledOnce();
   });
 
+  it("starts at once on consent from an earlier session and refreshes it alongside", async () => {
+    mocks.getConsentInfo.mockResolvedValue({ canRequestAds: true });
+    let refresh!: (value: { canRequestAds: boolean }) => void;
+    mocks.gatherConsent.mockReturnValue(
+      new Promise((resolve) => {
+        refresh = resolve;
+      }),
+    );
+    const { admobRewardProvider, onConsentWithdrawn } = await import(
+      "./reward-provider"
+    );
+    const withdrawn = vi.fn();
+    onConsentWithdrawn(withdrawn);
+
+    // Ready although the refresh has not answered yet (P7).
+    await expect(admobRewardProvider.prepare()).resolves.toBe("ready");
+    expect(mocks.gatherConsent).toHaveBeenCalledOnce();
+    expect(withdrawn).not.toHaveBeenCalled();
+
+    refresh({ canRequestAds: false });
+    await vi.waitFor(() => expect(withdrawn).toHaveBeenCalledOnce());
+    // The next preparation asks for consent again.
+    mocks.getConsentInfo.mockResolvedValue({ canRequestAds: false });
+    mocks.gatherConsent.mockResolvedValue({ canRequestAds: false });
+    await expect(admobRewardProvider.prepare()).resolves.toBe("unavailable");
+  });
+
+  it("waits for consent when no earlier session allowed ads", async () => {
+    mocks.gatherConsent.mockResolvedValue({ canRequestAds: false });
+    const { admobRewardProvider } = await import("./reward-provider");
+
+    await expect(admobRewardProvider.prepare()).resolves.toBe("unavailable");
+    expect(mocks.initialize).not.toHaveBeenCalled();
+  });
+
   it("stops waiting when AdMob never completes the load", async () => {
     vi.useFakeTimers();
     const listeners = new Map<string, () => void>();
@@ -74,7 +114,7 @@ describe("AdMob reward provider initialization", () => {
     } = await import("./reward-provider");
     await expect(admobRewardProvider.prepare()).resolves.toBe("ready");
 
-    const preload = admobRewardProvider.preload({
+    const load = admobRewardProvider.load({
       id: "reward-intent",
       customData: "signed-data",
       userId: "anonymous",
@@ -82,7 +122,7 @@ describe("AdMob reward provider initialization", () => {
     });
     await vi.advanceTimersByTimeAsync(REWARD_AD_LOAD_TIMEOUT_MS);
 
-    await expect(preload).resolves.toBe("unavailable");
+    await expect(load).resolves.toBeNull();
     expect(unsubscribers).toHaveLength(2);
     expect(
       unsubscribers.every(
@@ -91,7 +131,7 @@ describe("AdMob reward provider initialization", () => {
     ).toBe(true);
   });
 
-  it("keeps a loaded ad ready and cancels the deadline", async () => {
+  it("hands back the loaded ad and cancels the deadline", async () => {
     vi.useFakeTimers();
     const listeners = new Map<string, () => void>();
     mocks.createForAdRequest.mockReturnValue({
@@ -104,16 +144,17 @@ describe("AdMob reward provider initialization", () => {
     const { admobRewardProvider } = await import("./reward-provider");
     await expect(admobRewardProvider.prepare()).resolves.toBe("ready");
 
-    const preload = admobRewardProvider.preload({
+    const intent = {
       id: "reward-intent",
       customData: "signed-data",
       userId: "anonymous",
       expiresAt: "2026-09-07T00:00:00.000Z",
-    });
+    };
+    const load = admobRewardProvider.load(intent);
     await vi.advanceTimersByTimeAsync(0);
     listeners.get("loaded")?.();
 
-    await expect(preload).resolves.toBe("ready");
+    await expect(load).resolves.toMatchObject({ intent });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -141,8 +182,9 @@ describe("AdMob reward provider initialization", () => {
       expiresAt: "2026-09-07T00:00:00.000Z",
     };
 
-    await expect(admobRewardProvider.preload(intent)).resolves.toBe("ready");
-    await expect(admobRewardProvider.show(intent)).resolves.toEqual({
+    const loaded = await admobRewardProvider.load(intent);
+    expect(loaded).not.toBeNull();
+    await expect(admobRewardProvider.show(loaded!)).resolves.toEqual({
       status: "earned",
       clientEventId: "event-id",
       adValue: { valueMicros: 4_200, currency: "USD", precision: "precise" },

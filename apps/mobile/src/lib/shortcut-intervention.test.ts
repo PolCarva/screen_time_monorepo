@@ -64,6 +64,19 @@ describe("the ad status the gate waits on", () => {
     for (const status of ["idle", "preparing", "ready"] as const)
       expect(rewardStatusForGate(status, true)).toBe(status);
   });
+
+  it("stops waiting after 3 s: only a ready ad is still offered", () => {
+    for (const status of ["idle", "preparing", "unavailable"] as const) {
+      expect(rewardStatusForGate(status, true, true)).toBe("unavailable");
+      expect(
+        getInterventionOptions({
+          ...base,
+          rewardStatus: rewardStatusForGate(status, false, true),
+        }),
+      ).toEqual({ ad: "none" });
+    }
+    expect(rewardStatusForGate("ready", false, true)).toBe("ready");
+  });
 });
 
 describe("iOS Shortcut return orchestration", () => {
