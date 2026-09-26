@@ -211,9 +211,91 @@ ni publicar builds ni actualizaciones OTA (§6). El worktree nuevo necesita
 - En PostHog, mirar `pause_ad_gate`: la proporción de `ready` al abrir es la
   métrica de "nunca aparece Preparando".
 
-## 7. Resultados
+## 7. Resultados (2026-09-26)
 
-_(Lo completa la sesión de implementación.)_
+Commits en `feat/ad-preload`: `7873d79` (fase 1), `495def5` (fase 2), `600886f`
+(fase 3), `feab736` (fase 4), `2e077e5`, `c0c9336` y `b8c2f61` (arreglos del QA,
+abajo). Sin push, sin builds de tienda, sin OTA.
+
+### Verificado
+
+- `pnpm check` en verde (contracts 30, mobile 363, web 83 tests) y
+  `./gradlew :app:testDebugUnitTest` en verde (35 tests JVM, 8 de `AdPoolTest`).
+- **Android**, emulador `Still_QA_API_36`, build debug de la rama, anuncios de
+  prueba, log `adb logcat -s StillRewardedAd`:
+  1. Al conectar el servicio el pool llega a 2 anuncios en 9 a 12 s (el primero
+     tarda 7 a 10 s y el segundo 2 a 3 s).
+  2. Con el pool lleno, la pausa ofrece «Watch ad» al instante
+     (`pause_ad_gate` = `ready → ready, 0 ms`). Después de ver uno, el pool vuelve
+     a 2 en 17 s y la pausa siguiente también ofrece el anuncio al instante.
+  3. Con `debug_ad_ttl_ms = 120000`, la renovación arranca a los 109 s del primer
+     anuncio y mientras tanto siguen 2 disponibles. Con la pantalla apagada más que
+     la vida útil no hubo ninguna carga (el reintento programado se descartó). Al
+     desbloquear con el pool vacío, la carga arrancó (`unlocked`) y la pausa
+     esperó 2,3 s y ofreció el anuncio (`preparing → ready, 2302 ms`).
+  4. En modo avión la carga falla en 3 s. La pausa, sin carga en vuelo y con el
+     reintento retenido, va directo a la respiración (`none → none, 0 ms`). Los
+     reintentos salen a los 30 s y después a los 60 s; al volver la red, el aviso
+     `network` recarga sin esperar el minuto (2 listos en 13 s).
+- **iOS**, simulador `Still QA` (iOS 26), build debug 0.3.5 de la rama con Metro
+  del worktree, anuncios de prueba:
+  1. En caliente, la pausa ofrece «Ver anuncio» al instante.
+  2. En frío por el camino real (contexto pendiente del App Intent escrito en el
+     app group y la app cerrada), «Preparando» duró menos de 1 s y «Ver anuncio»
+     apareció a los ≤ 1,8 s de hidratar. Usó los 2 intents guardados, sin ningún
+     `POST` al servidor.
+  3. Después de ver un anuncio (ganado y reclamado), una pausa inmediata ofrece el
+     segundo al instante. El intent ganado sale del disco y se crea uno nuevo para
+     el reemplazo (quedan 2).
+
+### Hallazgos y arreglos
+
+- **Reintento en 0 s** (`c0c9336`): en el emulador una carga tardó 97 s en fallar
+  y la espera, contada desde el inicio del intento, ya había vencido. Ahora cuenta
+  desde el fallo, en Kotlin y en TS, con test.
+- **`pause_ad_gate` doble** (`b8c2f61`): cuando el servicio vuelve a levantar el
+  escudo de la misma apertura (arranque en frío), `onNewIntent` lo recrea y
+  anotaba de nuevo. La marca pasa por el estado guardado, con la clave app +
+  aperturas del día.
+- Reinstalar la app deja el servicio en «Crashed services» hasta apagarlo y
+  prenderlo. Es el problema conocido del Xiaomi, no es de este cambio.
+- El emulador tiene 2 GB de RAM: las cargas tardan más que en un teléfono y la app
+  Reloj tuvo una ANR detrás del escudo. No tiene que ver con los anuncios.
+- QA en el simulador: `still://` lo captura una app vieja `com.still.screentime`,
+  así que conviene usar `app.still.ios://intervention?...`. Un enlace directo en
+  frío llega antes de hidratar y sin `deviceId` va directo a la respiración, igual
+  que antes. El camino real espera la hidratación
+  (`checkPendingShortcut`), por eso la medición en frío se hizo escribiendo
+  `shortcutIntervention.pending` en el app group.
+
+### No verificado
+
+- iOS sin red: el simulador usa la red del Mac. Lo cubren los tests (espera de
+  3 s).
+- La fase 4 en un dispositivo (React Native vaciando la cola de Android): la
+  cubren los tests y la compilación. Abrir la app en el emulador recién borrado
+  habría registrado un dispositivo nuevo en producción.
+- El consentimiento en paralelo (P7): en desarrollo no se pide consentimiento.
+  Lo cubren los tests.
+- Nada se probó todavía en teléfonos reales.
+- Un anuncio de prueba se reclamó contra la API de producción desde el
+  dispositivo de desarrollo del simulador, como en los QA anteriores.
+
+### Pendiente para el usuario
+
+- **Rebase sobre `main`** cuando entre el 0.3.6 de la sesión «borrar datos y
+  autenticación». Toca `StillAccessibilityService.kt`: agrega su propio receptor
+  de pantalla con los mismos nombres y saca el precargado de
+  `onServiceConnected` a pedido del usuario. En el conflicto conviene quedarse con
+  esta versión (suma `SCREEN_OFF` y la red) sin la línea
+  `preload(..., "service-connected")`. El aviso de red se dispara al
+  registrarse, así que el pool igual arranca apenas conecta el servicio, pero
+  fuera de `onServiceConnected`.
+- Las notas para App Review de `docs/store-listing.md` dicen «12 seconds»; hay
+  que pasarlas a «3 seconds» en el próximo envío. No se tocaron acá porque la otra
+  sesión tiene cambios sin commitear en ese archivo.
+- Probar en el iPhone (iOS 27) y en el Xiaomi (§6), y decidir la versión (0.3.6
+  junto con la otra sesión, o 0.3.7).
 
 ## 8. Prompt para `/goal`
 
