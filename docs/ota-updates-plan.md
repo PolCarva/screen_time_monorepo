@@ -1,6 +1,6 @@
 # Actualizaciones OTA (sin versión nueva)
 
-Fecha: 2026-09-25 · Rama: `feat/ota-updates` · Estado: **implementado; se estrena con la build de tienda 0.3.5**
+Fecha: 2026-09-25 · Rama: `feat/ota-updates` (en `main`) · Estado: **publicado en la build de tienda 0.3.5; faltan las pruebas en dispositivos (F5)**
 
 ## 1. Qué resuelve
 
@@ -112,7 +112,7 @@ lo deja como respaldo en todos los bundles de iOS.
   defecto, con chequeo de artefactos y etiquetas de tienda. Tests de las partes
   puras. `native-config.test.ts` fija versión, runtime, URL y canales en cada
   archivo nativo.
-- [ ] F4: build de tienda 0.3.5 en los dos sistemas, etiquetas publicadas y
+- [x] F4: build de tienda 0.3.5 en los dos sistemas, etiquetas publicadas y
   `update:apps --check` en verde (resultados en §5).
 - [ ] F5: en dispositivos reales, una OTA visible llega a TestFlight (iPhone,
   iOS 27) y a Play interno (Xiaomi), y Ajustes muestra el id. El rollback
@@ -121,4 +121,38 @@ lo deja como respaldo en todos los bundles de iOS.
 
 ## 5. Resultados
 
-Se completa al publicar 0.3.5.
+**Revisión adversarial** (dos rondas, antes de compilar):
+
+- 13 defectos confirmados y arreglados, por ejemplo:
+  - un `return` sin `await` en la recuperación de cuenta soltaba la marca y la
+    excepción del navegador antes de tiempo;
+  - el estado del hook se perdía al recrear la pantalla en Android;
+  - la huella se calculaba antes de instalar;
+  - subir solo `VERSION` desincronizaba los archivos nativos.
+- La segunda ronda cerró cuatro carreras de severidad baja.
+
+**Publicación de 0.3.5:**
+
+| Plataforma | Build | Dónde | Etiqueta |
+|---|---|---|---|
+| iOS | 0.3.5 (18) | TestFlight, build local | `store/ios/0.3.5+18` (commit `cd9a99d`) |
+| Android | 0.3.5 (16) | Play interno y enviada a revisión en alpha, build en la nube de EAS | `store/android/0.3.5+16` (commit `27adda6`) |
+
+**Qué pasó con Android local:**
+
+1. El lint de release se quedó sin Metaspace a 512m. Se subió a
+   `-Xmx3072m -XX:MaxMetaspaceSize=1024m` en `gradle.properties`.
+2. Un daemon de Gradle colgado bloqueó la caché.
+3. El disco se llenó: 4 GB libres, 26 GB de swap.
+
+Por eso se compiló en la nube con `deploy:apps android --cloud`, que también
+revisó el AAB y lo etiquetó. Los versionCode 13 a 15 quedaron gastados en los
+intentos locales.
+
+**`pnpm update:apps --check` en `27adda6`:**
+
+- «JavaScript only» en iOS (desde `+18`) y en Android (desde `+16`);
+- typecheck y 324 tests en verde;
+- el export llama a la API y a Supabase de producción.
+
+La primera OTA real queda para F5, con la app instalada desde las tiendas.
