@@ -543,6 +543,26 @@ class StillRestrictionModule(private val context: ReactApplicationContext) :
   }
 
   /**
+   * What each shield offered on opening (`pause_ad_gate`, docs/ad-preload-plan.md
+   * P9), oldest first. Reading empties the queue: React Native sends each entry
+   * on foreground, and only when analytics is on.
+   */
+  @ReactMethod
+  fun takePauseAdGateLog(promise: Promise) {
+    val entries = PauseAdGateLog.drain(preferences)
+    val result = Arguments.createArray()
+    for (index in 0 until entries.length()) {
+      val item = entries.optJSONObject(index) ?: continue
+      result.pushMap(Arguments.createMap().apply {
+        putString("ad", item.optString("ad"))
+        putString("offered", item.optString("offered"))
+        putDouble("waitedMs", item.optLong("waitedMs").toDouble())
+      })
+    }
+    promise.resolve(result)
+  }
+
+  /**
    * Earned rewards recorded by the shield while React Native was not running.
    * React Native claims each one on foreground and then acknowledges it.
    */

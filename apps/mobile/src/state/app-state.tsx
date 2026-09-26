@@ -28,6 +28,7 @@ import { registerDeviceResponseSchema } from "@screen-time/contracts";
 import { z } from "zod";
 
 import { adValueFromMicros } from "@/lib/ad-value";
+import { capture } from "@/lib/analytics";
 import { apiFetch, apiRequest, ApiError } from "@/lib/api";
 import { requestFailure, type RequestFailure } from "@/lib/api-error";
 import { applyDevConfigOverrides } from "@/lib/dev-config";
@@ -39,6 +40,7 @@ import {
   type SignedRewardIntent,
 } from "@/lib/reward-intent-buffer";
 import { androidRewardedAdUnitId } from "@/native/reward-provider";
+import { pauseAdGateEventsFromShield } from "@/lib/pause-ad-gate";
 import { isPauseFeatureEnabled } from "@/lib/restriction-mode";
 import { clearLocalStorage, getJson, setJson } from "@/lib/storage";
 import { localDateString, type DayMetrics } from "@/lib/today-summary";
@@ -442,6 +444,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     // it performed, so each visit is charged to an ad the server has. Then
     // refill the shield's pre-signed intent buffer for next time.
     let unclaimedIntentIds = new Set<string>();
+    if (Platform.OS === "android") {
+      // What each shield offered on opening (docs/ad-preload-plan.md, P9).
+      // Taken either way; sent only when analytics is on.
+      const gateLog =
+        (await restrictionEngine.takePauseAdGateLog?.().catch(() => [])) ?? [];
+      for (const event of pauseAdGateEventsFromShield(gateLog))
+        capture("pause_ad_gate", event);
+    }
     if (Platform.OS === "android" && activeDeviceId) {
       unclaimedIntentIds = await claimPendingAdResults().catch(
         () => new Set<string>(),

@@ -18,6 +18,13 @@ export type PendingAdResult = {
   adValuePrecision?: number;
 };
 
+/** What an Android shield offered on opening (docs/ad-preload-plan.md, P9). */
+export type NativePauseAdGateEntry = {
+  ad: string;
+  offered: string;
+  waitedMs: number;
+};
+
 /** How Still was installed and on what device (Android), for onboarding + repair. */
 export type InstallEnvironment = {
   sdkInt: number;
@@ -187,6 +194,11 @@ export interface RestrictionEngine {
   /** Android only. Earned rewards the shield recorded while RN was not running. */
   getPendingAdResults?(): Promise<PendingAdResult[]>;
   acknowledgeAdResult?(clientEventId: string): Promise<void>;
+  /**
+   * Android only. What each shield offered on opening, oldest first; reading
+   * empties the queue. Absent from builds before 0.3.6.
+   */
+  takePauseAdGateLog?(): Promise<NativePauseAdGateEntry[]>;
   /** Android only. Chosen apps with today's per-app activity and last pause. */
   getSelectedAppsState?(): Promise<SelectedAppState[]>;
   /** Android only. Install source + device, to explain restricted settings and OEM quirks. */
@@ -286,6 +298,7 @@ const unavailable: RestrictionEngine = {
   setPresignedRewardIntents: async () => undefined,
   getPendingAdResults: async () => [],
   acknowledgeAdResult: async () => undefined,
+  takePauseAdGateLog: async () => [],
   getSelectedAppsState: async () => [],
   getInstallEnvironment: async () => ({
     sdkInt: 0,
