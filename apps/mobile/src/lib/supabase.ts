@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -24,13 +24,28 @@ export const supabase =
       })
     : null;
 
+/**
+ * One anonymous sign-in at a time: requests that start together while there is
+ * no session (the first launch, or right after deleting the account) share it
+ * instead of each creating an account and keeping only the last.
+ */
+let anonymousSignIn: Promise<Session | null> | null = null;
+
 export async function ensureAnonymousSession() {
   if (!supabase) return null;
-  const { data: current } = await supabase.auth.getSession();
+  const client = supabase;
+  const { data: current } = await client.auth.getSession();
   if (current.session) return current.session;
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error) throw error;
-  return data.session;
+  anonymousSignIn ??= client.auth
+    .signInAnonymously()
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return data.session;
+    })
+    .finally(() => {
+      anonymousSignIn = null;
+    });
+  return anonymousSignIn;
 }
 
 /** A fresh access token for a session the server just refused, or null. */

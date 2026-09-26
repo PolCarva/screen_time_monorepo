@@ -107,7 +107,8 @@ import { colors } from "@/theme/tokens";
  * already onboarded (§4.6).
  */
 export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
-  const { config, hydrated, nativeSynced, setOnboarded } = useAppState();
+  const { config, hydrated, nativeSynced, refresh, setOnboarded } =
+    useAppState();
   const sheet = useStillSheet();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const progressRef = useRef<OnboardingProgress | null>(null);
@@ -220,6 +221,14 @@ export function OnboardingFlow({ mode = "onboarding" }: { mode?: FlowMode }) {
 
   const step: OnboardingStepId | null =
     context && progress ? resolveStep(context, progress.step) : null;
+
+  // The adults step waits for the config. After deleting the account nothing
+  // had asked for it again, so the step stayed on «One moment…» until the app
+  // went to the background and back.
+  const waitingForConfig = step === "adult" && !hydrated;
+  useEffect(() => {
+    if (waitingForConfig) void refresh();
+  }, [refresh, waitingForConfig]);
 
   const goTo = useCallback(
     (target: OnboardingStepId, towards: 1 | -1) => {
