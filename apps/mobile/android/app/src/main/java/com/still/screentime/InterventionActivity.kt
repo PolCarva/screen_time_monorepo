@@ -36,10 +36,10 @@ import org.json.JSONObject
  * both happen here, never by jumping to another Still screen. What it offers
  * mirrors the pure state machine in `src/lib/intervention-flow.ts`, the tested
  * source of truth: only the ad, and the 15-second pause when there is none.
- * There are no saved passes (docs/ads-only-pause-plan.md, D1-D2). An ad still
- * loading is waited for at the gate ("Preparing the ad…"), so the pause only
- * starts once there is really no ad; a pause that started is never swapped
- * for the ad. Nothing about the window is decided in advance: once the ad has
+ * There are no saved passes (docs/ads-only-pause-plan.md, D1-D2). Two ads are
+ * kept loaded ahead of time (docs/ad-preload-plan.md); when none is ready, one
+ * still loading is waited for at the gate ("Preparing the ad…") for at most
+ * 3 s, then the pause starts. A pause that started is never swapped for the ad. Nothing about the window is decided in advance: once the ad has
  * paid for it, the user drags a slider from one minute to the rest of the day.
  */
 class InterventionActivity : Activity() {
@@ -86,6 +86,10 @@ class InterventionActivity : Activity() {
   private val adWaitTimeout = Runnable { giveUpOnAd() }
   /** The ad did not arrive in time: from here a load in flight is no offer. */
   private var adGaveUp = false
+  /** What this shield's gate met first and when, for pause_ad_gate (P9). */
+  private var gateOpenedWith: AdOffer? = null
+  private var gateOpenedAt = 0L
+  private var gateLogged = false
 
   private val currentTargetPackage: String?
     get() = intent?.getStringExtra(EXTRA_TARGET_PACKAGE)
@@ -164,7 +168,30 @@ class InterventionActivity : Activity() {
   )
 
   private fun renderByGate() {
-    if (currentGate().nothingLeft) renderPause() else renderShield()
+    val gate = currentGate()
+    noteGate(gate)
+    if (gate.nothingLeft) renderPause() else renderShield()
+  }
+
+  /**
+   * Records once what the gate met on opening and what it offered once any
+   * wait was over (docs/ad-preload-plan.md, P9).
+   */
+  private fun noteGate(gate: Gate) {
+    if (gateLogged) return
+    val now = SystemClock.elapsedRealtime()
+    val opened = gateOpenedWith ?: gate.ad.also {
+      gateOpenedWith = it
+      gateOpenedAt = now
+    }
+    if (gate.ad == AdOffer.PREPARING) return
+    gateLogged = true
+    PauseAdGateLog.record(
+      preferences,
+      ad = opened.name.lowercase(),
+      offered = gate.ad.name.lowercase(),
+      waitedMs = now - gateOpenedAt,
+    )
   }
 
   /**
@@ -221,8 +248,9 @@ class InterventionActivity : Activity() {
 
   /**
    * Keeps the gate on "Preparing the ad…" until the load in flight ends, for
-   * as long as the JS flow waits (REWARD_AD_LOAD_TIMEOUT_MS). The gate is then
-   * drawn again: with the ad, or without it, which is the pause.
+   * as long as the JS flow waits (AD_GATE_WAIT_MS). The gate is then drawn
+   * again: with the ad, or without it, which is the pause. The load carries on
+   * and fills the pool for the next shield.
    */
   private fun waitForAd() {
     if (cancelAdWait != null) return
@@ -938,9 +966,9 @@ class InterventionActivity : Activity() {
 
     // Mirror of intervention-flow.ts: 15 s breathing pause, then the user chooses.
     private const val PAUSE_SECONDS = 15
-    // Mirror of REWARD_AD_LOAD_TIMEOUT_MS: how long the gate waits for an ad
-    // that is loading before it stops offering it.
-    private const val AD_WAIT_MS = 12_000L
+    // Mirror of AD_GATE_WAIT_MS (src/lib/ad-pool.ts): how long the gate waits
+    // for an ad that is loading before it stops offering it (ad-preload P5).
+    private const val AD_WAIT_MS = 3_000L
     // A shield opened this long after its pause was last on screen starts a
     // new attempt.
     private const val PAUSE_RESUME_GRACE_SECONDS = 75L

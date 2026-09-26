@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -44,14 +46,16 @@ class StillAccessibilityService : AccessibilityService() {
   /** One pending timer per app with a live access window, keyed by package. */
   private val armedWindows = mutableMapOf<String, Runnable>()
   /**
-   * Loads the rewarded ad the moment the screen comes on or the phone is
-   * unlocked, usually seconds before an app opens, so the shield can show it
-   * the instant the user taps.
+   * Refills the ads the moment the screen comes on or the phone is unlocked,
+   * usually seconds before an app opens, so the shield can show one the
+   * instant the user taps; renewals pause while the screen is off
+   * (docs/ad-preload-plan.md, P3).
    */
   private val screenReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
       guarded("screen ${intent.action}") {
         when (intent.action) {
+          Intent.ACTION_SCREEN_OFF -> StillRewardedAdManager.onScreenOff()
           Intent.ACTION_SCREEN_ON -> StillRewardedAdManager.preload(context, "screen-on")
           Intent.ACTION_USER_PRESENT -> StillRewardedAdManager.preload(context, "unlocked")
         }
@@ -59,6 +63,19 @@ class StillAccessibilityService : AccessibilityService() {
     }
   }
   private var screenReceiverRegistered = false
+  /**
+   * Refills the ads when the network comes back after a failed load. Android
+   * also calls it right after registering; with no failure behind it that
+   * call loads nothing, so the service still starts light.
+   */
+  private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+    override fun onAvailable(network: Network) {
+      guarded("network available") {
+        StillRewardedAdManager.onNetworkAvailable(applicationContext)
+      }
+    }
+  }
+  private var networkCallbackRegistered = false
   private val adWarmUp = Runnable {
     guarded("ad warm-up") { StillRewardedAdManager.preload(applicationContext, "service-idle") }
   }
@@ -108,11 +125,20 @@ class StillAccessibilityService : AccessibilityService() {
     if (!screenReceiverRegistered) {
       val filter = IntentFilter().apply {
         addAction(Intent.ACTION_SCREEN_ON)
+        addAction(Intent.ACTION_SCREEN_OFF)
         addAction(Intent.ACTION_USER_PRESENT)
       }
       // Only system broadcasts, so no exported flag is needed.
       screenReceiverRegistered = runCatching { registerReceiver(screenReceiver, filter) }
         .onFailure { Log.w(TAG, "screen receiver not registered", it) }
+        .isSuccess
+    }
+    if (!networkCallbackRegistered) {
+      val connectivity = getSystemService(ConnectivityManager::class.java)
+      networkCallbackRegistered = runCatching {
+        connectivity?.registerDefaultNetworkCallback(networkCallback) ?: error("no connectivity")
+      }
+        .onFailure { Log.w(TAG, "network callback not registered", it) }
         .isSuccess
     }
     val screenOn = getSystemService(PowerManager::class.java)?.isInteractive == true
@@ -123,6 +149,12 @@ class StillAccessibilityService : AccessibilityService() {
     if (screenReceiverRegistered) {
       runCatching { unregisterReceiver(screenReceiver) }
       screenReceiverRegistered = false
+    }
+    if (networkCallbackRegistered) {
+      runCatching {
+        getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkCallback)
+      }
+      networkCallbackRegistered = false
     }
   }
 

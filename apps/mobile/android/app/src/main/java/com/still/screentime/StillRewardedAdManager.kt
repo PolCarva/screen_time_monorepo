@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import com.google.android.gms.ads.AdError
@@ -22,40 +23,50 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Keeps a rewarded ad loaded in the app process so the shield can show it the
- * instant the user taps, with no jump to another screen (Android parity plan
- * §2, camino A2). The ad is never started on its own: only [show] presents it,
- * and only after an explicit tap (D1).
+ * Keeps two rewarded ads loaded in the app process so the shield can show one
+ * the instant the user taps, with no jump to another screen (Android parity
+ * plan §2, camino A2). An ad is never started on its own: only [show] presents
+ * it, and only after an explicit tap (D1).
  *
  * This object lives in whatever process first touches it. The
  * AccessibilityService runs in the app's main process and is kept alive by the
- * system while accessibility is on, so a preload done there survives between
- * interventions (measured >30 min). The Google Mobile Ads SDK still expires a
- * loaded ad after about an hour, so an ad that old is replaced as soon as it is
- * checked, and a new one loads after every use. A load still in flight is
- * reported as [AdState.LOADING], so the shield waits for it (see [awaitLoad])
- * instead of settling for the pause.
+ * system while accessibility is on, so the ads survive between interventions.
+ * The pool follows docs/ad-preload-plan.md (P1–P4, rules in [AdPool]): two ads,
+ * the oldest shown first; each renewed from 50 min on and dropped at 55, before
+ * the SDK expires it; a failed load retried after 30 s, 1, 2, 5 and then every
+ * 10 min. Loads only start with the screen on (P3): with it off the ads are
+ * left to expire, and the service refills them when it comes back on, when the
+ * phone is unlocked and when the network returns. A load still in flight with
+ * nothing ready is reported as [AdState.LOADING], so the shield can wait for it
+ * a moment (see [awaitLoad]).
  */
 object StillRewardedAdManager {
   private const val TAG = "StillRewardedAd"
 
-  // A loaded rewarded ad expires after ~1 hour (Google Mobile Ads SDK). Refresh
-  // comfortably before that so a tap never meets a stale ad.
-  private const val AD_TTL_MS = 55 * 60 * 1_000L
-
   // The SDK normally answers a load within seconds. Past this, a load that
   // never called back no longer blocks a fresh one.
   private const val LOAD_STUCK_MS = 60_000L
+
+  /**
+   * Debug builds only: a shorter ad lifetime (ms) so QA can watch ads expire
+   * and renew without waiting an hour. Release builds ignore it.
+   */
+  const val KEY_DEBUG_AD_TTL_MS = "debug_ad_ttl_ms"
 
   private val main = Handler(Looper.getMainLooper())
 
   @Volatile private var initialized = false
   @Volatile private var loading = false
   @Volatile private var loadStartedAtElapsed = 0L
-  @Volatile private var loadedAd: RewardedAd? = null
-  @Volatile private var loadedAtElapsed = 0L
-  /** Set on the first preload, so an expired ad can be replaced on its own. */
+  /** The loaded ads with their load time. Changed on the main thread only. */
+  @Volatile private var pool: List<PooledAd<RewardedAd>> = emptyList()
+  /** Failed loads in a row; the next retry waits [AdPool.retryDelayMs]. */
+  private var failures = 0
+  private var lastAttemptAtElapsed: Long? = null
+  /** Set on the first preload, so timers can refill on their own. */
   @Volatile private var appContext: Context? = null
+  /** The next renewal or retry. */
+  private val scheduledFill = Runnable { appContext?.let { fill(it, "scheduled") } }
 
   /** Told once when the load in flight ends: true when an ad is now ready. */
   private val loadWaiters = mutableListOf<(Boolean) -> Unit>()
@@ -71,15 +82,17 @@ object StillRewardedAdManager {
   data class AdOutcome(val earned: Boolean, val reason: String, val intentId: String? = null)
 
   fun isAdReady(): Boolean {
-    val ad = loadedAd ?: return false
-    if (SystemClock.elapsedRealtime() - loadedAtElapsed >= AD_TTL_MS) {
-      loadedAd = null
-      // Replace it now rather than at the next shield, which would then have
+    val now = SystemClock.elapsedRealtime()
+    val ttl = ttlMs()
+    val valid = AdPool.pruneExpired(pool, now, ttl)
+    if (valid.size != pool.size) {
+      Log.i(TAG, "dropped ${pool.size - valid.size} expired ad(s)")
+      pool = valid
+      // Replace them now rather than at the next shield, which would then have
       // to wait for the load.
       appContext?.let { preload(it, "expired") }
-      return false
     }
-    return true
+    return valid.isNotEmpty()
   }
 
   fun state(): AdState = when {
@@ -117,26 +130,50 @@ object StillRewardedAdManager {
   }
 
   /**
-   * Initialize the SDK once and, when rewards are eligible, keep an ad ready.
-   * Safe to call repeatedly (service connect, foreground event, after use).
-   * On the main thread it runs at once, so a caller reading [state] right
-   * after already sees the load it started.
+   * Initialize the SDK once and, when rewards are eligible, top the pool up.
+   * Safe to call repeatedly (service connect, screen on, unlock, network back,
+   * the shield, after use). During a retry wait it only loads when the last
+   * attempt is 30 s old (P4). On the main thread it runs at once, so a caller
+   * reading [state] right after already sees the load it started.
    */
   fun preload(context: Context, reason: String) {
     val applicationContext = context.applicationContext
     appContext = applicationContext
-    onMain { startLoad(applicationContext, reason) }
+    onMain {
+      val now = SystemClock.elapsedRealtime()
+      if (failures > 0 && !AdPool.triggerMayBypassBackoff(lastAttemptAtElapsed, now)) {
+        schedule(applicationContext)
+        return@onMain
+      }
+      fill(applicationContext, reason)
+    }
   }
 
-  private fun startLoad(appContext: Context, reason: String) {
-    val preferences = appContext.getSharedPreferences(
-      StillRestrictionModule.PREFERENCES,
-      Context.MODE_PRIVATE,
-    )
+  /**
+   * The network is available: refills only when a load failed before it came
+   * back. The call Android makes on registering, with nothing failed, loads
+   * nothing.
+   */
+  fun onNetworkAvailable(context: Context) {
+    val applicationContext = context.applicationContext
+    onMain {
+      if (failures > 0) preload(applicationContext, "network")
+    }
+  }
+
+  /** The screen went off: no renewals or retries until it is back on (P3). */
+  fun onScreenOff() {
+    onMain { main.removeCallbacks(scheduledFill) }
+  }
+
+  private fun fill(appContext: Context, reason: String) {
+    val preferences = preferencesOf(appContext)
     if (!adsEligible(preferences)) {
-      // Rewards disabled, wallet full, or daily cap reached: drop any stale ad
-      // instead of holding inventory that policy would not let us grant.
-      loadedAd = null
+      // Rewards disabled or another provider: drop any held ad instead of
+      // holding inventory that policy would not let us grant.
+      pool = emptyList()
+      failures = 0
+      main.removeCallbacks(scheduledFill)
       return
     }
     if (!initialized) {
@@ -144,11 +181,26 @@ object StillRewardedAdManager {
       runCatching { MobileAds.initialize(appContext) {} }
         .onFailure { Log.w(TAG, "SDK init failed", it) }
     }
-    if (isAdReady() || isLoading()) return
+    val now = SystemClock.elapsedRealtime()
+    val ttl = ttlMs()
+    pool = AdPool.pruneExpired(pool, now, ttl)
+    if (isLoading()) return
+    if (AdPool.slotsToFill(pool, now, AdPool.SIZE, AdPool.refreshAfterFor(ttl)) == 0) {
+      schedule(appContext)
+      return
+    }
+    if (!isInteractive(appContext)) {
+      // Screen off: leave it for the screen-on refill (P3).
+      main.removeCallbacks(scheduledFill)
+      return
+    }
     val unitId = preferences.getString(StillRestrictionModule.KEY_ADMOB_REWARDED_UNIT, null)
       ?: return
+    main.removeCallbacks(scheduledFill)
     loading = true
-    loadStartedAtElapsed = SystemClock.elapsedRealtime()
+    loadStartedAtElapsed = now
+    lastAttemptAtElapsed = now
+    Log.i(TAG, "loading ($reason), ${pool.size} ready")
     runCatching {
       RewardedAd.load(
         appContext,
@@ -157,25 +209,69 @@ object StillRewardedAdManager {
         object : RewardedAdLoadCallback() {
           override fun onAdLoaded(ad: RewardedAd) {
             loading = false
-            loadedAd = ad
-            loadedAtElapsed = SystemClock.elapsedRealtime()
+            failures = 0
+            if (!adsEligible(preferencesOf(appContext))) {
+              settleWaiters(ready = false)
+              return
+            }
+            pool = AdPool.addAndTrim(pool, PooledAd(ad, SystemClock.elapsedRealtime()))
+            Log.i(TAG, "loaded ($reason), ${pool.size} ready")
             settleWaiters(ready = true)
+            // Another slot may still be empty, or due for renewal.
+            fill(appContext, "top-up")
           }
 
           override fun onAdFailedToLoad(error: LoadAdError) {
-            loading = false
-            loadedAd = null
             Log.w(TAG, "load failed ($reason): ${error.code} ${error.message}")
-            settleWaiters(ready = false)
+            loadFailed(appContext)
           }
         },
       )
     }.onFailure {
-      loading = false
       Log.w(TAG, "load threw ($reason)", it)
-      settleWaiters(ready = false)
+      loadFailed(appContext)
     }
   }
+
+  private fun loadFailed(appContext: Context) {
+    loading = false
+    failures += 1
+    settleWaiters(ready = isAdReady())
+    schedule(appContext)
+  }
+
+  /** Posts the next retry, or the next renewal, whichever applies. */
+  private fun schedule(appContext: Context) {
+    main.removeCallbacks(scheduledFill)
+    if (isLoading()) return
+    val now = SystemClock.elapsedRealtime()
+    val at = if (failures > 0) {
+      (lastAttemptAtElapsed ?: now) + AdPool.retryDelayMs(failures)
+    } else {
+      AdPool.nextRefreshAt(pool, AdPool.refreshAfterFor(ttlMs()))
+    } ?: return
+    if (!isInteractive(appContext)) return
+    val delay = maxOf(0L, at - now)
+    if (failures > 0) Log.i(TAG, "retry #$failures in ${delay / 1_000} s")
+    main.postDelayed(scheduledFill, delay)
+  }
+
+  private fun isInteractive(context: Context): Boolean =
+    (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive ?: true
+
+  private fun ttlMs(): Long {
+    if (!BuildConfig.DEBUG) return AdPool.TTL_MS
+    val context = appContext ?: return AdPool.TTL_MS
+    // Written by hand over adb, so it may be stored as an int or a long.
+    val preferences = preferencesOf(context)
+    val override = runCatching { preferences.getLong(KEY_DEBUG_AD_TTL_MS, 0L) }
+      .recoverCatching { preferences.getInt(KEY_DEBUG_AD_TTL_MS, 0).toLong() }
+      .getOrDefault(0L)
+    return override.takeIf { it > 0 } ?: AdPool.TTL_MS
+  }
+
+  private fun preferencesOf(context: Context): SharedPreferences =
+    context.getSharedPreferences(StillRestrictionModule.PREFERENCES, Context.MODE_PRIVATE)
 
   /**
    * Present the preloaded ad from [activity]. Attaches SSV from a pre-signed
@@ -186,12 +282,17 @@ object StillRewardedAdManager {
    * timed pause.
    */
   fun show(activity: Activity, onOutcome: (AdOutcome) -> Unit): Boolean {
-    val ad = if (isAdReady()) loadedAd else null
+    val ad = if (isAdReady()) {
+      AdPool.oldest(pool, SystemClock.elapsedRealtime(), ttlMs())?.also { taken ->
+        pool = pool - taken
+      }?.item
+    } else {
+      null
+    }
     if (ad == null) {
       onOutcome(AdOutcome(earned = false, reason = "unavailable"))
       return false
     }
-    loadedAd = null
     val preferences = activity.getSharedPreferences(
       StillRestrictionModule.PREFERENCES,
       Context.MODE_PRIVATE,
